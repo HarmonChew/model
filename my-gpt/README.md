@@ -369,7 +369,7 @@ The first full run on the Intel Arc 140T with PyTorch 2.13.0+xpu produced:
 | Run | T | C | H | L | Params | train loss | val loss | bench seconds | iter/s | tokens/s | allocated MB | reserved MB |
 | --- | -: | -: | -: | -: | -----: | ---------: | -------: | ------------: | -----: | -------: | -----------: | ----------: |
 | Stage 8 | 8 | 32 | 4 | 4 | 54,977 | 1.9500 | 2.0425 | ... | ... | ... | ... | ... |
-| Stage 9 | 64 | 32 | 4 | 4 | 56,769 | 1.7684 | 1.9225 | 3.836 | 26.066 | 53,383.602 | 27.698 | 50.000 |
+| Stage 9 | 64 | 32 | 4 | 4 | 56,769 | 1.7684 | 1.9225 | 2.739 | 36.514 | 74,780.672 | 27.698 | 50.000 |
 
 Both runs used 5,000 optimizer steps, but they did not use the same token
 budget: Stage 8 trained on 1.28 million token positions and Stage 9 trained on
@@ -399,4 +399,95 @@ And park thy father vachile, and whose,
 But all the no dobldest!
 
 ISABET:
+```
+
+## Stage 10: scale width from 32 to 64
+
+`10_scale_width.py` retains the Stage 9 token budget and context, then doubles
+only the residual-stream width:
+
+```text
+B=32, T=64, C=64, H=4, D=16, FF=256, L=4
+```
+
+The attention maps remain `(32,4,64,64)`, because their final two dimensions
+depend on context length. The token representations become `(32,64,64)`, each
+head's Q/K/V projection becomes `(32,64,16)`, and the FFN grows from
+`32 -> 128 -> 32` to `64 -> 256 -> 64`.
+
+Each block has 49,792 parameters and the complete 65-character model has
+exactly 211,777:
+
+```text
+token embedding       4,160
+position embedding    4,096
+four blocks          199,168
+final LayerNorm         128
+LM head               4,225
+                     -------
+total                211,777
+```
+
+Run the full FP32/eager XPU experiment:
+
+```powershell
+python .\my-gpt\10_scale_width.py --device xpu
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\10_scale_width.py --device cpu `
+    --batch-size 2 --max-iters 2 --eval-interval 1 --eval-iters 1 `
+    --sample-length 40 --benchmark-warmup 1 --benchmark-steps 2 `
+    --checkpoint-path .\my-gpt\checkpoints\stage_10_smoke.pt
+```
+
+Stage 10 benchmarks a separately initialized, disposable model and optimizer.
+Its warmup and timed updates therefore cannot change the model used for the
+5,000-step experiment. The actual model is reseeded before construction so
+benchmark RNG consumption cannot alter its initialization either.
+
+Every periodic validation result is compared using a strict improvement rule.
+The separate final evaluation at step 5,000 is also considered, and the best
+weights are written to `my-gpt/checkpoints/stage_10_best_model.pt`. Checkpoint
+artifacts are ignored by Git. The final report records the full architecture,
+parameter count, final train/validation losses, generalization gap, best
+validation loss and step, throughput, allocator peaks, and generated sample.
+
+The first full Stage 10 run on the Intel Arc 140T produced:
+
+| Run | T | C | H | L | Params | train loss | val loss | gap | best val / step | iter/s | tokens/s | allocated MB | reserved MB |
+| --- | -: | -: | -: | -: | -----: | ---------: | -------: | --: | --------------: | -----: | -------: | -----------: | ----------: |
+| Stage 10 | 64 | 64 | 4 | 4 | 211,777 | 1.4930 | 1.6800 | 0.1870 | 1.6800 / 5,000 | 15.487 | 31,717.613 | 46.270 | 54.000 |
+
+The Stage 9 row above used its legacy in-training timing window, whereas Stage
+10 benchmarks a disposable model before the experiment. Both time the same
+optimizer-step work after 20 warmups, but their surrounding harness placement
+differs, so the exact throughput ratio is informative rather than a perfectly
+matched A/B measurement. Future stages use the independent Stage 10 method.
+
+The seeded 500-character sample from the best checkpoint was:
+
+```text
+Me lack, thou have beard a good exture.
+
+TANIrch:
+Bredk thoughts, in a ofuld right.
+Thou wounder, thou would at thurn arms But of here,
+
+JUlie aloner:
+A bloody, sir, go weeet alonion
+In pour you telposienteds,
+That bay very wine me: nor here horself,
+But usir I will he sayk; my respect!
+
+Second ELAUREL:
+With meaning may arrow to like.
+
+FRIAR go:
+To be had into thy hough smord your stood
+Thousime of dartion, good to things,
+And part thy fathor vain's angelio,
+And distancer them I come, Darls: bur
 ```

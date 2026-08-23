@@ -26,7 +26,7 @@ class EvaluationRecord:
 
 @dataclass(frozen=True, slots=True)
 class BenchmarkConfig:
-    """Select a contiguous window of real optimizer steps to time."""
+    """Configure warmup and timed optimizer steps for a benchmark."""
 
     num_warmup: int = 20
     num_steps: int = 100
@@ -73,6 +73,33 @@ def sync_device(device: torch.device) -> None:
         torch.mps.synchronize()
 
 
+def reset_peak_memory_stats(device: torch.device) -> None:
+    """Reset allocator peaks on accelerators that expose these counters."""
+
+    if device.type == "xpu":
+        torch.xpu.memory.reset_peak_memory_stats(device)
+    elif device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+
+
+def get_peak_memory_stats(device: torch.device) -> tuple[int, int]:
+    """Return peak allocated and reserved bytes, or zeros if unsupported."""
+
+    if device.type == "xpu":
+        return (
+            torch.xpu.memory.max_memory_allocated(device),
+            torch.xpu.memory.max_memory_reserved(device),
+        )
+
+    if device.type == "cuda":
+        return (
+            torch.cuda.max_memory_allocated(device),
+            torch.cuda.max_memory_reserved(device),
+        )
+
+    return 0, 0
+
+
 def seed_everything(seed: int) -> None:
     random.seed(seed)
     torch.manual_seed(seed)
@@ -115,6 +142,62 @@ def estimate_loss(
 
     model.train(was_training)
     return LossEstimate(train=estimates["train"], val=estimates["val"])
+
+
+def benchmark_training(
+    model: EmbeddingLanguageModel,
+    optimizer: torch.optim.Optimizer,
+    data: CharacterData,
+    config: TrainingConfig,
+    device: torch.device,
+    training_generator: torch.Generator,
+    benchmark: BenchmarkConfig,
+) -> BenchmarkStats:
+    """Time optimizer steps on a caller-owned, disposable model.
+
+    Keeping the model and optimizer outside this helper makes it explicit that
+    benchmark updates do not have to touch the model used by an experiment.
+    """
+
+    model.train()
+    benchmark_started_at: float | None = None
+    total_steps = benchmark.num_warmup + benchmark.num_steps
+
+    for step in range(total_steps):
+        if step == benchmark.num_warmup:
+            sync_device(device)
+            reset_peak_memory_stats(device)
+            benchmark_started_at = time.perf_counter()
+
+        inputs, targets = data.get_batch(
+            "train",
+            batch_size=config.batch_size,
+            block_size=config.block_size,
+            device=device,
+            generator=training_generator,
+        )
+        _, loss = model(inputs, targets)
+        assert loss is not None
+
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+
+    sync_device(device)
+    assert benchmark_started_at is not None
+    elapsed = time.perf_counter() - benchmark_started_at
+    iterations_per_sec = benchmark.num_steps / elapsed
+    tokens_per_iteration = config.batch_size * config.block_size
+
+    peak_allocated, peak_reserved = get_peak_memory_stats(device)
+
+    return BenchmarkStats(
+        seconds=elapsed,
+        iterations_per_sec=iterations_per_sec,
+        tokens_per_sec=iterations_per_sec * tokens_per_iteration,
+        peak_allocated_mb=peak_allocated / 1024**2,
+        peak_reserved_mb=peak_reserved / 1024**2,
+    )
 
 
 def train_model(
@@ -181,10 +264,7 @@ def train_model(
 
         if benchmark is not None and step == benchmark.num_warmup:
             sync_device(device)
-
-            if device.type == "xpu":
-                torch.xpu.memory.reset_peak_memory_stats(device)
-
+            reset_peak_memory_stats(device)
             benchmark_started_at = time.perf_counter()
 
         inputs, targets = data.get_batch(
@@ -211,12 +291,7 @@ def train_model(
             iterations_per_sec = benchmark.num_steps / elapsed
             tokens_per_iteration = config.batch_size * config.block_size
 
-            if device.type == "xpu":
-                peak_allocated = torch.xpu.memory.max_memory_allocated(device)
-                peak_reserved = torch.xpu.memory.max_memory_reserved(device)
-            else:
-                peak_allocated = 0
-                peak_reserved = 0
+            peak_allocated, peak_reserved = get_peak_memory_stats(device)
 
             benchmark_stats = BenchmarkStats(
                 seconds=elapsed,
