@@ -202,3 +202,36 @@ The report prints the `(B,T,4C)` hidden shape, verifies attention remains
 normalized and causal, and performs a direct FFN locality experiment: changing
 only position 0 must leave the FFN outputs at positions 1 through 7 exactly
 unchanged.
+
+## Stage 6: residual connections
+
+`06_residual_connections.py` preserves the Stage 5 attention and FFN modules
+and changes only how their outputs update the representation:
+
+```python
+x = x + self.sa(x)
+x = x + self.ffwd(x)
+```
+
+Both additions preserve `(B,T,C)`, add no trainable parameters, and leave the
+complete model at exactly 15,905 parameters. The checkpoint reports `x0`, both
+sublayer updates, both post-residual representations, and their norms. It also
+retains the causal-attention and position-wise FFN checks from Stage 5.
+
+Run the full 5,000-step checkpoint with the same controlled settings as Stage
+5:
+
+```powershell
+python .\my-gpt\06_residual_connections.py
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\06_residual_connections.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+`test_residual_connections.py` additionally proves the exact two-addition
+dataflow, the zero-update identity behavior, the direct residual gradient
+route, unchanged parameter count, and causal masking.
