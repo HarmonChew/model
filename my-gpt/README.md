@@ -235,3 +235,42 @@ python .\my-gpt\06_residual_connections.py --device cpu `
 `test_residual_connections.py` additionally proves the exact two-addition
 dataflow, the zero-update identity behavior, the direct residual gradient
 route, unchanged parameter count, and causal masking.
+
+## Stage 7: pre-norm LayerNorm and GELU
+
+`07_layer_norm.py` adds two learned LayerNorms around the Stage 6 residual
+branches and switches the feed-forward activation from ReLU to GELU:
+
+```python
+x = x + self.sa(self.ln1(x))
+x = x + self.ffwd(self.ln2(x))
+```
+
+This is a pre-norm arrangement: each complicated sublayer receives a
+normalized `(B,T,C)` view, while the residual stream itself keeps a direct
+identity path. LayerNorm acts independently on the `C` features of every
+token and contributes a learned scale and bias of shape `(C,)`. With two
+LayerNorms and the default `C=32`, Stage 7 adds 128 trainable parameters, for
+16,033 total. GELU changes the activation behavior but adds no parameters.
+
+Run the full 5,000-step checkpoint with the same controlled settings as Stage
+6:
+
+```powershell
+python .\my-gpt\07_layer_norm.py
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\07_layer_norm.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+The report includes a standalone LayerNorm experiment, all pre-norm and
+residual shapes, one token's mean and population variance before and after
+`ln1`, initial LayerNorm affine parameters, residual magnitudes, train and
+validation loss, and generated text. `test_layer_norm.py` verifies the exact
+pre-norm dataflow, feature-axis normalization without token or batch mixing,
+GELU, causal masking, residual identity path, gradients, and the 16,033
+parameter count.
