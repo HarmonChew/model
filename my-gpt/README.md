@@ -118,3 +118,28 @@ The Stage 1 prefix test remains exactly zero. With the default multi-token
 context, the Stage 2 prefix test is non-zero because changing an earlier token
 now changes the averaged final representation. The weights are still uniform
 and fixed; learned Q/K/V self-attention is the intended next checkpoint.
+
+## Stage 3: one causal self-attention head
+
+`04_single_head_attention.py` replaces the fixed average with one learned
+query/key/value head. It prints the full Stage 3 diagnostic set: parameter and
+shape reports, normalization and causal-mask checks, prefix sensitivity,
+initial/final losses, generated text, and the learned attention matrix for an
+eight-character input.
+
+Run the full FP32/eager checkpoint (5,000 steps at a `1e-3` learning rate):
+
+```powershell
+python .\my-gpt\04_single_head_attention.py
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\04_single_head_attention.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+The default attention probe is `"To be or"`. Use `--attention-text` to inspect
+another non-empty string no longer than `block_size` whose characters occur in
+the training corpus.
