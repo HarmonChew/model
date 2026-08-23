@@ -143,3 +143,30 @@ python .\my-gpt\04_single_head_attention.py --device cpu `
 The default attention probe is `"To be or"`. Use `--attention-text` to inspect
 another non-empty string no longer than `block_size` whose characters occur in
 the training corpus.
+
+## Stage 4: four causal self-attention heads
+
+`05_multi_head_attention.py` splits the 32 representation channels across four
+independent heads. Each head produces eight channels and its own causal
+attention matrix; concatenating the four outputs restores `(B,T,32)`. There is
+still no output projection, residual connection, feed-forward network, or
+LayerNorm, so the experiment isolates multi-head routing while retaining the
+same 7,553 trainable parameters as Stage 3.
+
+Run the full checkpoint with the Stage 3 training conditions:
+
+```powershell
+python .\my-gpt\05_multi_head_attention.py
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\05_multi_head_attention.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+The report includes per-head Q/K/V shapes, combined attention weights with
+shape `(B,H,T,T)`, row-sum and causal-mask checks, train/validation loss,
+generated text, all four learned attention matrices, and each head's routing
+distribution for the final character of `"To be or"`.
