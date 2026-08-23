@@ -491,3 +491,131 @@ Thousime of dartion, good to things,
 And part thy fathor vain's angelio,
 And distancer them I come, Darls: bur
 ```
+
+## Stage 11: train the same model longer
+
+`11_train_longer.py` keeps the complete Stage 10 setup unchanged and increases
+only the training duration from 5,000 to 10,000 optimizer steps:
+
+```text
+B=32, T=64, C=64, H=4, D=16, FF=256, L=4, learning_rate=1e-3
+```
+
+The existing `stage_10_best_model.pt` contains only a raw model state dict. It
+does not contain AdamW's moving averages, a training step, or the prior best
+validation loss. Loading it with a new optimizer would therefore be a warm
+start, not an exact continuation. To preserve the one-variable experiment,
+the default Stage 11 command performs a fresh seeded run through all 10,000
+steps. Its measurements at steps 4,000, 4,500, and 5,000 exactly reproduced
+the Stage 10 values.
+
+Run the clean FP32/eager XPU experiment:
+
+```powershell
+python .\my-gpt\11_train_longer.py --device xpu
+```
+
+Stage 11 checkpoints are fully resumable. Resume one to a higher absolute
+target step with:
+
+```powershell
+python .\my-gpt\11_train_longer.py --device xpu `
+    --max-iters 15000 `
+    --resume-from .\my-gpt\checkpoints\stage_11_best_checkpoint.pt
+```
+
+The saved payload contains the model and optimizer states, absolute step, best
+loss and step, training-batch generator state, CPU and accelerator RNG states,
+architecture and training metadata, a corpus fingerprint, and optimizer-lineage
+provenance. Loading validates the metadata and restores AdamW's state tensors
+to the model's device.
+
+On XPU, the saver synchronizes the device and copies an owned snapshot of every
+model and optimizer tensor to CPU before calling `torch.save`. This prevents
+asynchronous device storage from producing a checkpoint whose scalar metadata
+is newer than its tensor contents. The test suite covers repeated XPU saves and
+reloads, including non-empty AdamW state and RNG restoration.
+
+A weights-only checkpoint is rejected by default. The explicitly confounded
+alternative remains available under an opt-in flag and writes to a separate
+path:
+
+```powershell
+python .\my-gpt\11_train_longer.py --device xpu `
+    --resume-from .\my-gpt\checkpoints\stage_10_best_model.pt `
+    --allow-optimizer-restart --legacy-step 5000 `
+    --checkpoint-path `
+        .\my-gpt\checkpoints\stage_11_restarted_adamw_best_checkpoint.pt
+```
+
+That mode is reported as `Stage-10 weights + restarted AdamW state`, and the
+restart provenance remains in subsequent full checkpoints.
+
+The clean Stage 11 run produced this fixed-batch evaluation curve:
+
+| Step | Train loss | Validation loss | Gap | Best validation / step |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 4.3394 | 4.3465 | 0.0071 | 4.3465 / 0 |
+| 500 | 2.2155 | 2.2332 | 0.0177 | 2.2332 / 500 |
+| 1,000 | 1.9576 | 2.0240 | 0.0664 | 2.0240 / 1,000 |
+| 1,500 | 1.7871 | 1.9079 | 0.1208 | 1.9079 / 1,500 |
+| 2,000 | 1.6989 | 1.8478 | 0.1489 | 1.8478 / 2,000 |
+| 2,500 | 1.6294 | 1.7787 | 0.1493 | 1.7787 / 2,500 |
+| 3,000 | 1.5853 | 1.7522 | 0.1668 | 1.7522 / 3,000 |
+| 3,500 | 1.5585 | 1.7272 | 0.1687 | 1.7272 / 3,500 |
+| 4,000 | 1.5287 | 1.7100 | 0.1813 | 1.7100 / 4,000 |
+| 4,500 | 1.5121 | 1.6919 | 0.1798 | 1.6919 / 4,500 |
+| 5,000 | 1.4930 | 1.6800 | 0.1870 | 1.6800 / 5,000 |
+| 5,500 | 1.4877 | 1.6827 | 0.1950 | 1.6800 / 5,000 |
+| 6,000 | 1.4698 | 1.6603 | 0.1905 | 1.6603 / 6,000 |
+| 6,500 | 1.4564 | 1.6542 | 0.1977 | 1.6542 / 6,500 |
+| 7,000 | 1.4486 | 1.6520 | 0.2034 | 1.6520 / 7,000 |
+| 7,500 | 1.4414 | 1.6486 | 0.2073 | 1.6486 / 7,500 |
+| 8,000 | 1.4300 | 1.6401 | 0.2101 | 1.6401 / 8,000 |
+| 8,500 | 1.4270 | 1.6314 | 0.2044 | 1.6314 / 8,500 |
+| 9,000 | 1.4177 | 1.6361 | 0.2184 | 1.6314 / 8,500 |
+| 9,500 | 1.4134 | 1.6257 | 0.2123 | 1.6257 / 9,500 |
+| 10,000 | 1.4100 | 1.6167 | 0.2068 | 1.6167 / 10,000 |
+
+Validation improved by `0.0633` from step 5,000 to step 10,000, and the final
+measurement was a fresh best. The gap grew from `0.1870` to `0.2068`, but the
+validation curve did not show a sustained reversal: the isolated increases at
+5,500 and 9,000 were followed by lower losses. Stage 10 was undertrained, and
+this run does not provide evidence for adding dropout next.
+
+The constant learning rate also has not produced a settled plateau. Before
+another capacity change, the most informative Stage 12 would be a controlled
+learning-rate experiment: fork the exact step-10,000 checkpoint into a constant
+`1e-3` continuation and a decayed-learning-rate continuation, with matching
+batch and evaluation streams.
+
+The independent XPU benchmark measured 22.360 iterations/s, 45,792.771
+tokens/s, 46.270 MB peak allocated memory, and 54.000 MB peak reserved memory.
+The best checkpoint is `my-gpt/checkpoints/stage_11_best_checkpoint.pt`; the
+complete console record is `my-gpt/checkpoints/stage_11_training.log`.
+
+The seeded 500-character sample from the step-10,000 checkpoint was:
+
+```text
+Me lanchery come, to morney.
+That therefold troubly, dared not suding for any
+To you, I and my envented on rough murre and Butoor't;
+Such mlaint in itset love, you?
+
+KING RICHARD II:
+I can die more!
+
+CATESBY:
+I can band with thee held make he made heeds?
+
+GLOUCESTER:
+Not tk this so were, for thy countinusing me
+Bagy man a powery like.
+
+VOLUMNIA:
+To the wretched is hour, sir, by this? I do buried
+on drawn's world to the wretchers all brother?
+
+FRIAR LAURENCE:
+Set you all the news about are smet m
+```
