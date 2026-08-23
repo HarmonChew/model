@@ -274,3 +274,55 @@ validation loss, and generated text. `test_layer_norm.py` verifies the exact
 pre-norm dataflow, feature-axis normalization without token or batch mixing,
 GELU, causal masking, residual identity path, gradients, and the 16,033
 parameter count.
+
+## Stage 8: stacked Transformer blocks
+
+`08_transformer_block.py` packages the Stage 7 pre-norm attention and FFN
+branches into a reusable `Block`, gives multi-head attention its learned
+output projection, and stacks four independent blocks:
+
+```text
+token + position embeddings
+    -> Block 0 -> Block 1 -> Block 2 -> Block 3
+    -> final LayerNorm
+    -> language-model head
+```
+
+Each block retains the two residual updates:
+
+```python
+x = x + self.sa(self.ln1(x))
+x = x + self.ffwd(self.ln2(x))
+```
+
+The attention output projection mixes the concatenated head slices before
+they re-enter the residual stream. At the default `C=32`, one block has
+12,608 parameters: 3,072 Q/K/V weights, 1,056 output-projection parameters,
+8,352 FFN parameters, and 128 LayerNorm parameters. With four blocks, the
+actual 65-character vocabulary, final LayerNorm, embeddings, and LM head, the
+complete model has exactly 54,977 trainable parameters.
+
+Run the full 5,000-step checkpoint on the automatically selected accelerator:
+
+```powershell
+python .\my-gpt\08_transformer_block.py
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\08_transformer_block.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+The report records the embedding and every block's `(B,T,C)` shape and
+residual-stream norm, the final LayerNorm norm, causal attention checks, and
+one first-head query gradient from every block before training. With the
+default `(32,8,32)` diagnostic batch, the initial final-LayerNorm norm should
+be close to `sqrt(8192) = 90.51`.
+
+`test_transformer_block.py` verifies the projected multi-head path, exact
+pre-norm block flow, residual identity behavior, independent block instances,
+the final normalization, end-to-end causality, gradient propagation through
+all four blocks, context cropping, validation errors, and both exact parameter
+budgets.
