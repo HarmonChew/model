@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -24,10 +25,52 @@ class EvaluationRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class BenchmarkConfig:
+    """Select a contiguous window of real optimizer steps to time."""
+
+    num_warmup: int = 20
+    num_steps: int = 100
+
+    def __post_init__(self) -> None:
+        if self.num_warmup < 0:
+            raise ValueError(
+                f"num_warmup must be non-negative, got {self.num_warmup}"
+            )
+
+        if self.num_steps <= 0:
+            raise ValueError(
+                f"num_steps must be positive, got {self.num_steps}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class BenchmarkStats:
+    """Wall-clock throughput and peak allocator usage for training steps."""
+
+    seconds: float
+    iterations_per_sec: float
+    tokens_per_sec: float
+    peak_allocated_mb: float
+    peak_reserved_mb: float
+
+
+@dataclass(frozen=True, slots=True)
 class TrainingResult:
     initial: LossEstimate
     final: LossEstimate
     history: tuple[EvaluationRecord, ...]
+    benchmark: BenchmarkStats | None = None
+
+
+def sync_device(device: torch.device) -> None:
+    """Wait for asynchronous accelerator work before reading the clock."""
+
+    if device.type == "xpu":
+        torch.xpu.synchronize(device)
+    elif device.type == "cuda":
+        torch.cuda.synchronize(device)
+    elif device.type == "mps" and hasattr(torch, "mps"):
+        torch.mps.synchronize()
 
 
 def seed_everything(seed: int) -> None:
@@ -82,12 +125,24 @@ def train_model(
     training_generator: torch.Generator,
     *,
     on_evaluation: Callable[[EvaluationRecord], None] | None = None,
+    benchmark: BenchmarkConfig | None = None,
 ) -> TrainingResult:
+    if benchmark is not None:
+        required_steps = benchmark.num_warmup + benchmark.num_steps
+        if config.max_iters < required_steps:
+            raise ValueError(
+                "benchmark requires at least "
+                f"{required_steps} training steps, but max_iters is "
+                f"{config.max_iters}"
+            )
+
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=config.learning_rate,
     )
     history: list[EvaluationRecord] = []
+    benchmark_started_at: float | None = None
+    benchmark_stats: BenchmarkStats | None = None
 
     def evaluate_on_fixed_batches() -> LossEstimate:
         # Recreate this generator for every evaluation so that initial,
@@ -124,6 +179,14 @@ def train_model(
             if on_evaluation is not None:
                 on_evaluation(record)
 
+        if benchmark is not None and step == benchmark.num_warmup:
+            sync_device(device)
+
+            if device.type == "xpu":
+                torch.xpu.memory.reset_peak_memory_stats(device)
+
+            benchmark_started_at = time.perf_counter()
+
         inputs, targets = data.get_batch(
             "train",
             batch_size=config.batch_size,
@@ -138,9 +201,37 @@ def train_model(
         loss.backward()
         optimizer.step()
 
+        if (
+            benchmark is not None
+            and step + 1 == benchmark.num_warmup + benchmark.num_steps
+        ):
+            sync_device(device)
+            assert benchmark_started_at is not None
+            elapsed = time.perf_counter() - benchmark_started_at
+            iterations_per_sec = benchmark.num_steps / elapsed
+            tokens_per_iteration = config.batch_size * config.block_size
+
+            if device.type == "xpu":
+                peak_allocated = torch.xpu.memory.max_memory_allocated(device)
+                peak_reserved = torch.xpu.memory.max_memory_reserved(device)
+            else:
+                peak_allocated = 0
+                peak_reserved = 0
+
+            benchmark_stats = BenchmarkStats(
+                seconds=elapsed,
+                iterations_per_sec=iterations_per_sec,
+                tokens_per_sec=(
+                    iterations_per_sec * tokens_per_iteration
+                ),
+                peak_allocated_mb=peak_allocated / 1024**2,
+                peak_reserved_mb=peak_reserved / 1024**2,
+            )
+
     final = evaluate_on_fixed_batches()
     return TrainingResult(
         initial=history[0].losses,
         final=final,
         history=tuple(history),
+        benchmark=benchmark_stats,
     )

@@ -326,3 +326,77 @@ pre-norm block flow, residual identity behavior, independent block instances,
 the final normalization, end-to-end causality, gradient propagation through
 all four blocks, context cropping, validation errors, and both exact parameter
 budgets.
+
+## Stage 9: scale context from 8 to 64
+
+`09_context_length.py` reuses the exact Stage 8 model and changes the default
+context length only:
+
+```text
+B=32, T=64, C=32, H=4, D=8, L=4
+```
+
+The position embedding grows from `(8,32)` to `(64,32)`, and each head's
+causal mask grows from `(8,8)` to `(64,64)`. The model therefore has 56,769
+trainable parameters--only 1,792 more than Stage 8--while each full attention
+matrix contains 64 times as many relationships.
+
+Run the full FP32/eager XPU experiment:
+
+```powershell
+python .\my-gpt\09_context_length.py --device xpu
+```
+
+Run a quick CPU smoke check while keeping the benchmark inside the shortened
+training budget:
+
+```powershell
+python .\my-gpt\09_context_length.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40 `
+    --benchmark-warmup 2 --benchmark-steps 5
+```
+
+The benchmark warms up on 20 optimizer steps and times the following 100 real
+training steps by default. Those steps are part of `max_iters`; benchmarking
+does not add updates, consume extra training batches, or reset AdamW state.
+The timer covers batch construction and transfer, forward pass, loss,
+backward pass, and optimizer update. Accelerator synchronization brackets the
+timed window. On XPU, the report also records peak PyTorch allocated and
+reserved memory. Pass `--benchmark-steps 0` to disable it.
+
+The first full run on the Intel Arc 140T with PyTorch 2.13.0+xpu produced:
+
+| Run | T | C | H | L | Params | train loss | val loss | bench seconds | iter/s | tokens/s | allocated MB | reserved MB |
+| --- | -: | -: | -: | -: | -----: | ---------: | -------: | ------------: | -----: | -------: | -----------: | ----------: |
+| Stage 8 | 8 | 32 | 4 | 4 | 54,977 | 1.9500 | 2.0425 | ... | ... | ... | ... | ... |
+| Stage 9 | 64 | 32 | 4 | 4 | 56,769 | 1.7684 | 1.9225 | 3.836 | 26.066 | 53,383.602 | 27.698 | 50.000 |
+
+Both runs used 5,000 optimizer steps, but they did not use the same token
+budget: Stage 8 trained on 1.28 million token positions and Stage 9 trained on
+10.24 million. The lower Stage 9 validation loss therefore reflects the
+combined experiment of longer context and eight times as many token
+predictions, not a context-only causal estimate.
+
+The seeded 500-character Stage 9 sample was:
+
+```text
+siclan where make in more stonvant hirs
+Than what therk thengts.
+Buth soon ome, he mors Enguman cong
+With tracters art a lequingly ever armlian
+His is himselff, no?
+
+
+DUKE VOLINGBY:
+
+Hidjour you twaph'd! be coite Laray vurrour?
+So mun mark he master, away of this I, he's
+Wknamings I havan: dithtly and bloody me
+not umzemand, if joil aurved come,
+Engel have crothinngour, sir, by reast we
+Bustsizers, dor mornighore do binss!
+And park thy father vachile, and whose,
+But all the no dobldest!
+
+ISABET:
+```
