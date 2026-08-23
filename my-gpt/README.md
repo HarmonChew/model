@@ -1,4 +1,10 @@
-# Stage 1: embeddings
+# Character language-model checkpoints
+
+The token-local embedding model remains intact as **Stage 1**. **Stage 2**
+adds fixed causal averaging so tokens can communicate, without adding any
+trainable parameters.
+
+## Stage 1: embeddings
 
 This stage separates character lookup from next-character prediction:
 
@@ -69,3 +75,46 @@ is just a token-dependent term plus a position-dependent term. Position does
 not create token-to-token communication (or even a token-by-position
 interaction). Attention is the next ingredient that will let information move
 between positions.
+
+## Stage 2: fixed causal averaging
+
+`causal_average_model.py` defines `CausalAverageLanguageModel`. After adding
+token and position embeddings, it applies this fixed lower-triangular
+operation:
+
+```text
+position 0 <- position 0
+position 1 <- average(positions 0, 1)
+position 2 <- average(positions 0, 1, 2)
+...
+```
+
+The `tril` connectivity matrix is a registered buffer, not a parameter. With
+the default vocabulary, context, and embedding sizes, both Stage 1 and Stage 2
+therefore have exactly 4,481 trainable parameters.
+
+Run the new checkpoint:
+
+```powershell
+python .\my-gpt\03_causal_average.py
+```
+
+Run a matched comparison against the retained Stage 1 model. Both models use
+identical learned-parameter initialization, training batches, and evaluation
+batches:
+
+```powershell
+python .\my-gpt\03_causal_average.py --compare-embedding
+```
+
+Quick CPU smoke comparison:
+
+```powershell
+python .\my-gpt\03_causal_average.py --compare-embedding `
+    --device cpu --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+The Stage 1 prefix test remains exactly zero. With the default multi-token
+context, the Stage 2 prefix test is non-zero because changing an earlier token
+now changes the averaged final representation. The weights are still uniform
+and fixed; learned Q/K/V self-attention is the intended next checkpoint.
