@@ -170,3 +170,35 @@ The report includes per-head Q/K/V shapes, combined attention weights with
 shape `(B,H,T,T)`, row-sum and causal-mask checks, train/validation loss,
 generated text, all four learned attention matrices, and each head's routing
 distribution for the final character of `"To be or"`.
+
+## Stage 5: position-wise feed-forward network
+
+`05_feed_forward.py` keeps the four causal attention heads and adds a ReLU
+feed-forward network after them:
+
+```text
+(B,T,32) -> Linear(32,128) -> ReLU -> Linear(128,32) -> (B,T,32)
+```
+
+The FFN is applied independently at every position. This stage intentionally
+still has no residual connection, LayerNorm, dropout, attention output
+projection, or GELU. With the default dimensions, the FFN contributes 8,352
+parameters and the complete model has 15,905 trainable parameters.
+
+Run the full 5,000-step checkpoint:
+
+```powershell
+python .\my-gpt\05_feed_forward.py
+```
+
+Run a quick CPU smoke check:
+
+```powershell
+python .\my-gpt\05_feed_forward.py --device cpu `
+    --max-iters 10 --eval-iters 2 --sample-length 40
+```
+
+The report prints the `(B,T,4C)` hidden shape, verifies attention remains
+normalized and causal, and performs a direct FFN locality experiment: changing
+only position 0 must leave the FFN outputs at positions 1 through 7 exactly
+unchanged.
