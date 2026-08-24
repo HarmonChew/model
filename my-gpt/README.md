@@ -619,3 +619,171 @@ on drawn's world to the wretchers all brother?
 FRIAR LAURENCE:
 Set you all the news about are smet m
 ```
+
+## Stage 12: controlled learning-rate drop
+
+`12_learning_rate_drop.py` turns the proposed learning-rate test into one
+paired experiment. It loads the exact Stage 11 step-10,000 checkpoint twice
+and advances each independent branch to the same absolute target step:
+
+```text
+                              Stage 11 source
+                       step 10,000, lr = 1e-3
+                                  |
+                   +--------------+--------------+
+                   |                             |
+             control branch                LR-drop branch
+               lr = 1e-3                     lr = 3e-4
+                   |                             |
+             step 15,000                   step 15,000
+```
+
+The architecture and other training defaults remain unchanged:
+
+```text
+B=32, T=64, C=64, H=4, D=16, FF=256, L=4
+source_step=10000, max_iters=15000, eval_interval=500, eval_iters=100
+```
+
+Because `max_iters` is an absolute target, each branch performs exactly 5,000
+additional optimizer updates, numbered 10,001 through 15,000. Run the default
+FP32/eager XPU experiment with:
+
+```powershell
+python .\my-gpt\12_learning_rate_drop.py --device xpu
+```
+
+The default checkpoint paths are:
+
+```text
+source:   my-gpt/checkpoints/stage_11_best_checkpoint.pt
+control:  my-gpt/checkpoints/stage_12_control_best_checkpoint.pt
+LR drop:  my-gpt/checkpoints/stage_12_lr_drop_best_checkpoint.pt
+```
+
+They can be changed with `--source-checkpoint`,
+`--control-checkpoint-path`, and `--lr-drop-checkpoint-path`. The fork and
+learning-rate defaults can likewise be changed with `--source-step`,
+`--max-iters`, `--source-learning-rate`, `--control-learning-rate`, and
+`--reduced-learning-rate`. The control rate must equal the source rate, and
+the reduced rate must be lower than the control rate.
+
+### Exact branch restoration
+
+Each branch is constructed and restored independently from the source file.
+The loader first validates the Stage 11 architecture, training metadata, and
+corpus fingerprint, then restores the model weights, AdamW state, explicit
+training-batch generator, and saved RNG state. Only after
+`optimizer.load_state_dict(...)` has restored AdamW's parameter groups and
+moment estimates does Stage 12 set every parameter group's learning rate:
+
+```python
+optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+for param_group in optimizer.param_groups:
+    param_group["lr"] = branch_learning_rate
+```
+
+The order matters because loading the optimizer state also restores its saved
+`1e-3` learning rate. Applying the override first would silently undo the
+intended LR drop when the checkpoint was loaded. The control branch writes
+`1e-3` back, while the LR-drop branch writes `3e-4`; the AdamW first- and
+second-moment estimates and step counters remain restored in both cases.
+
+Both branches begin with the same model, optimizer history, training-batch
+generator state, and global RNG state. They therefore consume matching
+training batches after the fork. The learning rate is the only intentional
+training difference.
+
+### Fixed evaluation panel
+
+Stage 11 and Stage 12 do not draw a fresh validation panel at every reported
+step. `evaluate_on_fixed_batches` recreates the evaluation generator from the
+same seed for every measurement, so all measurements and both branches use the
+same 100 sampled training batches and the same 100 sampled validation batches
+by default.
+
+This corrects an easy misreading of the Stage 11 curve: its isolated increases
+at steps 5,500 and 9,000 are not draw-to-draw noise from newly sampled
+evaluation batches. They are changes in model loss on a fixed, finite panel.
+That panel is still an estimate rather than the full corpus, but holding it
+fixed makes the Stage 12 branch comparison more direct.
+
+### Checkpoint safety and provenance
+
+Before training, Stage 12 requires a full checkpoint at the requested source
+step whose `best_step` equals its saved `step`. It also requires non-empty
+AdamW moment state, a saved training-generator state, a CPU RNG state, known
+optimizer provenance, and no recorded optimizer restart. A weights-only or
+confounded warm-start checkpoint is rejected.
+
+The source, control-output, and LR-drop-output paths must all resolve to
+different files. Stage 12 hashes the source before training and verifies the
+same hash after both branches, preventing either output from silently replacing
+the common fork. Each branch output is materialized at step 10,000 under its
+active learning rate before its first new update, so a valid resumable output
+still exists if that branch never improves on the source validation loss.
+
+Branch checkpoints retain the complete Stage 11 resumable payload and add:
+
+```text
+checkpoint_kind = "best"
+experiment.stage
+experiment.branch
+experiment.source_checkpoint_sha256
+experiment.source_step
+experiment.source_learning_rate
+experiment.branch_learning_rate
+experiment.learning_rate_changed
+```
+
+The standard optimizer state and `training_config.learning_rate` also record
+the branch's active rate. The generated samples use each branch's final
+step-15,000 model with the same prompt, seed, and token count; the saved
+checkpoint for each branch remains the best fixed-panel validation state seen
+through that branch.
+
+### Results
+
+The full XPU experiment showed a clear advantage for lowering the learning
+rate. At the equal-budget step-15,000 endpoint, the `3e-4` branch had a
+validation loss `0.0201` below the `1e-3` control. It also had the lower train
+loss, so the result is not a regularization trade in which the reduced rate
+merely accepts a worse training fit.
+
+| Metric | Control (`1e-3`) | LR drop (`3e-4`) | Drop - control |
+| --- | ---: | ---: | ---: |
+| Final train loss at step 15,000 | 1.3743 | **1.3470** | -0.0273 |
+| Final validation loss at step 15,000 | 1.6029 | **1.5829** | -0.0201 |
+| Final generalization gap | 0.2286 | 0.2358 | +0.0072 |
+| Best validation loss / step | 1.5989 / 13,500 | **1.5791 / 13,000** | -0.0198 |
+
+The complete paired fixed-panel curve was:
+
+| Step | Control train | Control val | LR-drop train | LR-drop val |
+| ---: | ---: | ---: | ---: | ---: |
+| 10,000 | 1.4100 | 1.6167 | 1.4100 | 1.6167 |
+| 10,500 | 1.4031 | 1.6134 | 1.3699 | 1.5845 |
+| 11,000 | 1.4024 | 1.6083 | 1.3641 | 1.5812 |
+| 11,500 | 1.3965 | 1.6160 | 1.3606 | 1.5864 |
+| 12,000 | 1.3908 | 1.6097 | 1.3572 | 1.5819 |
+| 12,500 | 1.3897 | 1.6132 | 1.3556 | 1.5846 |
+| 13,000 | 1.3811 | 1.6061 | 1.3512 | **1.5791** |
+| 13,500 | 1.3803 | **1.5989** | 1.3501 | 1.5815 |
+| 14,000 | 1.3785 | 1.6068 | 1.3474 | 1.5815 |
+| 14,500 | 1.3766 | 1.6061 | 1.3466 | 1.5843 |
+| 15,000 | 1.3743 | 1.6029 | 1.3470 | 1.5829 |
+
+The control still improved on the Stage 11 source, from `1.6167` to `1.6029`
+at the final step, so `1e-3` had not stopped making progress. The stronger
+result is that the restored AdamW optimizer made substantially finer progress
+immediately after its global step size was reduced: by step 10,500 the
+LR-drop branch was already at `1.5845`. This is direct evidence that `1e-3`
+had become too large for efficient late-stage refinement, while `3e-4` was
+not so small that useful learning stopped.
+
+```text
+control checkpoint: my-gpt/checkpoints/stage_12_control_best_checkpoint.pt
+LR-drop checkpoint: my-gpt/checkpoints/stage_12_lr_drop_best_checkpoint.pt
+complete console record: my-gpt/checkpoints/stage_12_training.log
+```
