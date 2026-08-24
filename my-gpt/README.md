@@ -1218,3 +1218,144 @@ control checkpoint SHA-256:
 dropout checkpoint SHA-256:
 8b3d781476cfbdbe304a54ff6883264697f16d2291ce724997ead29cc28ecfd6
 ```
+
+## Stage 16: residual-dropout strength
+
+`16_dropout_strength.py` performs the final motivated dropout-strength test:
+does halving residual-path dropout from `p=0.10` to `p=0.05` recover enough
+fit to beat the Stage 15 `p=0` control? It trains only the new treatment and
+reuses both saved Stage 15 checkpoints as read-only references:
+
+```text
+                 same verified initialization
+                            |
+          +-----------------+-----------------+
+          |                 |                 |
+       p=0.00            p=0.05            p=0.10
+       Stage 15          Stage 16           Stage 15
+       reused             trained            reused
+```
+
+The default command pins the exact Stage 15 checkpoint hashes before doing
+any expensive work. It regenerates the original CPU initialization from seed
+1,337, requires SHA-256
+`88dae91952fe315e838766caa8df2e8624fdcd9dbf0c0ab870cfeeca5ea4bb88`,
+strictly loads it into the `p=0.05` model, and resets the training RNG to
+1,340 immediately before updates. Its independent batch generator uses seed
+1,338, the same architecture and 18,000-update LR schedule are retained, and
+every curve measurement uses the same fixed panels as Stage 15.
+
+At the Stage 15 reference step 17,000, the running treatment's batch-generator
+state must exactly equal both saved Stage 15 generator states. At the end of
+training it is also checked against a separately advanced 18,000-update
+generator. Both Stage 15 files are hashed again after training and after fresh
+evaluation, so the run fails if either supposedly read-only input changes.
+
+Run the experiment after the two Stage 15 checkpoints exist:
+
+```powershell
+python .\my-gpt\16_dropout_strength.py --device xpu
+```
+
+The new treatment checkpoint and complete console record are:
+
+```text
+my-gpt/checkpoints/stage_16_dropout_best_checkpoint.pt
+my-gpt/checkpoints/stage_16_training.log
+```
+
+Stage 16 has its own checkpoint contract because its treatment and baseline
+come from different stages. The treatment checkpoint records the complete
+schedule, initialization and RNG seeds, dropout probability and placement,
+and hashes of both reused Stage 15 references. A mixed-stage evaluator first
+validates each checkpoint under its own contract, then measures all three on
+one paired validation panel with dropout disabled.
+
+### Results
+
+The canonical XPU run trained one 211,777-parameter `p=0.05` model for 18,000
+updates. Its selected fixed-panel curve is shown alongside the already saved
+Stage 15 curves:
+
+| Step | LR | `p=0` val | `p=0.05` val | `p=0.10` val |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 1e-3 | 4.3465 | 4.3465 | 4.3465 |
+| 2,500 | 1e-3 | **1.7787** | 1.8109 | 1.8364 |
+| 7,500 | 1e-3 | **1.6486** | 1.6531 | 1.6620 |
+| 10,000 | 1e-3 | **1.6167** | 1.6237 | 1.6290 |
+| 10,500 | 3e-4 | **1.5845** | 1.5991 | 1.6063 |
+| 13,500 | 1e-4 | **1.5718** | 1.5832 | 1.5909 |
+| 15,500 | 1e-4 | **1.5694** | 1.5779 | 1.5847 |
+| 17,000 | 1e-4 | **1.5688** | 1.5787 | 1.5843 |
+| 18,000 | 1e-4 | **1.5710** | 1.5799 | 1.5847 |
+
+The best fixed-panel checkpoints and final-step diagnostics were:
+
+| Metric | `p=0` | `p=0.05` | `p=0.10` |
+| --- | ---: | ---: | ---: |
+| Best checkpoint step | 17,000 | 15,500 | 17,000 |
+| Train loss at best checkpoint | **1.3316** | 1.3787 | 1.3973 |
+| Best fixed validation loss | **1.5688** | 1.5779 | 1.5843 |
+| Gap at best checkpoint | 0.2373 | 0.1992 | 0.1870 |
+| Final train loss | **1.3301** | 1.3751 | 1.3957 |
+| Final validation loss | **1.5710** | 1.5799 | 1.5847 |
+| Final gap | 0.2410 | 0.2048 | 0.1890 |
+
+Halving dropout reduced the damage but did not reverse it. Relative to the
+reused control, `p=0.05` was `+0.0091` worse at its best fixed checkpoint;
+`p=0.10` was `+0.0155` worse. The generalization gap again moved in the
+opposite direction from validation quality because dropout raised training
+loss much more than it helped validation.
+
+The post-run evaluator used 500 newly sampled validation batches with shared
+seed 1,343. This seed is distinct from the fixed panel (1,339), the Stage 15
+fresh panel (1,341), and generation (1,342):
+
+| Best checkpoint | Step | Fixed val | Fresh val | SE |
+| --- | ---: | ---: | ---: | ---: |
+| `p=0` | 17,000 | **1.5688** | **1.572696** | 0.002754 |
+| `p=0.05` | 15,500 | 1.5779 | 1.580936 | 0.002517 |
+| `p=0.10` | 17,000 | 1.5843 | 1.588543 | 0.002431 |
+
+Because every model saw the same batches, paired differences are substantially
+more precise than comparing the three marginal standard errors:
+
+| Paired fresh delta | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| `p=0.05 - p=0` | +0.008240 | 0.000750 | [+0.006771, +0.009710] |
+| `p=0.10 - p=0` | +0.015847 | 0.000858 | [+0.014164, +0.017529] |
+| `p=0.10 - p=0.05` | +0.007606 | 0.000648 | [+0.006336, +0.008876] |
+
+All three intervals are wholly positive. Validation loss therefore increases
+cleanly with dropout strength for these trained weights:
+
+```text
+p=0.00  <  p=0.05  <  p=0.10
+ better                  worse
+```
+
+Stage 16 closes the current dropout line. `p=0.05` is not an ambiguous tie;
+it is reliably worse than no residual-path dropout, while `p=0.10` is worse
+again. The model should retain `p=0`, and further searches such as `0.04`,
+`0.03`, or `0.02` are not justified by this dose response. As in Stage 15,
+the confidence intervals quantify validation-batch sampling uncertainty for
+these particular trained weights, not variation across independent training
+seeds.
+
+The next useful experiment should return to architecture or data use. Context
+scaling from `T=64` to `T=128` is a natural candidate, but it needs a protocol
+that separates the benefit of longer context from the doubled token targets
+per batch and the quadratic attention cost.
+
+```text
+reused p=0 checkpoint: my-gpt/checkpoints/stage_15_control_best_checkpoint.pt
+new p=.05 checkpoint:  my-gpt/checkpoints/stage_16_dropout_best_checkpoint.pt
+reused p=.10 checkpoint: my-gpt/checkpoints/stage_15_dropout_best_checkpoint.pt
+complete console record: my-gpt/checkpoints/stage_16_training.log
+
+p=.05 checkpoint SHA-256:
+94035435b62b84cc930d4b97759ca99ed98bb71b7c9d32695b3c94795814cca9
+
+console record SHA-256:
+e68ef8da30e7f2efc343f8a34ed1e3d3e50ef24a9f5322f6215586638355d424
+```
