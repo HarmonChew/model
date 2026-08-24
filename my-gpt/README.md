@@ -787,3 +787,111 @@ control checkpoint: my-gpt/checkpoints/stage_12_control_best_checkpoint.pt
 LR-drop checkpoint: my-gpt/checkpoints/stage_12_lr_drop_best_checkpoint.pt
 complete console record: my-gpt/checkpoints/stage_12_training.log
 ```
+
+## Stage 13: second controlled learning-rate drop
+
+`13_second_learning_rate_drop.py` repeats the paired fork after Stage 12. It
+loads the exact `3e-4` branch winner at step 13,000 twice and advances both
+independent continuations to the same absolute target:
+
+```text
+                         Stage 12 LR-drop winner
+                          step 13,000, lr = 3e-4
+                                    |
+                     +--------------+--------------+
+                     |                             |
+               control branch              second-drop branch
+                 lr = 3e-4                      lr = 1e-4
+                     |                             |
+               step 18,000                   step 18,000
+```
+
+The architecture and all other defaults remain fixed:
+
+```text
+B=32, T=64, C=64, H=4, D=16, FF=256, L=4
+source_step=13000, max_iters=18000, eval_interval=500, eval_iters=100
+```
+
+Run the full FP32/eager XPU experiment with:
+
+```powershell
+python .\my-gpt\13_second_learning_rate_drop.py --device xpu
+```
+
+The default artifacts are:
+
+```text
+source:       my-gpt/checkpoints/stage_12_lr_drop_best_checkpoint.pt
+control:      my-gpt/checkpoints/stage_13_control_best_checkpoint.pt
+second drop:  my-gpt/checkpoints/stage_13_lr_drop_best_checkpoint.pt
+console log:  my-gpt/checkpoints/stage_13_training.log
+```
+
+Stage 13 adds a stricter source gate to the Stage 12 safeguards. The source
+must be a full best checkpoint with `step == best_step == 13000`, uninterrupted
+AdamW provenance, non-empty moment state, the saved batch-generator and RNG
+states, an active `3e-4` LR in both its training metadata and every optimizer
+parameter group, and explicit provenance identifying it as Stage 12's
+`lr_drop` branch. An XPU or CUDA run also requires the matching saved device
+RNG state.
+
+Each branch independently restores that source before its LR is overwritten.
+The source is hashed before and after validation, around each branch load, and
+after training. Stage 13 checkpoints use new paths and record
+`experiment.stage = 13` plus the Stage 12 source hash, source branch, source
+step, source LR, and active branch LR. The source SHA-256 remained:
+
+```text
+46eb29ebb24e4ed18d1271f80447e873e99f822cefc969a876a420383238b88f
+```
+
+### Results
+
+The second reduction won on both training and validation loss. At the equal
+step-18,000 endpoint, `1e-4` was `0.0057` lower on train loss and `0.0093`
+lower on validation loss. Both branches selected step 17,000 as their best
+fixed-panel checkpoint, where the second drop led by `0.0082` validation-loss
+units.
+
+| Metric | Control (`3e-4`) | Second drop (`1e-4`) | Drop - control |
+| --- | ---: | ---: | ---: |
+| Final train loss at step 18,000 | 1.3358 | **1.3301** | -0.0057 |
+| Final validation loss at step 18,000 | 1.5803 | **1.5710** | -0.0093 |
+| Final generalization gap | 0.2445 | **0.2410** | -0.0035 |
+| Best validation loss / step | 1.5770 / 17,000 | **1.5688 / 17,000** | -0.0082 |
+
+The complete paired fixed-panel curve was:
+
+| Step | Control train | Control val | Second-drop train | Second-drop val |
+| ---: | ---: | ---: | ---: | ---: |
+| 13,000 | 1.3512 | 1.5791 | 1.3512 | 1.5791 |
+| 13,500 | 1.3501 | 1.5815 | 1.3390 | 1.5718 |
+| 14,000 | 1.3474 | 1.5815 | 1.3376 | 1.5715 |
+| 14,500 | 1.3466 | 1.5843 | 1.3358 | 1.5715 |
+| 15,000 | 1.3470 | 1.5829 | 1.3356 | 1.5729 |
+| 15,500 | 1.3436 | 1.5799 | 1.3338 | 1.5694 |
+| 16,000 | 1.3419 | 1.5815 | 1.3330 | 1.5707 |
+| 16,500 | 1.3397 | 1.5803 | 1.3323 | 1.5715 |
+| 17,000 | 1.3384 | **1.5770** | 1.3316 | **1.5688** |
+| 17,500 | 1.3373 | 1.5774 | 1.3310 | 1.5708 |
+| 18,000 | 1.3358 | 1.5803 | 1.3301 | 1.5710 |
+
+The control's measurements through step 15,000 exactly reproduce the prior
+Stage 12 `3e-4` branch to four decimals. This provides an end-to-end check that
+the model, optimizer, and training-batch stream resumed from the intended
+step-13,000 state.
+
+Like the first reduction, `1e-4` did not improve validation by accepting a
+worse training fit: it found lower-loss parameters on both datasets. The
+second decay therefore still addressed an optimization limitation. Its return
+was smaller, however. Most of the validation gain appeared in the first 500
+steps, and the best `1e-4` result was only `0.0030` below its step-13,500
+measurement after another 3,500 updates. Training loss continued downward
+after the best step while validation rose slightly at 17,500 and 18,000.
+
+That is stronger evidence of diminishing optimization returns and a developing
+generalization plateau, although two post-best measurements are not enough to
+declare definitive overfitting. Generated text remains a qualitative sample;
+both branches use the same newline prompt, seed, sampling procedure, and token
+count, while the loss curves remain the comparison metric.
