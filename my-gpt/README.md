@@ -895,3 +895,156 @@ generalization plateau, although two post-best measurements are not enough to
 declare definitive overfitting. Generated text remains a qualitative sample;
 both branches use the same newline prompt, seed, sampling procedure, and token
 count, while the loss curves remain the comparison metric.
+
+## Stage 14: controlled residual-path dropout
+
+`14_dropout.py` tests whether regularization helps after the Stage 13
+optimization gains have flattened. It loads the exact Stage 13 `1e-4` winner
+at step 17,000 twice and advances both branches to step 22,000:
+
+```text
+                         Stage 13 LR-drop winner
+                          step 17,000, lr = 1e-4
+                                    |
+                     +--------------+--------------+
+                     |                             |
+               control branch                dropout branch
+                    p = 0.0                       p = 0.1
+                     |                             |
+               step 22,000                   step 22,000
+```
+
+Dropout is applied only after the attention output projection and after the
+FFN's final `C`-dimensional projection, immediately before each residual
+addition:
+
+```text
+attention heads -> output projection -> dropout -> residual addition
+FFN hidden GELU -> final projection   -> dropout -> residual addition
+```
+
+There are two `nn.Dropout` modules per block and eight in the four-block
+model. They contain no parameters or persistent buffers, so the Stage 13 model
+state loads strictly without renaming any tensor, AdamW's parameter order is
+unchanged, and both branches still have exactly 211,777 trainable parameters.
+The probability and placement are written explicitly into Stage 14 checkpoint
+metadata because they cannot be recovered from the state dict itself.
+
+Run the complete FP32/eager XPU experiment with:
+
+```powershell
+python .\my-gpt\14_dropout.py --device xpu
+```
+
+The default run first evaluates the Stage 12 winner and both Stage 13 winners
+on 500 newly sampled validation batches. It then performs the paired Stage 14
+fork. Pass `--precise-eval-iters 0` to skip the preflight. A short CPU plumbing
+check can use an absolute target just above the fork:
+
+```powershell
+python .\my-gpt\14_dropout.py --device cpu `
+    --max-iters 17001 --precise-eval-iters 2 --sample-length 0 `
+    --control-checkpoint-path .\my-gpt\checkpoints\stage_14_control_smoke.pt `
+    --dropout-checkpoint-path .\my-gpt\checkpoints\stage_14_dropout_smoke.pt
+```
+
+### Precise validation preflight
+
+The fixed 100-batch panel remains the checkpoint-selection and training-curve
+metric. Because those samples have been reused across several stages, Stage 14
+also uses a separate validation-only panel of 500 batches with seed 1,340. All
+three checkpoints see the same new batches, enabling paired loss differences.
+This reduces sampling uncertainty but is still a new sample from the existing
+validation split, not a third held-out dataset.
+
+| Checkpoint | Step | Fixed-panel loss | Fresh 500-batch loss | SE |
+| --- | ---: | ---: | ---: | ---: |
+| Stage 12 `3e-4` winner | 13,000 | 1.5791 | 1.579669 | 0.002627 |
+| Stage 13 `3e-4` control | 17,000 | 1.5770 | 1.576908 | 0.002684 |
+| Stage 13 `1e-4` winner | 17,000 | 1.5688 | **1.569129** | 0.002672 |
+
+The paired deltas were more precise than the standalone standard errors:
+
+| Paired comparison | Mean delta | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Stage 13 control - Stage 12 winner | -0.002761 | 0.000353 | [-0.003452, -0.002069] |
+| Stage 13 `1e-4` - Stage 13 control | **-0.007779** | 0.000178 | **[-0.008128, -0.007430]** |
+
+The fresh panel therefore confirms rather than reverses the Stage 13 result.
+The second learning-rate drop retains a clear advantage over its paired
+control, and both Stage 13 branches improve on the Stage 12 source in this
+larger measurement.
+
+### Exact fork and train/eval behavior
+
+Each branch independently restores the same model tensors, all 94 non-empty
+AdamW state entries, the explicit training-batch generator, and the saved CPU
+and XPU RNG states. Both branches receive the same post-fork training batches.
+The `p=0.1` branch then consumes global XPU RNG for masks; that divergence is
+the intended treatment rather than a loss of pairing.
+
+Every reported train and validation measurement calls `model.eval()` and then
+restores the previous mode. Dropout is therefore off for the complete table
+below. Training calls `model.train()` explicitly, so dropout is active only
+during optimizer updates. The source checkpoint remained unchanged at SHA-256:
+
+```text
+650eb2399a29bced5fa5398dc129228e15e2f4a68fb09db9c44a5400b1f739f1
+```
+
+### Results
+
+The control made a small further improvement. Residual dropout introduced at
+step 17,000 caused a large loss increase and did not recover within 5,000
+updates:
+
+| Step | Control train | Control val | Dropout train | Dropout val |
+| ---: | ---: | ---: | ---: | ---: |
+| 17,000 | 1.3316 | 1.5688 | 1.3316 | 1.5688 |
+| 17,500 | 1.3310 | 1.5708 | 1.4535 | 1.6283 |
+| 18,000 | 1.3301 | 1.5710 | 1.4491 | 1.6279 |
+| 18,500 | 1.3300 | 1.5713 | 1.4479 | 1.6285 |
+| 19,000 | 1.3283 | 1.5700 | 1.4476 | 1.6284 |
+| 19,500 | 1.3270 | 1.5693 | 1.4449 | 1.6260 |
+| 20,000 | 1.3268 | 1.5683 | 1.4438 | **1.6250** |
+| 20,500 | 1.3265 | 1.5706 | 1.4433 | 1.6271 |
+| 21,000 | 1.3249 | **1.5682** | 1.4419 | 1.6252 |
+| 21,500 | 1.3239 | 1.5709 | 1.4416 | 1.6294 |
+| 22,000 | 1.3237 | 1.5686 | 1.4403 | 1.6266 |
+
+| Metric | Control (`p=0.0`) | Dropout (`p=0.1`) | Dropout - control |
+| --- | ---: | ---: | ---: |
+| Final train loss at step 22,000 | **1.3237** | 1.4403 | +0.1166 |
+| Final validation loss at step 22,000 | **1.5686** | 1.6266 | +0.0581 |
+| Final generalization gap | 0.2449 | **0.1864** | -0.0585 |
+| Best validation loss / step | **1.5682 / 21,000** | 1.5688 / 17,000 | +0.0007 |
+
+The smaller dropout-branch gap is not evidence of better generalization here.
+Its measured train loss worsened roughly twice as much as its validation loss,
+and both losses are substantially above the control. No post-fork dropout
+checkpoint beat the common source, so the saved dropout "best" remains the
+step-17,000 source weights with explicit `p=0.1` runtime metadata.
+
+A post-run evaluation of the two saved best checkpoints on the same fresh
+500-batch panel also favors the control:
+
+| Best checkpoint | Fresh loss | SE |
+| --- | ---: | ---: |
+| Stage 14 control, step 21,000 | **1.566965** | 0.002689 |
+| Stage 14 dropout, step 17,000 | 1.569129 | 0.002672 |
+
+The paired `dropout - control` delta is `+0.002164 +/- 0.000202 SE`, with a
+95% interval of `[+0.001767, +0.002561]`.
+
+Stage 14 therefore rejects adding `p=0.1` residual-path dropout during
+late-stage refinement of this already-trained model. It does not establish
+that dropout would hurt if present from step zero, and it does not test a
+smaller probability or a different placement. Those require separate
+experiments rather than reinterpretation of this fork.
+
+```text
+control checkpoint: my-gpt/checkpoints/stage_14_control_best_checkpoint.pt
+dropout checkpoint: my-gpt/checkpoints/stage_14_dropout_best_checkpoint.pt
+complete console record: my-gpt/checkpoints/stage_14_training.log
+post-run precise record: my-gpt/checkpoints/stage_14_posthoc_precise.log
+```
