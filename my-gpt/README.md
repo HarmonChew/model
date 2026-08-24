@@ -1048,3 +1048,173 @@ dropout checkpoint: my-gpt/checkpoints/stage_14_dropout_best_checkpoint.pt
 complete console record: my-gpt/checkpoints/stage_14_training.log
 post-run precise record: my-gpt/checkpoints/stage_14_posthoc_precise.log
 ```
+
+## Stage 15: residual dropout from initialization
+
+`15_dropout_from_initialization.py` tests the question left open by Stage 14:
+does `p=0.1` residual-path dropout help when it is present for the model's
+entire training run? The script creates one seeded model state on CPU, clones
+that exact state into both branches, and constructs a separate AdamW optimizer
+for each:
+
+```text
+                     one cloned initialization
+                               |
+                    +----------+----------+
+                    |                     |
+              control, p=0.0        dropout, p=0.1
+                    |                     |
+                    +--- same batches ---+
+```
+
+The architecture remains `B=32, T=64, C=64, H=4, D=16, FF=256, L=4` by
+default. Dropout remains in the two Stage 14 locations only: after the
+attention output projection and after the FFN output projection, immediately
+before their residual additions. Attention-weight dropout is not added.
+
+Each branch owns an independent CPU batch generator initialized with the same
+seed (`seed + 1` by default), so both consume the same training examples even
+though the dropout branch also samples masks. After model construction and
+state loading, the global CPU and accelerator RNGs are reset to the same
+training seed (`seed + 3` by default) immediately before each branch begins
+its optimizer updates.
+
+Both branches use the discovered learning-rate schedule, indexed by the
+zero-based optimizer update:
+
+```text
+[0, 10000)       lr = 1e-3
+[10000, 13000)   lr = 3e-4
+[13000, 18000)   lr = 1e-4
+```
+
+Thus the state reported as step 10,000 has completed 10,000 updates at
+`1e-3`; update index 10,000 (the next update) uses `3e-4`.
+
+Run the full experiment with:
+
+```powershell
+python .\my-gpt\15_dropout_from_initialization.py --device xpu
+```
+
+The default outputs are:
+
+```text
+control:  my-gpt/checkpoints/stage_15_control_best_checkpoint.pt
+dropout:  my-gpt/checkpoints/stage_15_dropout_best_checkpoint.pt
+```
+
+A tiny CPU plumbing run can compress both decay boundaries and use separate
+output paths:
+
+```powershell
+python .\my-gpt\15_dropout_from_initialization.py --device cpu `
+    --first-decay-step 1 --second-decay-step 2 --max-iters 3 `
+    --eval-interval 1 --eval-iters 2 --precise-eval-iters 2 `
+    --sample-length 0 `
+    --control-checkpoint-path .\my-gpt\checkpoints\stage_15_control_smoke.pt `
+    --dropout-checkpoint-path .\my-gpt\checkpoints\stage_15_dropout_smoke.pt
+```
+
+Every reported training-curve measurement reuses the same fixed train and
+validation panels and evaluates with dropout disabled. After both runs, the
+script loads their best checkpoints and compares them on a fresh reproducible
+validation panel shared by both models. The default uses 500 batches and
+reports the paired dropout-minus-control difference, its standard error, and
+a 95% confidence interval.
+
+### Results
+
+The completed default XPU run trained both 211,777-parameter branches for
+18,000 updates. They used the same initial state, training-batch seed 1,338,
+training RNG seed 1,340, and learning-rate schedule. Their shared initial
+state SHA-256 was:
+
+```text
+88dae91952fe315e838766caa8df2e8624fdcd9dbf0c0ab870cfeeca5ea4bb88
+```
+
+Both branches began with identical fixed-panel losses. The selected curve
+below includes the first comparison, points within each phase, both phase
+boundaries, both post-decay responses, the best-checkpoint step, and the final
+step. Above step zero, the LR shown is the rate used to reach that model state;
+the step-zero row shows the initial scheduled rate.
+
+| Step | LR | Control train | Control val | Control gap | Dropout train | Dropout val | Dropout gap |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 | 1e-3 | 4.3394 | 4.3465 | 0.0071 | 4.3394 | 4.3465 | 0.0071 |
+| 500 | 1e-3 | 2.2155 | 2.2332 | 0.0177 | 2.2392 | 2.2513 | 0.0121 |
+| 1,000 | 1e-3 | 1.9576 | 2.0240 | 0.0664 | 2.0092 | 2.0615 | 0.0523 |
+| 2,500 | 1e-3 | 1.6294 | 1.7787 | 0.1493 | 1.6948 | 1.8364 | 0.1416 |
+| 5,000 | 1e-3 | 1.4930 | 1.6800 | 0.1870 | 1.5489 | 1.7132 | 0.1643 |
+| 7,500 | 1e-3 | 1.4414 | 1.6486 | 0.2073 | 1.4870 | 1.6620 | 0.1750 |
+| 9,500 | 1e-3 | 1.4134 | 1.6257 | 0.2123 | 1.4613 | 1.6461 | 0.1848 |
+| 10,000 | 1e-3 | 1.4100 | 1.6167 | 0.2068 | 1.4533 | 1.6290 | 0.1758 |
+| 10,500 | 3e-4 | 1.3699 | 1.5845 | 0.2146 | 1.4271 | 1.6063 | 0.1792 |
+| 13,000 | 3e-4 | 1.3512 | 1.5791 | 0.2279 | 1.4122 | 1.5996 | 0.1875 |
+| 13,500 | 1e-4 | 1.3390 | 1.5718 | 0.2328 | 1.4045 | 1.5909 | 0.1864 |
+| 15,000 | 1e-4 | 1.3356 | 1.5729 | 0.2374 | 1.4013 | 1.5893 | 0.1880 |
+| 17,000 | 1e-4 | 1.3316 | **1.5688** | 0.2373 | 1.3973 | **1.5843** | 0.1870 |
+| 18,000 | 1e-4 | 1.3301 | 1.5710 | 0.2410 | 1.3957 | 1.5847 | 0.1890 |
+
+The final and best fixed-panel comparisons were:
+
+| Metric | Control (`p=0.0`) | Dropout (`p=0.1`) | Dropout - control |
+| --- | ---: | ---: | ---: |
+| Final train loss at step 18,000 | **1.3301** | 1.3957 | +0.0656 |
+| Final validation loss at step 18,000 | **1.5710** | 1.5847 | +0.0137 |
+| Final train-validation gap | 0.2410 | 0.1890 | -0.0520 |
+| Best checkpoint step | 17,000 | 17,000 | -- |
+| Train loss at best checkpoint | **1.3316** | 1.3973 | +0.0657 |
+| Best validation loss | **1.5688** | 1.5843 | +0.0155 |
+| Gap at best checkpoint | 0.2373 | 0.1870 | -0.0503 |
+
+The smaller dropout gap is not a validation win. Dropout raised both losses;
+its training loss rose much more, which compressed the gap while leaving its
+validation loss above the control.
+
+The control's step-17,000 train, validation, and gap values (`1.3316`,
+`1.5688`, and `0.2373`) reproduce the Stage 13 `1e-4` branch to four decimal
+places. That match provides an end-to-end check of the from-initialization
+control path under the intended protocol. A post-run audit also found exact
+equality between the Stage 15 control and Stage 13 model tensors, AdamW state,
+and training-generator state at step 17,000.
+
+The fresh paired post-run evaluation used 500 validation batches with shared
+panel seed 1,341 and dropout disabled:
+
+| Best checkpoint | Step | Fixed val | Fresh val | SE |
+| --- | ---: | ---: | ---: | ---: |
+| Control | 17,000 | 1.5688 | **1.575934** | 0.002738 |
+| Dropout | 17,000 | 1.5843 | 1.590406 | 0.002382 |
+
+The paired `dropout - control` delta was `+0.014472`, with paired SE
+`0.000835` and a 95% confidence interval of `[+0.012834, +0.016109]`. The
+interval is wholly positive, so the fresh panel confirms the fixed-panel
+ordering. This interval measures validation-batch sampling uncertainty for
+these trained weights; it does not measure variation across independent
+training seeds.
+
+For this initialization and training protocol, `p=0.1` residual-path dropout
+loses even when present from the first update. Stage 14's late introduction
+was therefore not the sole reason `p=0.1` failed. Stage 15 contains no late
+switch and shows no comparable abrupt shock: the dropout branch learned
+continuously from step zero, but remained behind the control instead of
+reaching a better validation optimum.
+
+If the dropout line continues, a from-initialization `p=0.05` comparison under
+the same protocol is the next motivated test. Stage 15 suggests that `p=0.1`
+may be too strong for this model and data; it does not establish that `p=0.05`
+will help.
+
+```text
+control checkpoint: my-gpt/checkpoints/stage_15_control_best_checkpoint.pt
+dropout checkpoint: my-gpt/checkpoints/stage_15_dropout_best_checkpoint.pt
+complete console record: my-gpt/checkpoints/stage_15_training.log
+
+control checkpoint SHA-256:
+4d05d242344f6020a56d93c21507e8b0bc7a73a23d51d65e673982192b180168
+
+dropout checkpoint SHA-256:
+8b3d781476cfbdbe304a54ff6883264697f16d2291ce724997ead29cc28ecfd6
+```
