@@ -28,6 +28,8 @@ from training import (
 # Stage 18 retains Stage 17's winning p=0 architecture and training schedule,
 # but fixes both branches at B=16, T=128. The sole treatment is whether each
 # query may attend to all earlier positions or only its latest 64 positions.
+# The experiment identity and geometry policy are module settings so Stage 19
+# can reuse the paired-training machinery without duplicating this large file.
 _STAGE_17_PATH = Path(__file__).with_name("17_context_length.py")
 _STAGE_17_MODULE_NAME = "stage_17_context_length_for_stage_18"
 _STAGE_17_SPEC = importlib.util.spec_from_file_location(
@@ -72,6 +74,15 @@ DEFAULT_FINAL_LEARNING_RATE = _STAGE_17.DEFAULT_FINAL_LEARNING_RATE
 DEFAULT_PRECISE_EVAL_ITERS = _STAGE_17.DEFAULT_PRECISE_EVAL_ITERS
 DEFAULT_DROPOUT = 0.0
 DROPOUT_PLACEMENT = _STAGE_17.DROPOUT_PLACEMENT
+
+EXPERIMENT_STAGE = 18
+EXPERIMENT_TITLE = "isolated attention span"
+COMPARISON_VARIABLE = "maximum_attention_span"
+PROTOCOL_GEOMETRY = "half_direct_attention_span"
+PROTOCOL_NAME = "attention-span"
+INITIAL_EQUIVALENCE_LABEL = "first-half"
+SUMMARY_SPAN_LABEL = "attention span"
+PRINT_RECEPTIVE_FIELD_DIAGNOSTIC = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +189,19 @@ class ExperimentReport:
     best_val_delta: float
 
     @property
+    def initial_shared_prefix_length(self) -> int:
+        """Return the query-prefix length whose branch masks are identical."""
+
+        assert self.local.spec.max_context is not None
+        return self.local.spec.max_context
+
+    @property
+    def initial_shared_prefix_max_difference(self) -> float:
+        """Return the initialization audit under its general Stage 19 name."""
+
+        return self.initial_first_half_max_difference
+
+    @property
     def final_winner(self) -> str:
         if self.final_val_delta < 0:
             return self.full.spec.name
@@ -234,15 +258,21 @@ class PreciseValidationReport:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Compare local-64 with full-128 causal attention while keeping "
-            "B=16, T=128, parameters, initialization, and batches fixed."
+            f"Stage {EXPERIMENT_STAGE}: compare local-{DEFAULT_LOCAL_CONTEXT} "
+            f"with full-{DEFAULT_BLOCK_SIZE} causal attention while keeping "
+            "batch geometry, parameters, initialization, and batches fixed."
         )
     )
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA_PATH)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--block-size", type=int, default=DEFAULT_BLOCK_SIZE)
     parser.add_argument(
-        "--local-context", type=int, default=DEFAULT_LOCAL_CONTEXT
+        "--local-context",
+        "--local-window",
+        dest="local_context",
+        type=int,
+        default=DEFAULT_LOCAL_CONTEXT,
+        help="Per-layer causal attention window for the local branch.",
     )
     parser.add_argument("--n-embd", type=int, default=64)
     parser.add_argument("--n-head", type=int, default=4)
@@ -325,7 +355,7 @@ def _validate_non_negative_integer(value: int, *, name: str) -> int:
 
 
 def make_position_bands(block_size: int) -> tuple[tuple[int, int], ...]:
-    """Return the four equal position bands used by the Stage 18 report."""
+    """Return the four equal position bands used by the experiment report."""
 
     if block_size <= 0 or block_size % 4 != 0:
         raise ValueError(
@@ -348,8 +378,7 @@ def build_attention_mask(
     if max_context is not None:
         if isinstance(max_context, bool) or not isinstance(max_context, int):
             raise ValueError(
-                "max_context must be a positive integer or None, got "
-                f"{max_context!r}"
+                f"max_context must be a positive integer or None, got {max_context!r}"
             )
         if not 0 < max_context <= block_size:
             raise ValueError(
@@ -378,6 +407,45 @@ def theoretical_receptive_field_width(
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise ValueError(f"{name} must be a positive integer, got {value!r}")
     return 1 + n_layer * (direct_attention_span - 1)
+
+
+def receptive_field_widths_by_layer(
+    n_layer: int,
+    direct_attention_span: int,
+) -> tuple[int, ...]:
+    """Return the uncapped local receptive-field width after each block."""
+
+    theoretical_receptive_field_width(n_layer, direct_attention_span)
+    return tuple(
+        theoretical_receptive_field_width(layer, direct_attention_span)
+        for layer in range(1, n_layer + 1)
+    )
+
+
+def print_receptive_field_diagnostic(
+    n_layer: int,
+    direct_attention_span: int,
+) -> None:
+    """Print the local branch's theoretical receptive field by block."""
+
+    for layer, receptive_field in enumerate(
+        receptive_field_widths_by_layer(n_layer, direct_attention_span),
+        start=1,
+    ):
+        print(f"after block {layer}: max receptive field = {receptive_field}")
+
+
+def local_span_for_half_receptive_field(
+    block_size: int,
+    n_layer: int,
+) -> int:
+    """Return the smallest window whose stacked RF reaches half the sequence."""
+
+    for value, name in ((block_size, "block_size"), (n_layer, "n_layer")):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(f"{name} must be a positive integer, got {value!r}")
+    target_width = math.ceil(block_size / 2)
+    return 1 + math.ceil((target_width - 1) / n_layer)
 
 
 def attention_mask_kind(spec: AttentionSpec) -> str:
@@ -414,6 +482,8 @@ def validate_attention_protocol(
     config: TrainingConfig,
     local: AttentionSpec,
     full: AttentionSpec,
+    *,
+    n_layer: int | None = None,
 ) -> tuple[int, tuple[tuple[int, int], ...]]:
     if local.name == full.name:
         raise ValueError("local and full branch names must differ")
@@ -421,10 +491,41 @@ def validate_attention_protocol(
         raise ValueError("the local branch must set max_context")
     if full.max_context is not None:
         raise ValueError("the full branch must use max_context=None")
-    if config.block_size != 2 * local.max_context:
-        raise ValueError(
-            "Stage 18 requires block_size to equal twice local max_context"
+    if local.max_context > config.block_size:
+        raise ValueError("local max_context must not exceed block_size")
+    if PROTOCOL_GEOMETRY == "half_direct_attention_span":
+        if config.block_size != 2 * local.max_context:
+            raise ValueError(
+                f"Stage {EXPERIMENT_STAGE} requires block_size to equal "
+                "twice local max_context"
+            )
+    elif PROTOCOL_GEOMETRY == "half_effective_receptive_field":
+        if isinstance(n_layer, bool) or not isinstance(n_layer, int) or n_layer <= 0:
+            raise ValueError(
+                "n_layer must be a positive integer for the effective "
+                f"receptive-field protocol, got {n_layer!r}"
+            )
+        expected_span = local_span_for_half_receptive_field(
+            config.block_size,
+            n_layer,
         )
+        if local.max_context != expected_span:
+            raise ValueError(
+                f"Stage {EXPERIMENT_STAGE} requires local max_context="
+                f"{expected_span} for block_size={config.block_size} and "
+                f"n_layer={n_layer}, got {local.max_context}"
+            )
+        local_receptive_field = theoretical_receptive_field_width(
+            n_layer,
+            local.max_context,
+        )
+        if local_receptive_field >= config.block_size:
+            raise ValueError(
+                "the local receptive field must remain smaller than "
+                "block_size for this protocol"
+            )
+    else:
+        raise RuntimeError(f"unknown protocol geometry {PROTOCOL_GEOMETRY!r}")
 
     labelled_paths = {
         "local checkpoint": _resolved_output_paths(local)[0],
@@ -450,9 +551,7 @@ def validate_attention_protocol(
                     f"{first_label} and {second_label} must not be the same file"
                 )
 
-    return config.batch_size * config.block_size, make_position_bands(
-        config.block_size
-    )
+    return config.batch_size * config.block_size, make_position_bands(config.block_size)
 
 
 def _apply_attention_mask(
@@ -518,7 +617,7 @@ def create_paired_initial_states(
 ) -> PairedInitialStates:
     """Create states whose learned tensors are identical and masks differ."""
 
-    validate_attention_protocol(config, local, full)
+    validate_attention_protocol(config, local, full, n_layer=n_layer)
     seed_everything(config.seed)
     full_model = _build_model(data, config, n_head, n_layer, full)
     full_state = _clone_state(full_model)
@@ -595,7 +694,7 @@ def verify_model_mask(
 
 
 @torch.no_grad()
-def verify_initial_first_half_equivalence(
+def verify_initial_shared_prefix_equivalence(
     local_model: GPTLanguageModel,
     full_model: GPTLanguageModel,
     data: CharacterData,
@@ -603,7 +702,17 @@ def verify_initial_first_half_equivalence(
     device: torch.device,
     *,
     seed: int,
+    prefix_length: int,
 ) -> float:
+    if (
+        isinstance(prefix_length, bool)
+        or not isinstance(prefix_length, int)
+        or not 0 < prefix_length <= config.block_size
+    ):
+        raise ValueError(
+            "prefix_length must be an integer in "
+            f"[1, {config.block_size}], got {prefix_length!r}"
+        )
     generator = torch.Generator().manual_seed(seed)
     inputs, _ = data.get_batch(
         "val",
@@ -619,9 +728,8 @@ def verify_initial_first_half_equivalence(
     try:
         local_logits, _ = local_model(inputs)
         full_logits, _ = full_model(inputs)
-        midpoint = config.block_size // 2
         difference = (
-            (local_logits[:, :midpoint] - full_logits[:, :midpoint])
+            (local_logits[:, :prefix_length] - full_logits[:, :prefix_length])
             .abs()
             .max()
             .item()
@@ -631,10 +739,32 @@ def verify_initial_first_half_equivalence(
         full_model.train(full_was_training)
     if difference > 1e-6:
         raise RuntimeError(
-            "initial first-half logits differ despite identical parameters "
+            "initial shared-prefix logits differ despite identical parameters "
             f"and masks there: max absolute difference {difference}"
         )
     return difference
+
+
+def verify_initial_first_half_equivalence(
+    local_model: GPTLanguageModel,
+    full_model: GPTLanguageModel,
+    data: CharacterData,
+    config: TrainingConfig,
+    device: torch.device,
+    *,
+    seed: int,
+) -> float:
+    """Retain the Stage 18 audit API for callers and saved documentation."""
+
+    return verify_initial_shared_prefix_equivalence(
+        local_model,
+        full_model,
+        data,
+        config,
+        device,
+        seed=seed,
+        prefix_length=config.block_size // 2,
+    )
 
 
 def position_cross_entropy(
@@ -775,7 +905,7 @@ def evaluate_on_fixed_batches(
 
 @dataclass(slots=True)
 class AttentionValidationCheckpoint(BestValidationCheckpoint):
-    """Persist a Stage 18 best checkpoint and its isolation contract."""
+    """Persist a best checkpoint and its experimental isolation contract."""
 
     branch_spec: AttentionSpec | None = None
     local_spec: AttentionSpec | None = None
@@ -803,7 +933,9 @@ class AttentionValidationCheckpoint(BestValidationCheckpoint):
             or self.best_validation_losses is None
             or not self.bands
         ):
-            raise RuntimeError("incomplete Stage 18 checkpoint metadata")
+            raise RuntimeError(
+                f"incomplete Stage {EXPERIMENT_STAGE} checkpoint metadata"
+            )
 
         optimizer_rates = {float(group["lr"]) for group in self.optimizer.param_groups}
         if len(optimizer_rates) != 1:
@@ -839,13 +971,9 @@ class AttentionValidationCheckpoint(BestValidationCheckpoint):
                 "residual_dropout": DEFAULT_DROPOUT,
                 "training_batch_seed": self.training_batch_seed,
                 "training_rng_seed": self.training_rng_seed,
-                "targets_per_update": (
-                    self.config.batch_size * self.config.block_size
-                ),
+                "targets_per_update": (self.config.batch_size * self.config.block_size),
                 "total_target_characters": (
-                    self.config.batch_size
-                    * self.config.block_size
-                    * self.target_step
+                    self.config.batch_size * self.config.block_size * self.target_step
                 ),
             }
         )
@@ -860,10 +988,10 @@ class AttentionValidationCheckpoint(BestValidationCheckpoint):
             "full_mask_sha256": self.full_mask_sha256,
         }
         payload["experiment"] = {
-            "stage": 18,
+            "stage": EXPERIMENT_STAGE,
             "branch": self.branch_spec.name,
             "from_scratch": True,
-            "comparison_variable": "maximum_attention_span",
+            "comparison_variable": COMPARISON_VARIABLE,
             "branch_max_context": self.branch_spec.max_context,
             "branch_direct_attention_span": (
                 self.branch_spec.max_context or self.config.block_size
@@ -956,9 +1084,7 @@ def inspect_attention_shape(
             raise RuntimeError(
                 f"{spec.name} attention shape must be {expected}, got {shape}"
             )
-        allowed = build_attention_mask(config.block_size, spec.max_context).to(
-            device
-        )
+        allowed = build_attention_mask(config.block_size, spec.max_context).to(device)
         forbidden = weights.masked_select(~allowed[None, None])
         if forbidden.numel() and torch.count_nonzero(forbidden).item() != 0:
             raise RuntimeError(f"{spec.name} assigns weight to masked positions")
@@ -978,10 +1104,7 @@ def train_with_schedule(
     bands: Sequence[tuple[int, int]],
     *,
     on_evaluation: Callable[[AttentionEvaluationRecord], None],
-    on_update: Callable[
-        [int, float, torch.Tensor, torch.Tensor], None
-    ]
-    | None = None,
+    on_update: Callable[[int, float, torch.Tensor, torch.Tensor], None] | None = None,
 ) -> AttentionTrainingResult:
     schedule.validate_target_step(config.max_iters)
     history: list[AttentionEvaluationRecord] = []
@@ -1091,7 +1214,7 @@ def benchmark_attention_branch(
     training_rng_seed: int,
     benchmark: BenchmarkConfig,
 ) -> BenchmarkStats:
-    """Benchmark a disposable branch on the exact Stage 18 update path."""
+    """Benchmark a disposable branch on the exact experiment update path."""
 
     clear_accelerator_cache(device)
     model = _build_model(data, config, n_head, n_layer, spec, device)
@@ -1134,9 +1257,7 @@ def benchmark_attention_branch(
     stats = BenchmarkStats(
         seconds=elapsed,
         iterations_per_sec=iterations_per_sec,
-        tokens_per_sec=(
-            iterations_per_sec * config.batch_size * config.block_size
-        ),
+        tokens_per_sec=(iterations_per_sec * config.batch_size * config.block_size),
         peak_allocated_mb=peak_allocated / 1024**2,
         peak_reserved_mb=peak_reserved / 1024**2,
     )
@@ -1354,7 +1475,6 @@ def run_experiment(
     training_rng_seed: int,
     benchmark: BenchmarkConfig | None,
 ) -> ExperimentReport:
-    targets_per_update, bands = validate_attention_protocol(config, local, full)
     _validate_config(config, schedule)
     if sample_length < 0:
         raise ValueError("sample-length must be non-negative")
@@ -1365,6 +1485,12 @@ def run_experiment(
         )
     if n_layer <= 0:
         raise ValueError(f"n_layer must be positive, got {n_layer}")
+    targets_per_update, bands = validate_attention_protocol(
+        config,
+        local,
+        full,
+        n_layer=n_layer,
+    )
     if benchmark is not None:
         required = benchmark.num_warmup + benchmark.num_steps
         if required > config.max_iters:
@@ -1389,7 +1515,7 @@ def run_experiment(
         local,
         full,
     )
-    print("\nControlled from-initialization attention-span protocol")
+    print(f"\nControlled from-initialization {PROTOCOL_NAME} protocol")
     print(
         "  Both branches train from step zero on identical "
         f"{config.block_size}-token batches."
@@ -1403,10 +1529,7 @@ def run_experiment(
         f"  Targets per update: {targets_per_update:,}; total per branch: "
         f"{targets_per_update * config.max_iters:,}."
     )
-    print(
-        "  shared parameter SHA-256:   "
-        f"{initialization.parameter_state_sha256}"
-    )
+    print(f"  shared parameter SHA-256:   {initialization.parameter_state_sha256}")
     print(f"  local mask SHA-256:         {initialization.local_mask_sha256}")
     print(f"  full mask SHA-256:          {initialization.full_mask_sha256}")
 
@@ -1418,28 +1541,35 @@ def run_experiment(
     )
     local_audit_model.load_state_dict(initialization.local, strict=True)
     full_audit_model.load_state_dict(initialization.full, strict=True)
-    initial_first_half_max_difference = verify_initial_first_half_equivalence(
+    initial_shared_prefix_length = local.max_context
+    initial_shared_prefix_max_difference = verify_initial_shared_prefix_equivalence(
         local_audit_model,
         full_audit_model,
         data,
         config,
         torch.device("cpu"),
         seed=config.seed + 6,
+        prefix_length=initial_shared_prefix_length,
     )
     del local_audit_model
     del full_audit_model
-    print(
-        "  Initial first-half max logit difference: "
-        f"{initial_first_half_max_difference:.3e}"
-    )
+    if INITIAL_EQUIVALENCE_LABEL == "first-half":
+        print(
+            "  Initial first-half max logit difference: "
+            f"{initial_shared_prefix_max_difference:.3e}"
+        )
+    else:
+        print(
+            f"  Initial {INITIAL_EQUIVALENCE_LABEL} max logit difference "
+            f"(positions 0-{initial_shared_prefix_length - 1}): "
+            f"{initial_shared_prefix_max_difference:.3e}"
+        )
 
     local_benchmark: BenchmarkStats | None = None
     full_benchmark: BenchmarkStats | None = None
     if benchmark is not None:
         print("\nCounterbalanced disposable training benchmark")
-        print(
-            f"  Order: {local.name}, {full.name}, {full.name}, {local.name}"
-        )
+        print(f"  Order: {local.name}, {full.name}, {full.name}, {local.name}")
         print(
             f"  Each run: {benchmark.num_warmup} warmup + "
             f"{benchmark.num_steps} timed updates"
@@ -1529,16 +1659,13 @@ def run_experiment(
         raise RuntimeError("branches were not evaluated at matching steps")
 
     final_val_delta = (
-        full_report.training.final.val.overall
-        - local_report.training.final.val.overall
+        full_report.training.final.val.overall - local_report.training.final.val.overall
     )
     best_val_delta = full_report.best_val_loss - local_report.best_val_loss
-    print("\nStage 18 experimental summary")
+    print(f"\nStage {EXPERIMENT_STAGE} experimental summary")
+    print(f"  both branches B/T:            {config.batch_size}/{config.block_size}")
     print(
-        f"  both branches B/T:            {config.batch_size}/{config.block_size}"
-    )
-    print(
-        f"  local/full attention span:    {local.max_context}/{config.block_size}"
+        f"  local/full {SUMMARY_SPAN_LABEL}:    {local.max_context}/{config.block_size}"
     )
     print(
         "  local uncapped receptive field:"
@@ -1547,12 +1674,9 @@ def run_experiment(
     )
     print(f"  target characters/update:     {targets_per_update:,}")
     print(f"  parameter count (both):       {local_report.parameter_count:,}")
+    print(f"  attention shape (both):       {local_report.attention_shape}")
     print(
-        f"  attention shape (both):       {local_report.attention_shape}"
-    )
-    print(
-        f"  attention elements/block:     "
-        f"{math.prod(local_report.attention_shape):,}"
+        f"  attention elements/block:     {math.prod(local_report.attention_shape):,}"
     )
     print(
         f"  local final train / val:      "
@@ -1585,10 +1709,7 @@ def run_experiment(
             full_report.training.final.val.bands[index]
             - local_report.training.final.val.bands[index]
         )
-        print(
-            f"  final val delta {start:03d}-{end - 1:03d}:      "
-            f"{delta:+.4f}"
-        )
+        print(f"  final val delta {start:03d}-{end - 1:03d}:      {delta:+.4f}")
     print(f"  local checkpoint:             {local.checkpoint_path}")
     print(f"  full checkpoint:              {full.checkpoint_path}")
     print(f"\n{local.name} final-step generated text")
@@ -1606,7 +1727,7 @@ def run_experiment(
         bands=bands,
         local=local_report,
         full=full_report,
-        initial_first_half_max_difference=initial_first_half_max_difference,
+        initial_first_half_max_difference=initial_shared_prefix_max_difference,
         final_val_delta=final_val_delta,
         best_val_delta=best_val_delta,
     )
@@ -1640,7 +1761,7 @@ def expected_training_generator_state(
     return generator.get_state().clone()
 
 
-def validate_stage_18_checkpoint(
+def validate_experiment_checkpoint(
     path: Path,
     data: CharacterData,
     config: TrainingConfig,
@@ -1671,7 +1792,11 @@ def validate_stage_18_checkpoint(
     if checkpoint.get("checkpoint_kind") != "best":
         raise ValueError("checkpoint kind must be 'best'")
     step = checkpoint.get("step")
-    if isinstance(step, bool) or not isinstance(step, int) or not 0 <= step <= config.max_iters:
+    if (
+        isinstance(step, bool)
+        or not isinstance(step, int)
+        or not 0 <= step <= config.max_iters
+    ):
         raise ValueError("checkpoint step is invalid")
     if checkpoint.get("best_step") != step:
         raise ValueError("checkpoint best_step must equal step")
@@ -1685,13 +1810,13 @@ def validate_stage_18_checkpoint(
     if checkpoint.get("data_fingerprint") != fingerprint_data(data):
         raise ValueError("checkpoint data fingerprint does not match")
     if checkpoint.get("optimizer_restart_step") is not None:
-        raise ValueError("Stage 18 checkpoints must not restart the optimizer")
+        raise ValueError(
+            f"Stage {EXPERIMENT_STAGE} checkpoints must not restart the optimizer"
+        )
     if checkpoint.get("optimizer_provenance_known") is not True:
-        raise ValueError("Stage 18 optimizer provenance must be known")
+        raise ValueError(f"Stage {EXPERIMENT_STAGE} optimizer provenance must be known")
 
-    architecture = _require_mapping(
-        checkpoint.get("architecture"), name="architecture"
-    )
+    architecture = _require_mapping(checkpoint.get("architecture"), name="architecture")
     expected_architecture = {
         "block_size": config.block_size,
         "n_embd": config.n_embd,
@@ -1733,10 +1858,10 @@ def validate_stage_18_checkpoint(
     schedule_metadata = schedule.as_metadata(max_iters=config.max_iters)
     experiment = _require_mapping(checkpoint.get("experiment"), name="experiment")
     expected_experiment = {
-        "stage": 18,
+        "stage": EXPERIMENT_STAGE,
         "branch": spec.name,
         "from_scratch": True,
-        "comparison_variable": "maximum_attention_span",
+        "comparison_variable": COMPARISON_VARIABLE,
         "branch_max_context": spec.max_context,
         "branch_direct_attention_span": spec.max_context or config.block_size,
         "uncapped_local_receptive_field_width": (
@@ -1880,6 +2005,10 @@ def validate_stage_18_checkpoint(
     return checkpoint
 
 
+# Retain the public Stage 18 name for existing callers and artifacts.
+validate_stage_18_checkpoint = validate_experiment_checkpoint
+
+
 @torch.no_grad()
 def estimate_validation_precise(
     model: GPTLanguageModel,
@@ -1981,14 +2110,7 @@ def _paired_t_95_critical_value(sample_count: int) -> float:
         z
         + (z**3 + z) * inverse_df / 4
         + (5 * z**5 + 16 * z**3 + 3 * z) * inverse_df**2 / 96
-        + (
-            3 * z**7
-            + 19 * z**5
-            + 17 * z**3
-            - 15 * z
-        )
-        * inverse_df**3
-        / 384
+        + (3 * z**7 + 19 * z**5 + 17 * z**3 - 15 * z) * inverse_df**3 / 384
     )
 
 
@@ -2121,7 +2243,7 @@ def run_precise_validation(
         (full, initialization.full_state_sha256),
     ):
         before_hash = checkpoint_sha256(spec.checkpoint_path)
-        checkpoint = validate_stage_18_checkpoint(
+        checkpoint = validate_experiment_checkpoint(
             spec.checkpoint_path,
             data,
             config,
@@ -2182,7 +2304,7 @@ def run_precise_validation(
 
 
 def print_precise_validation(report: PreciseValidationReport) -> None:
-    print("\nFresh paired validation of Stage 18 best checkpoints")
+    print(f"\nFresh paired validation of Stage {EXPERIMENT_STAGE} best checkpoints")
     print(
         f"  {report.eval_iters} paired validation batches per checkpoint, "
         f"seed={report.seed}"
@@ -2301,7 +2423,12 @@ def main() -> None:
         max_context=None,
         checkpoint_path=args.full_checkpoint_path,
     )
-    _, bands = validate_attention_protocol(config, local, full)
+    _, bands = validate_attention_protocol(
+        config,
+        local,
+        full,
+        n_layer=args.n_layer,
+    )
     schedule.validate_target_step(args.max_iters)
     training_batch_seed = (
         args.training_batch_seed
@@ -2309,14 +2436,10 @@ def main() -> None:
         else args.seed + 1
     )
     training_rng_seed = (
-        args.training_rng_seed
-        if args.training_rng_seed is not None
-        else args.seed + 3
+        args.training_rng_seed if args.training_rng_seed is not None else args.seed + 3
     )
     precise_eval_seed = (
-        args.precise_eval_seed
-        if args.precise_eval_seed is not None
-        else args.seed + 7
+        args.precise_eval_seed if args.precise_eval_seed is not None else args.seed + 7
     )
     for name, value in (
         ("training batch seed", training_batch_seed),
@@ -2334,7 +2457,7 @@ def main() -> None:
     device = resolve_device(args.device)
     data = CharacterData.from_file(args.data)
     print(
-        "Stage 18: isolated attention span "
+        f"Stage {EXPERIMENT_STAGE}: {EXPERIMENT_TITLE} "
         f"local-{args.local_context} vs full-{args.block_size}"
     )
     print(f"Device: {device}")
@@ -2353,6 +2476,9 @@ def main() -> None:
         f"Masks: local max_context={local.max_context}; full causal context; "
         f"bands={bands}"
     )
+    if PRINT_RECEPTIVE_FIELD_DIAGNOSTIC:
+        print("Local theoretical receptive field by block:")
+        print_receptive_field_diagnostic(args.n_layer, args.local_context)
     print(
         "Schedule by zero-based update: "
         f"[0, {schedule.first_decay_step:,}) "

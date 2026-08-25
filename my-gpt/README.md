@@ -1880,3 +1880,241 @@ The complete canonical console output supplied after the run is archived in
 the supplied output, not the original live `Tee-Object` capture. The checkpoint
 metadata, hashes, and fresh 500-batch evaluation above were independently
 revalidated from the saved artifacts.
+
+## Stage 19: bounded theoretical receptive field
+
+`19_receptive_field.py` follows the null Stage 18 context diagnostic with a
+local branch whose stacked receptive field no longer covers the full sequence.
+Stage 18 used a 64-position window in each of four blocks, giving an uncapped
+theoretical receptive-field width of `253`, larger than `T=128`. Stage 19 uses
+the smallest integer window whose four-block receptive field reaches roughly
+half of the sequence:
+
+```text
+W = 17
+R = 1 + L(W - 1)
+  = 1 + 4(17 - 1)
+  = 65
+```
+
+The controlled configuration remains:
+
+| Setting | Local control | Full treatment |
+| --- | ---: | ---: |
+| Batch size | 16 | 16 |
+| Sequence length | 128 | 128 |
+| Targets/update | 2,048 | 2,048 |
+| Learned position rows | 128 | 128 |
+| Parameters | 215,873 | 215,873 |
+| Attention tensor/block | `(16, 4, 128, 128)` | `(16, 4, 128, 128)` |
+| Per-layer attention span | latest 17 positions | full causal prefix |
+| Maximum theoretical RF | 65 positions | 128 positions |
+
+Both branches retain `C=64, H=4, D=16, FF=256, L=4`, zero residual dropout,
+the same 18,000-update learning-rate schedule, identical learned
+initialization, identical `B=16,T=128` training batches, and identical absolute
+positional embeddings. Only the per-layer causal mask policy changes.
+
+Before training, the program prints the local receptive-field calculation for
+every block:
+
+```text
+after block 1: max receptive field = 17
+after block 2: max receptive field = 33
+after block 3: max receptive field = 49
+after block 4: max receptive field = 65
+```
+
+For query position `q` after block `l`, the position-dependent width is:
+
+```text
+R_l(q) = min(q + 1, 1 + l(W - 1))
+```
+
+At query 127, Local-17 can theoretically depend on inputs 63 through 127;
+Full-128 can depend on inputs 0 through 127. Query 64 still has its complete
+65-position causal prefix available locally. Position 65 is the first query
+for which the full branch has a reachable input origin that the four-block
+local branch cannot reach, making zero-based positions `[65,128)` the cleanest
+extra-history region.
+
+### Safeguards and interpretation
+
+The masks are identical only for query positions 0 through 16; row 17 is the
+first to differ. Stage 19 therefore replaces Stage 18's initial first-half
+equivalence check with an exact shared-prefix logit audit over positions
+`[0,17)`. It retains the identical-parameter, mask-buffer, training-batch,
+checkpoint-provenance, dense-shape, and fresh paired-validation safeguards.
+Overall, half, and four-band losses are unchanged for comparability with Stage
+18. The second-half aggregate `[64,128)` is an approximate extra-history proxy
+that includes the single boundary query 64, where both branches can still
+reach the complete prefix.
+
+The value 65 is a maximum theoretical dependency width, not a guarantee that
+the trained model preserves or uses information from every reachable
+position. This is also not equivalent to an ordinary `T=64` model. Distant
+information in Local-17 must travel through intermediate representations,
+whereas Full-128 can reach its complete causal prefix directly in every block.
+The intervention therefore bundles maximum reachable history, information
+path length, and the training effects of a different mask policy.
+
+Both implementations still form dense `128 x 128` attention score tensors and
+mask unwanted local entries afterward. As in Stage 18, the benchmark measures
+dense mask-policy overhead, not the potential speed or memory benefit of a
+specialized sparse local-attention kernel.
+
+Run the canonical experiment with:
+
+```powershell
+python .\my-gpt\19_receptive_field.py --device xpu 2>&1 | Tee-Object -FilePath .\my-gpt\checkpoints\stage_19_training.log
+```
+
+A small CPU plumbing run uses `T=8,W=3,L=2`, whose local receptive field is 5:
+
+```powershell
+python .\my-gpt\19_receptive_field.py --device cpu `
+    --batch-size 2 --block-size 8 --local-window 3 `
+    --n-embd 8 --n-head 2 --n-layer 2 `
+    --first-decay-step 1 --second-decay-step 2 --max-iters 3 `
+    --eval-interval 1 --eval-iters 1 --precise-eval-iters 2 `
+    --benchmark-warmup 1 --benchmark-steps 2 --sample-length 0 `
+    --local-checkpoint-path .\my-gpt\checkpoints\stage_19_local_smoke.pt `
+    --full-checkpoint-path .\my-gpt\checkpoints\stage_19_full_smoke.pt
+```
+
+The default best-checkpoint outputs are:
+
+```text
+my-gpt/checkpoints/stage_19_local_17_best_checkpoint.pt
+my-gpt/checkpoints/stage_19_full_128_best_checkpoint.pt
+```
+
+### Results
+
+The canonical XPU run completed all 18,000 updates on an Intel Arc 140T. The
+saved checkpoints independently passed the complete Stage 19 contract: data,
+architecture, all 16 attention-mask buffers, learned initialization, seeds,
+schedule, optimizer provenance, and batch-generator replay. Re-evaluating the
+fixed 100-batch panels and the fresh 500 paired batches reproduced every saved
+or displayed loss, standard error, and confidence interval exactly.
+
+```text
+shared learned-parameter SHA-256:
+bfccda39e33b36457f947fa1a41c9f230e860b96f25531cb61e3cf965ffcf02c
+
+local mask-policy SHA-256:
+fc25dd44948a4f2e3be00e5f305b4412c62e4c3b3d05cf70ae007a3c693e20ad
+
+full mask-policy SHA-256:
+91fc1df848a40db0decca26c27935e4ae74bc4ec8a09f3bf8ee6dda243dceabd
+
+initial shared-prefix maximum logit difference: 0.000e+00
+```
+
+The dense implementations again had the same measured memory requirements.
+Local-17 was about 1.6% faster in this short counterbalanced benchmark, a
+small difference that does not establish a systems advantage:
+
+| Metric | Local-17 | Full-128 | Full change |
+| --- | ---: | ---: | ---: |
+| Iterations/second | 41.283 | 40.632 | -1.6% |
+| Target characters/second | 84,547.187 | 83,214.077 | -1.6% |
+| Peak allocated memory | 54.988 MiB | 54.988 MiB | 0 |
+| Peak reserved memory | 62.000 MiB | 62.000 MiB | 0 |
+
+Local-17 learned faster through most of training on the repeatedly evaluated
+fixed panel. Full-128 first moved ahead at step 13,000 and remained lower
+thereafter. It had the lower final fixed-panel validation loss and the lower
+independently selected fixed-panel best loss:
+
+| Branch | Best step | Best fixed val | Final train | Final val |
+| --- | ---: | ---: | ---: | ---: |
+| Local-17 | 17,000 | 1.5684 | **1.3060** | 1.5715 |
+| Full-128 | 16,500 | **1.5628** | 1.3345 | **1.5649** |
+
+The best fixed-panel difference was `-0.005562`, and the same-step final
+difference was approximately `-0.0066`, where negative `full - local` values
+favor Full-128. The final band differences were `+0.0016`, `-0.0121`,
+`-0.0125`, and `-0.0034` from earliest to latest. These are measurements on
+the reused selection panel and have no repeated-panel uncertainty interval.
+
+Fresh evaluation reloaded the two overall-best checkpoints on 500 paired
+validation batches with seed 1,344:
+
+| Best checkpoint | Step | Overall | First half | Second half |
+| --- | ---: | ---: | ---: | ---: |
+| Local-17 | 17,000 | 1.577164 | 1.594120 | 1.560208 |
+| Full-128 | 16,500 | 1.577779 | 1.595293 | 1.560265 |
+
+The fresh point estimates slightly favor Local-17, but all three aggregate
+intervals include zero:
+
+| Paired delta, `full - local` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | +0.000615 | 0.000792 | [-0.000940, +0.002171] |
+| First half | +0.001173 | 0.001121 | [-0.001030, +0.003376] |
+| Second half | +0.000058 | 0.001089 | [-0.002081, +0.002196] |
+| Positions 0-31 | +0.004495 | 0.001504 | [+0.001540, +0.007450] |
+| Positions 32-63 | -0.002148 | 0.001580 | [-0.005252, +0.000955] |
+| Positions 64-95 | -0.003296 | 0.001640 | [-0.006518, -0.000073] |
+| Positions 96-127 | +0.003411 | 0.001562 | [+0.000342, +0.006480] |
+
+The fixed-panel advantage therefore did not survive the fresh comparison: it
+reversed from `-0.005562` to `+0.000615`. The second half is the closest
+reported proxy for positions where Full-128 has additional reachable input
+origins, and its difference is effectively zero. Stage 19 provides no
+convincing overall or second-half advantage for Full-128 over a four-layer
+Local-17 model with a maximum theoretical receptive field of 65 positions.
+
+The exploratory bands are mixed rather than distance-monotonic. Positions
+64-95 favor Full-128 pointwise, while both the earliest and latest bands favor
+Local-17 pointwise. These four intervals are not multiplicity-adjusted, so
+they do not support separate positional-effect claims. In particular, the
+latest band does not show the increasing full-context benefit predicted by a
+simple history-length account.
+
+The Full-128 model state, optimizer state, selected step, saved losses, and
+training-generator state are tensor-for-tensor identical to the Stage 18
+Full-128 branch. Only the experiment and initialization-policy metadata differ,
+as expected. This reproduces the full branch while isolating the new Local-17
+control.
+
+Under the predefined fixed-panel checkpoint-selection rule, Full-128 is the
+nominal Stage 19 winner. It should not be recorded as a demonstrated
+context-length win: the more trustworthy fresh aggregate and second-half
+results are ties, the experiment uses one paired training seed, and its
+confidence intervals measure validation-batch sampling uncertainty rather
+than training-seed variability. The supported conclusion is narrower:
+
+```text
+full causal attention produced no detectable fresh-validation improvement
+over four-layer local-17 attention with a theoretical 65-position receptive
+field in this model and training run
+```
+
+```text
+local checkpoint:
+my-gpt/checkpoints/stage_19_local_17_best_checkpoint.pt
+
+local checkpoint SHA-256:
+7e670e63cd63f5f745febfffc0a2e2e4b235f4cc4c8d3e5f6fb630b60a587ba7
+
+full checkpoint:
+my-gpt/checkpoints/stage_19_full_128_best_checkpoint.pt
+
+full checkpoint SHA-256:
+a767130bae617ceef518d2c0020995319d52a659fa1fa97fb13c528526ec9e20
+
+canonical console transcript:
+my-gpt/checkpoints/stage_19_training.log
+
+console transcript SHA-256:
+2c4bba31081230feb2f0806cba6a6d70aa69d7d960023f71b9c7ac6fb3c46d7e
+```
+
+`stage_19_training.log` is the post-run console transcript supplied after the
+canonical run, not the original live `Tee-Object` byte stream. Its hash
+authenticates the persisted transcript. Checkpoint metadata and both
+validation panels were independently revalidated from the saved artifacts;
+benchmark timings, final-step metrics, and generated samples rely on the
+supplied transcript.
