@@ -802,6 +802,11 @@ def validate_stage_21_checkpoint(
     training_rng_seed: int,
     control_checkpoint_sha256: str,
     control_checkpoint_step: int,
+    checkpoint_stage: int = 21,
+    control_stage: int = 20,
+    control_branch: str | None = None,
+    control_dropout: float = DEFAULT_CONTROL_DROPOUT,
+    initialization_kind: str = "shared_with_stage_20_width_128_control",
 ) -> Mapping[str, object]:
     if not path.is_file():
         raise FileNotFoundError(f"Stage 21 checkpoint not found: {path}")
@@ -872,7 +877,7 @@ def validate_stage_21_checkpoint(
         checkpoint.get("initialization"), name="initialization"
     )
     expected_initialization = {
-        "kind": "shared_with_stage_20_width_128_control",
+        "kind": initialization_kind,
         "seed": config.seed,
         "state_sha256": initial_state_sha256,
         "identical_learned_initialization": True,
@@ -884,11 +889,11 @@ def validate_stage_21_checkpoint(
 
     experiment = _require_mapping(checkpoint.get("experiment"), name="experiment")
     expected_experiment = {
-        "stage": 21,
+        "stage": checkpoint_stage,
         "branch": treatment.name,
         "from_scratch": True,
         "comparison_variable": "residual_dropout",
-        "control_residual_dropout": DEFAULT_CONTROL_DROPOUT,
+        "control_residual_dropout": control_dropout,
         "treatment_residual_dropout": treatment.dropout,
         "dropout_placement": DROPOUT_PLACEMENT,
         "n_embd": config.n_embd,
@@ -901,8 +906,8 @@ def validate_stage_21_checkpoint(
         "same_update_count": True,
         "same_learning_rate_schedule": True,
         "reused_control": True,
-        "control_stage": 20,
-        "control_branch": f"width-{config.n_embd}",
+        "control_stage": control_stage,
+        "control_branch": control_branch or f"width-{config.n_embd}",
         "control_checkpoint_sha256": control_checkpoint_sha256,
         "control_checkpoint_step": control_checkpoint_step,
         "initialization_seed": config.seed,
@@ -1643,8 +1648,12 @@ def run_precise_validation(
     )
 
 
-def print_precise_validation(report: PreciseValidationReport) -> None:
-    print("\nFresh paired validation of Stage 20/21 best checkpoints")
+def print_precise_validation(
+    report: PreciseValidationReport,
+    *,
+    stage_label: str = "Stage 20/21",
+) -> None:
+    print(f"\nFresh paired validation of {stage_label} best checkpoints")
     print(
         f"  {report.eval_iters} paired validation batches per checkpoint, "
         f"seed={report.seed}"
