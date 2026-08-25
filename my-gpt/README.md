@@ -1359,3 +1359,258 @@ p=.05 checkpoint SHA-256:
 console record SHA-256:
 e68ef8da30e7f2efc343f8a34ed1e3d3e50ef24a9f5322f6215586638355d424
 ```
+
+## Stage 17: controlled context scaling
+
+`17_context_length.py` tests whether extending context from 64 to 128
+characters improves held-out next-character prediction enough to justify the
+additional attention cost. Both branches retain the Stage 16 winner:
+residual dropout is zero.
+
+| Branch | Batch | Context | Targets/update | Parameters |
+| --- | ---: | ---: | ---: | ---: |
+| `T=64` control | 32 | 64 | 2,048 | 211,777 |
+| `T=128` treatment | 16 | 128 | 2,048 | 215,873 |
+
+Both use `C=64, H=4, D=16, FF=256, L=4`, with residual dropout fixed at
+zero.
+
+Both branches train from initialization for 18,000 updates under the
+established schedule:
+
+```text
+[0, 10000)       lr = 1e-3
+[10000, 13000)   lr = 3e-4
+[13000, 18000)   lr = 1e-4
+```
+
+The experiment does not reuse the saved Stage 15 control. That run sampled 32
+independent 64-character windows per update, which is a different training
+stream. Stage 17 instead samples 16 starting positions. For each sampled
+128-character input and its 128 next-character targets, the control receives
+the two adjacent 64-character windows:
+
+```text
+long treatment:  [ s ....................................... s+127 ]
+short control A: [ s ............... s+63 ]
+short control B:                     [ s+64 ........... s+127 ]
+```
+
+The short windows are interleaved by sampled segment and built by reshaping
+the long CPU tensor. This makes the flattened target tensors exactly equal at
+every update. Only the selected branch's view is transferred to the
+accelerator, so the memory comparison does not retain both representations.
+Over 18,000 updates, each branch therefore trains on 36,864,000 target
+characters.
+
+### Matched initialization
+
+Changing the positional-table size changes constructor RNG consumption, so
+constructing both models with the same seed would not by itself initialize
+their later layers equally. Stage 17 constructs the canonical seeded `T=64`
+state, then draws rows 64 through 127 from the continuation of that seeded RNG
+stream. It copies every shared parameter and positional rows 0 through 63 into
+`T=128`; the newly drawn rows are the treatment's only additional learned
+parameters. The correctly sized causal-mask buffers remain branch-specific.
+
+The script records separate full-state hashes and a hash of the common
+`T=64` projection, plus a hash of the additional positional rows. On one
+seeded validation audit batch, it also checks before training that the two
+models produce matching logits on the first 64 positions of the same long
+segments. The checkpoint metadata calls this an overlap-matched
+initialization; the full states are not identical because their positional
+tables and causal masks have different shapes.
+
+### Context and systems diagnostics
+
+Every fixed-panel evaluation reports overall train and validation loss plus
+first- and second-half validation loss. Best checkpoints are selected
+strictly by overall validation loss. The second-half comparison is the
+central context diagnostic: both models predict the same characters, while
+`T=128` can attend to the preceding half that the second `T=64` window cannot
+see.
+
+The residual activation budget is unchanged:
+
+```text
+32 * 64 * 64  = 131,072
+16 * 128 * 64 = 131,072
+```
+
+The attention-weight tensor shapes are checked directly:
+
+```text
+T=64:  (32, 4, 64, 64)   =   524,288 elements per block
+T=128: (16, 4, 128, 128) = 1,048,576 elements per block
+```
+
+The driver benchmarks disposable initialized clones in the counterbalanced
+order `T=64, T=128, T=128, T=64`. Each run measures 100 updates after 20
+warmup updates by default. The four runs are adjacent in time, and none of
+their updates touch the models, optimizers, or batch generators used for the
+quality experiment. The timed region includes paired CPU batch construction,
+transfer, forward loss, backward, and the optimizer update. The two runs for
+each context are aggregated before reporting iterations/second, target
+characters/second, and the maximum peak allocated and reserved accelerator
+memory.
+
+After training, the driver reloads both overall-best checkpoints on a fresh
+paired validation panel (seed 1,344 by default) and reports
+treatment-minus-control deltas, standard errors, and 95% confidence intervals
+for overall, first-half, and second-half loss. Those intervals measure
+validation-panel sampling uncertainty for the two trained models, not
+variation across independent training seeds. It also prints final-step text
+from each branch using the same generation seed (`seed + 5`); those samples
+are not generated from the reloaded best checkpoints.
+
+Run the full experiment with:
+
+```powershell
+python .\my-gpt\17_context_length.py --device xpu 2>&1 | Tee-Object -FilePath .\my-gpt\checkpoints\stage_17_training.log
+```
+
+A small CPU plumbing run can compress the schedule and use disposable
+checkpoint paths:
+
+```powershell
+python .\my-gpt\17_context_length.py --device cpu `
+    --first-decay-step 1 --second-decay-step 2 --max-iters 3 `
+    --eval-interval 1 --eval-iters 1 --precise-eval-iters 2 `
+    --benchmark-warmup 1 --benchmark-steps 2 --sample-length 0 `
+    --control-checkpoint-path .\my-gpt\checkpoints\stage_17_t64_smoke.pt `
+    --treatment-checkpoint-path .\my-gpt\checkpoints\stage_17_t128_smoke.pt
+```
+
+The default best-checkpoint outputs are:
+
+```text
+my-gpt/checkpoints/stage_17_control_best_checkpoint.pt
+my-gpt/checkpoints/stage_17_context_128_best_checkpoint.pt
+```
+
+As in the preceding stages, capture the complete canonical console record
+externally as `my-gpt/checkpoints/stage_17_training.log`; the driver does not
+create the log itself.
+
+### Results
+
+The canonical XPU run completed all 18,000 updates on an Intel Arc 140T. Exact
+target pairing and overlap-matched initialization both passed: the common
+`T=64` projection had SHA-256
+`88dae91952fe315e838766caa8df2e8624fdcd9dbf0c0ab870cfeeca5ea4bb88`,
+the 64 additional positional rows had SHA-256
+`ea3c74d982c0643b34a7c8951033e24949efe7c9545ae7b14794dabc36db73d1`,
+and the initial first-half logits matched with a maximum difference of
+`0.000e+00`.
+
+The counterbalanced training benchmark found a modest end-to-end cost even
+though the attention-score tensor doubled:
+
+| Metric | `T=64` control | `T=128` treatment | Treatment change |
+| --- | ---: | ---: | ---: |
+| Parameters | 211,777 | 215,873 | +1.9% |
+| Attention elements/block | 524,288 | 1,048,576 | +100.0% |
+| Iterations/second | **46.542** | 44.447 | -4.5% |
+| Target characters/second | **95,318.928** | 91,027.556 | -4.5% |
+| Peak allocated memory | **46.003 MiB** | 54.988 MiB | +19.5% |
+| Peak reserved memory | **52.000 MiB** | 62.000 MiB | +19.2% |
+
+At this model size on this accelerator, the measurements suggest that
+attention was not the dominant end-to-end cost: doubling its score elements
+reduced throughput by about 4.5% and raised measured peak accelerator memory
+by about 19%.
+
+The control had lower overall validation loss at every reported fixed-panel
+evaluation. Its selected checkpoint and final-step measurements were also
+better:
+
+| Branch | Best step | Best fixed val | Final train | Final val | Final gap |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `T=64` control | 14,500 | **1.5639** | **1.3282** | **1.5673** | 0.2391 |
+| `T=128` treatment | 16,500 | 1.5820 | 1.3454 | 1.5857 | 0.2403 |
+
+The best fixed-panel delta was `+0.0181`, and the final-step delta was
+`+0.0184`, where positive `T=128 - T=64` values favor the control. The higher
+training loss and nearly equal final train/validation gaps do not resemble an
+overfitting penalty; they are more consistent with a harder optimization or
+capacity-allocation problem, although this run does not identify the cause.
+
+Fresh evaluation used 500 paired validation batches with seed 1,344:
+
+| Best checkpoint | Step | Overall | First half/window | Second half/window |
+| --- | ---: | ---: | ---: | ---: |
+| `T=64` control | 14,500 | **1.574628** | **1.571067** | 1.578189 |
+| `T=128` treatment | 16,500 | 1.593972 | 1.613175 | **1.574769** |
+
+The paired differences separate the overall result into two opposing pieces:
+
+| Paired delta, `T=128 - T=64` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | +0.019344 | 0.000844 | [+0.017689, +0.020999] |
+| First half/window | +0.042107 | 0.001103 | [+0.039945, +0.044269] |
+| Second half/window | -0.003419 | 0.001211 | [-0.005793, -0.001046] |
+
+Because the two halves contain the same number of targets, their paired
+deltas reproduce the overall difference exactly:
+
+```text
+(+0.042107 - 0.003419) / 2 = +0.019344
+```
+
+The `T=128` checkpoint was slightly better on the second-window targets, where
+it could condition on the preceding 64 characters. That result is consistent
+with useful predictive signal beyond a 64-character window. It is not, by
+itself, a context-only causal estimate: the comparison uses separately
+trained weights, and the treatment also learns positional rows 64 through
+127. A same-checkpoint evaluation that blocks cross-half attention would test
+the treatment's actual use of the earlier half more directly.
+
+The much larger first-window penalty is decisive for the standard objective.
+Those predictions receive no additional history, and their logits were
+identical across branches before training, so the penalty developed during
+optimization rather than coming from an overlap-initialization mismatch.
+Learned absolute positions add another relevant difference: every control
+position row serves both short windows, whereas the 128-row table distributes
+the same target budget across two sets of absolute positions. This is an
+inherent part of the tested longer-context model, but it means Stage 17 cannot
+attribute the first-half divergence to context length alone.
+
+Stage 17 therefore rejects `T=128` as a drop-in replacement under the tested
+equal-target budget and established learning-rate schedule:
+
+```text
+retain T=64
+```
+
+The fresh overall loss was `+0.019344` worse, with its entire 95% confidence
+interval above zero. The fixed-panel best and final results agree with that
+ordering. As in earlier stages, these intervals measure validation-batch
+sampling uncertainty for these two trained checkpoints, not variation across
+independent training seeds. The generated samples are not used to override
+the quantitative result.
+
+```text
+control checkpoint:
+my-gpt/checkpoints/stage_17_control_best_checkpoint.pt
+
+control checkpoint SHA-256:
+e7b3823dbf13a75a7c06b87bd55f86a13b07dfa877ceaa3a478a3334471253c9
+
+treatment checkpoint:
+my-gpt/checkpoints/stage_17_context_128_best_checkpoint.pt
+
+treatment checkpoint SHA-256:
+26a0bfb8d056f7371eb5eb1eb16d29b91e4fb1552d8784aabaac39e00447c22b
+
+canonical console transcript:
+my-gpt/checkpoints/stage_17_training.log
+
+console transcript SHA-256:
+5bc50ce7bd84562c5753c6f71260afbc89c3f60172945d4bb4842fa3d5b0ab09
+```
+
+`stage_17_training.log` was reconstructed verbatim from the complete console
+output returned after the run. It was not captured directly from the process
+with `Tee-Object`, so its hash authenticates the persisted transcript rather
+than the original terminal byte stream. The numerical record and line order
+are preserved.
