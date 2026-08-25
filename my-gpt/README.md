@@ -2118,3 +2118,235 @@ authenticates the persisted transcript. Checkpoint metadata and both
 validation panels were independently revalidated from the saved artifacts;
 benchmark timings, final-step metrics, and generated samples rely on the
 supplied transcript.
+
+## Stage 20: controlled width scaling from 64 to 128
+
+`20_scale_width.py` closes the Stage 17-19 context-length investigation and
+returns to representation capacity. The fresh Stage 19 panel found no
+measurable overall benefit from full 128-character attention over Local-17's
+theoretical 65-character receptive field, so both Stage 20 branches use the
+smaller `B=32,T=64` geometry. The only architectural treatment is width:
+
+| Setting | C=64 control | C=128 treatment |
+| --- | ---: | ---: |
+| Batch size | 32 | 32 |
+| Sequence length | 64 | 64 |
+| Targets/update | 2,048 | 2,048 |
+| Residual width | 64 | 128 |
+| Attention heads | 4 | 4 |
+| Channels/head | 16 | 32 |
+| FFN hidden width | 256 | 512 |
+| Blocks | 4 | 4 |
+| Residual dropout | 0 | 0 |
+| Parameters | 211,777 | 816,705 |
+
+For this repository's architecture, one block contains
+`12C^2 + 10C` parameters. With the 65-character vocabulary and 64 learned
+position rows, the treatment count is:
+
+```text
+token embedding          8,320
+position embedding       8,192
+
+per block:
+Q/K/V                    49,152
+attention projection    16,512
+FFN                     131,712
+two LayerNorms              512
+                        -------
+per block               197,888
+
+four blocks             791,552
+final LayerNorm             256
+LM head                   8,385
+                        -------
+total                    816,705
+```
+
+The resulting parameter ratio is approximately `3.86x`, as expected when the
+block-dominant terms scale quadratically with width.
+
+### Controlled training and checkpoint protocol
+
+Both branches train from step zero for 18,000 updates with fresh AdamW
+optimizers and the established schedule:
+
+```text
+update indices 0-9,999:       1e-3
+update indices 10,000-12,999: 3e-4
+update indices 13,000-17,999: 1e-4
+```
+
+A dedicated batch generator is recreated from seed 1,338 for each branch, so
+every optimizer update sees byte-identical inputs and targets. Fixed-panel
+train and validation measurements recreate seed 1,339 at every report. The
+program verifies that both training generators finish in the same exact
+state.
+
+The two widths cannot have identical learned initial tensors: their shapes
+and correct fan-in-dependent initialization ranges differ. Stage 20 therefore
+resets the same initialization seed before constructing each architecture and
+records two separate state hashes. It deliberately does not copy or slice the
+wide tensors into the narrow model, and checkpoint metadata explicitly marks
+the states as non-identical. Consequently, a one-seed width comparison still
+contains width-specific initialization variation even though its batches are
+paired.
+
+Each strict overall-validation improvement atomically writes a full best
+checkpoint containing model and optimizer state, batch-generator and
+global/device RNG state, the branch-specific initialization hash, exact
+architecture and parameter count, schedule, data fingerprint, seeds, fixed
+position bands, and experiment contract. The validator replays the expected
+training generator through the selected step and strictly loads the saved
+state into the requested width, preventing swapped-width checkpoints from
+passing silently.
+
+Generated samples are also produced from each branch's reloaded overall-best
+checkpoint, and the console labels the selected step explicitly.
+
+After training, the two independently selected overall-best checkpoints are
+reloaded on 500 fresh paired validation batches from seed 1,344. Loss is
+reported overall, by half, and in four 16-position bands. The program first
+forms each per-batch `C=128 - C=64` difference, then reports its mean, paired
+standard error, and two-sided Student-t 95% interval. Negative deltas favor
+the wider model. Overall is the primary width result; the half and position
+band intervals are exploratory and are not adjusted for multiple comparisons.
+These intervals measure fresh-panel sampling uncertainty conditional on the
+two selected checkpoints, not variation across training seeds. The repeatedly
+used fixed panel remains the checkpoint-selection panel; the fresh panel is
+the primary guard against selection-panel optimism.
+
+### Counterbalanced hardware benchmark
+
+Before quality training, disposable clones run in the counterbalanced order
+`C64, C128, C128, C64`. Each trial uses the appropriate native initial state,
+the same batch and model RNG seeds, 20 warmup updates, and 100 timed updates.
+The two trials per width are aggregated by total timed updates divided by
+total elapsed time. Reports include iterations/second, target
+characters/second, and peak allocated and reserved MiB. The benchmark models,
+optimizers, and updates are discarded before either experimental branch
+trains.
+
+Run the canonical XPU experiment with:
+
+```powershell
+python .\my-gpt\20_scale_width.py --device xpu 2>&1 | Tee-Object -FilePath .\my-gpt\checkpoints\stage_20_training.log
+```
+
+A small CPU plumbing run compresses the model and schedule while preserving
+the complete paired workflow:
+
+```powershell
+python .\my-gpt\20_scale_width.py --device cpu `
+    --batch-size 2 --block-size 8 `
+    --control-width 8 --treatment-width 16 `
+    --n-head 2 --n-layer 1 `
+    --first-decay-step 1 --second-decay-step 2 --max-iters 3 `
+    --eval-interval 1 --eval-iters 1 --precise-eval-iters 2 `
+    --benchmark-warmup 1 --benchmark-steps 2 --sample-length 0 `
+    --control-checkpoint-path .\my-gpt\checkpoints\stage_20_c8_smoke.pt `
+    --treatment-checkpoint-path .\my-gpt\checkpoints\stage_20_c16_smoke.pt
+```
+
+The default best-checkpoint outputs are:
+
+```text
+my-gpt/checkpoints/stage_20_width_64_best_checkpoint.pt
+my-gpt/checkpoints/stage_20_width_128_best_checkpoint.pt
+```
+
+### Results
+
+The canonical Arc 140T run completed all 18,000 updates for both branches. The
+supplied transcript reports the following counterbalanced benchmark:
+
+| Metric | C=64 | C=128 |
+| --- | ---: | ---: |
+| Iterations/second | 31.373 | 26.379 |
+| Target characters/second | 64,251.521 | 54,024.683 |
+| Peak allocated memory | 46.003 MiB | 87.609 MiB |
+| Peak reserved memory | 52.000 MiB | 100.000 MiB |
+
+Despite having `3.856x` as many parameters, C=128 retained `84.08%` of C=64's
+measured training throughput. Its peak allocated and reserved memory were
+`1.904x` and `1.923x` the control values.
+
+The repeatedly evaluated fixed panel selected different best steps:
+
+| Branch | Best step | Best fixed val | Final train | Final val |
+| --- | ---: | ---: | ---: | ---: |
+| C=64 | 17,000 | 1.5688 | 1.3301 | 1.5710 |
+| C=128 | 10,500 | **1.5462** | **1.0789** | 1.6230 |
+
+These are checkpoint-selection results, not a final-step win for C=128. From
+its selected step to step 18,000, the wider model's training loss fell from
+`1.1695` to `1.0789` while its fixed-panel validation loss rose from `1.5462`
+to `1.6230`. The final-step validation delta was `+0.051942`, favoring C=64,
+whereas the independently selected best-checkpoint point estimates differed by
+`-0.022660`, favoring C=128.
+
+The fresh panel did not select new checkpoints. It reloaded the two already
+selected models and evaluated them on 500 paired validation batches:
+
+| Best checkpoint | Overall | First half | Second half |
+| --- | ---: | ---: | ---: |
+| C=64 at step 17,000 | 1.561340 | 1.601042 | 1.521639 |
+| C=128 at step 10,500 | **1.535457** | **1.572447** | **1.498467** |
+
+Paired `C=128 - C=64` inference gave:
+
+| Scope | Mean delta | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | -0.025883 | 0.000946 | [-0.027742, -0.024024] |
+| First half | -0.028595 | 0.001178 | [-0.030910, -0.026280] |
+| Second half | -0.023172 | 0.001380 | [-0.025884, -0.020460] |
+| Positions 0-15 | -0.028183 | 0.001640 | [-0.031404, -0.024961] |
+| Positions 16-31 | -0.029007 | 0.001793 | [-0.032530, -0.025483] |
+| Positions 32-47 | -0.022989 | 0.001895 | [-0.026713, -0.019265] |
+| Positions 48-63 | -0.023354 | 0.001933 | [-0.027152, -0.019556] |
+
+The primary overall interval excludes zero. For this paired training seed and
+these selected checkpoints, doubling width produced a clear fresh-validation
+improvement. Every exploratory band also favors C=128, so the observed gain is
+broad across the sequence rather than confined to later positions. The band
+intervals are not multiplicity-adjusted and do not establish separate
+position-specific effects.
+
+The run also shows substantially stronger overfitting pressure at C=128: its
+best checkpoint arrives 7,500 updates before the end, and continued training
+improves training loss while degrading validation loss. This does not by
+itself identify data scarcity as the cause; schedule length, regularization,
+and other width-dependent optimization choices remain possible contributors.
+
+This remains a one-training-seed result. The paired interval measures
+fresh-validation batch uncertainty conditional on the two selected models. It
+does not measure training-seed or width-specific initialization variability,
+and the two architecture-native initial states are not identical.
+
+```text
+C=64 checkpoint:
+my-gpt/checkpoints/stage_20_width_64_best_checkpoint.pt
+
+C=64 checkpoint SHA-256:
+a68fcbd716226b311bfe0651b7d4a689b9143ba331d8f78630d4fe8aae6724fb
+
+C=128 checkpoint:
+my-gpt/checkpoints/stage_20_width_128_best_checkpoint.pt
+
+C=128 checkpoint SHA-256:
+fc42fd0b58d3e197db3cb4d687e841b9db3f8c38a4208f9b9db2cf329ab1d3e9
+
+canonical console transcript:
+my-gpt/checkpoints/stage_20_training.log
+
+console transcript SHA-256:
+dc832c09980208869ab33c71dff03839d5519db1d2177252486475f6765833e0
+```
+
+`stage_20_training.log` is the post-run console transcript supplied after the
+canonical run, not the original live `Tee-Object` byte stream. Its hash
+authenticates the persisted transcript. Both checkpoints passed the strict
+Stage 20 validator, and the complete 500-batch fresh panel was independently
+replayed from them with an exact six-decimal match. Benchmark timings,
+training-trajectory rows, final-step metrics, and generated samples rely on
+the supplied transcript.
