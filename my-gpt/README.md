@@ -2350,3 +2350,170 @@ Stage 20 validator, and the complete 500-batch fresh panel was independently
 replayed from them with an exact six-decimal match. Benchmark timings,
 training-trajectory rows, final-step metrics, and generated samples rely on
 the supplied transcript.
+
+## Stage 21: residual dropout revisited at width 128
+
+`21_dropout.py` tests whether the residual dropout that over-regularized the
+`C=64` model becomes useful after Stage 20 exposed strong overfitting at
+`C=128`. It trains only one new treatment and keeps the existing Stage 20
+width-128 best checkpoint as a read-only `p=0` control:
+
+| Setting | Reused control | New treatment |
+| --- | ---: | ---: |
+| Batch size | 32 | 32 |
+| Sequence length | 64 | 64 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN width / blocks | 512 / 4 | 512 / 4 |
+| Residual dropout | 0 | 0.05 |
+| Parameters | 816,705 | 816,705 |
+| Updates | 18,000 | 18,000 |
+
+Dropout remains restricted to the two established residual paths in every
+block: after the attention output projection and after the FFN output
+projection, immediately before their residual additions. There is no
+embedding dropout or attention-weight dropout. The eight `Dropout` modules
+add no parameters or buffers, so the `p=0` and `p=0.05` models have
+byte-identical state dictionaries at initialization.
+
+The treatment recreates Stage 20's native C=128 initialization from seed
+1,337, strictly loads that state into a `p=0.05` model, creates a fresh AdamW
+optimizer with the same defaults (including weight decay `0.01`), and resets
+the model/dropout RNG to seed 1,340 immediately before update zero. Training
+batches use the same independent seed 1,338 generator. The fixed panel is
+recreated from seed 1,339 at every report, and the update schedule is unchanged:
+
+```text
+update indices 0-9,999:       1e-3
+update indices 10,000-12,999: 3e-4
+update indices 13,000-17,999: 1e-4
+```
+
+The Stage 20 source is pinned by SHA-256 and expected best step. The program
+verifies the treatment's batch-generator state against that source at step
+10,500, independently replays the expected generator through all 18,000
+updates, and hashes the source before and after training and evaluation.
+Treatment checkpoints atomically store full model and optimizer state, RNG
+state, both train and validation losses at the selected step, exact dropout
+placement, initialization and source hashes, seeds, schedule, data fingerprint,
+position bands, and optimizer settings. The validator checks optimizer steps
+and shapes, the exact causal-mask contents, and all protocol metadata. The
+selected treatment weights are reloaded and replayed on the fixed panel to tie
+the stored best metrics to the saved tensors.
+
+The source checkpoint contains Stage 20's best `p=0` weights at step 10,500,
+not its final step-18,000 weights. Stage 21 can therefore make an artifact-based
+best-checkpoint comparison, including a replayed train loss and generalization
+gap, but it does not claim to reload or remeasure the `p=0` final state. That
+branch's final curve remains transcript evidence from Stage 20.
+
+Run the canonical treatment-only XPU experiment with:
+
+```powershell
+python .\my-gpt\21_dropout.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_21_training.log
+```
+
+Run the focused CPU workflow and provenance tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_width_128_dropout.py" -v
+```
+
+### Results
+
+Dropout changed the conclusion decisively. Selected points from the paired
+fixed-panel trajectories are:
+
+| Step | `p=0` train | `p=0` val | `p=0.05` train | `p=0.05` val |
+| ---: | ---: | ---: | ---: | ---: |
+| 8,500 | 1.2559 | 1.5683 | 1.2839 | **1.5383** |
+| 10,000 | 1.2269 | 1.5559 | 1.2617 | **1.5347** |
+| 10,500 | 1.1695 | 1.5462 | 1.2196 | **1.5110** |
+| 13,000 | 1.1254 | 1.5835 | 1.1902 | **1.5109** |
+| 13,500 | 1.1076 | 1.5800 | 1.1784 | **1.5052** |
+| 15,000 | 1.0952 | 1.5980 | 1.1706 | **1.5077** |
+| 18,000 | 1.0789 | 1.6230 | 1.1604 | **1.5134** |
+
+The best-checkpoint and final treatment diagnostics were:
+
+| Metric | Reused `p=0` | New `p=0.05` |
+| --- | ---: | ---: |
+| Best checkpoint step | 10,500 | 13,500 |
+| Train loss at best | 1.169517 | 1.178411 |
+| Best fixed validation loss | 1.546158 | **1.505233** |
+| Gap at best | 0.376641 | **0.326822** |
+| Final train loss | 1.0789 | 1.1604 |
+| Final validation loss | 1.6230 | **1.5134** |
+| Final gap | 0.5441 | **0.3529** |
+
+The new optimum arrives 3,000 updates later and improves the fixed selection
+panel by `-0.040925`. Dropout does not eliminate overfitting: after step
+13,500, training loss continues down while validation eventually rises. It
+does make the late deterioration far shallower. The treatment worsens only
+from `1.5052` to `1.5134` by step 18,000, while the Stage 20 control worsened
+from `1.5462` to `1.6230` over its post-best interval.
+
+After checkpoint selection, both best models were reloaded and evaluated on
+the same 500 fresh validation batches from Stage 20's seed 1,344:
+
+| Best checkpoint | Overall | First half | Second half |
+| --- | ---: | ---: | ---: |
+| `p=0` at step 10,500 | 1.535457 | 1.572447 | 1.498467 |
+| `p=0.05` at step 13,500 | **1.495556** | **1.538885** | **1.452227** |
+
+Paired `p=0.05 - p=0` inference gave:
+
+| Scope | Mean delta | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | -0.039901 | 0.000728 | [-0.041332, -0.038470] |
+| First half | -0.033562 | 0.000992 | [-0.035511, -0.031612] |
+| Second half | -0.046240 | 0.001129 | [-0.048458, -0.044023] |
+| Positions 0-15 | -0.030751 | 0.001346 | [-0.033396, -0.028106] |
+| Positions 16-31 | -0.036373 | 0.001499 | [-0.039319, -0.033427] |
+| Positions 32-47 | -0.044216 | 0.001597 | [-0.047354, -0.041078] |
+| Positions 48-63 | -0.048265 | 0.001592 | [-0.051392, -0.045137] |
+
+The primary interval is wholly below zero, and every exploratory positional
+band favors dropout. The benefit grows later in the context rather than being
+confined to the earliest, easiest positions. The band intervals are not
+multiplicity-adjusted.
+
+This is outcome A with an additional element of outcome C: `p=0.05` improves
+the optimum substantially and delays overfitting. It also demonstrates the
+capacity interaction motivating the experiment. At `C=64`, the Stage 16 fresh
+paired delta for the same dose was `+0.008240`, reliably worse than no dropout;
+at `C=128`, it is `-0.039901`, reliably better under this protocol. Regularizer
+strength is not an intrinsic dataset setting independent of model capacity.
+
+The result remains conditional on one initialization/training seed and one
+dropout-mask stream. The paired intervals quantify fresh-validation batch
+uncertainty for the selected checkpoints; they do not measure training-seed
+or mask-seed uncertainty. A replicated training-seed comparison would be
+needed to estimate that broader uncertainty.
+
+The canonical artifacts are:
+
+```text
+reused p=0 checkpoint:
+my-gpt/checkpoints/stage_20_width_128_best_checkpoint.pt
+
+new p=0.05 checkpoint:
+my-gpt/checkpoints/stage_21_dropout_005_best_checkpoint.pt
+
+p=0.05 checkpoint SHA-256:
+2845538e8a92443eaf959ec0c1086ef27a46960c01fe86319ffbd79aede8dca0
+
+canonical console transcript:
+my-gpt/checkpoints/stage_21_training.log
+
+console transcript SHA-256:
+afe9792676c56637bf0a13ab6d29cbe65e71525f9d288e376cfc0121f165447f
+```
+
+The checkpoint passed the current strict validator, including exact causal
+masks and optimizer state. Its best fixed panel was independently replayed
+from the saved tensors (`train=1.1784111536`, `val=1.5052327192`), and the full
+500-batch fresh panel was independently replayed with an exact nine-decimal
+match to the transcript.
