@@ -1614,3 +1614,269 @@ output returned after the run. It was not captured directly from the process
 with `Tee-Object`, so its hash authenticates the persisted transcript rather
 than the original terminal byte stream. The numerical record and line order
 are preserved.
+
+## Stage 18: isolated direct attention span
+
+`18_attention_span.py` follows up the opposing Stage 17 results without
+changing batch geometry or absolute-position usage. Both branches use the
+same model and training configuration:
+
+| Setting | Local control | Full treatment |
+| --- | ---: | ---: |
+| Batch size | 16 | 16 |
+| Sequence length | 128 | 128 |
+| Targets/update | 2,048 | 2,048 |
+| Learned position rows | 128 | 128 |
+| Parameters | 215,873 | 215,873 |
+| Attention tensor/block | `(16, 4, 128, 128)` | `(16, 4, 128, 128)` |
+| Direct attention span | latest 64 positions | full causal prefix |
+
+Both retain `C=64, H=4, D=16, FF=256, L=4`, zero residual dropout, and the
+18,000-update three-phase learning-rate schedule established in Stage 15.
+Every learned tensor, including all 128 absolute positional embeddings, is
+initialized identically. Independent batch generators start from the same
+seed and consume the same sequence of `B=16,T=128` batches. The only initial
+state differences are the persistent attention-mask buffers.
+
+The local mask implements the requested rolling window:
+
+```python
+positions = torch.arange(block_size)
+query_pos = positions[:, None]
+key_pos = positions[None, :]
+
+causal = key_pos <= query_pos
+within_window = key_pos >= query_pos - max_context + 1
+mask = causal & within_window
+```
+
+With `block_size=128` and `max_context=64`, query 100 directly attends to
+keys 37 through 100. The full branch directly attends to keys 0 through 100.
+Rows 0 through 63 are identical across masks; row 64 is the first to differ.
+An initialization audit checks that first-half logits match to within `1e-6`,
+and the test suite also verifies identical first-half parameter gradients
+when loss is restricted to those positions.
+
+### Scope of the intervention
+
+The local setting limits each attention operation to 64 positions. It is not
+a hard 64-character end-to-end receptive-field limit in a multilayer model.
+Information can relay through intermediate positions across blocks. With four
+blocks, the theoretical receptive-field width is capped by the sequence length
+but otherwise grows as:
+
+```text
+1 + 4 * (64 - 1) = 253 positions
+```
+
+Stage 18 therefore asks whether direct attention edges longer than 63
+positions improve prediction when every other tested condition is held fixed.
+It does not compare literal access versus no access to all characters more
+than 63 positions back. A stricter information-access experiment would use a
+block-diagonal causal mask with separate 64-position segments, preventing
+cross-half information from relaying at any layer.
+
+### Evaluation and safeguards
+
+Fixed-panel evaluations report overall, first-half, second-half, and four
+equal position bands:
+
+```text
+[0, 32)   [32, 64)   [64, 96)   [96, 128)
+```
+
+Best checkpoints are selected by overall validation loss. The fresh
+best-checkpoint comparison uses the same independently sampled validation
+batches for both branches and computes paired `full - local` differences
+before the standard error and two-sided Student-t 95% interval. At least two
+paired batches are required. The second-half delta is the primary context
+diagnostic. The four band intervals are exploratory, pointwise diagnostics;
+they are not multiplicity-adjusted evidence for separate significance claims.
+These intervals quantify validation-panel sampling uncertainty for the two
+trained checkpoints, not training-seed variability.
+
+Each branch's fresh result uses its independently selected overall-best
+checkpoint, so the comparison includes the common early-stopping rule and the
+checkpoints may represent different update counts. The fixed-panel final-step
+losses are also reported as the matched-update comparison.
+
+Checkpoint validation records and checks the shared learned-initialization
+hash, branch mask-policy hashes, batch and RNG seeds, position bands, schedule,
+data fingerprint, optimizer learning rate, and exact training-generator state.
+Because local and full mask buffers have identical shapes, strict state-dict
+loading alone could silently accept the wrong mask. Stage 18 explicitly checks
+every saved mask against the branch policy after loading.
+
+The optional benchmark uses disposable initialized clones in the
+counterbalanced order `local, full, full, local`. Both paths still construct
+dense attention scores, so it measures mask-policy overhead under identical
+tensor shapes; it is not a benchmark of a sparse local-attention kernel.
+
+Run the canonical experiment with:
+
+```powershell
+python .\my-gpt\18_attention_span.py --device xpu 2>&1 | Tee-Object -FilePath .\my-gpt\checkpoints\stage_18_training.log
+```
+
+A small CPU plumbing run can compress the schedule and use disposable
+checkpoint paths:
+
+```powershell
+python .\my-gpt\18_attention_span.py --device cpu `
+    --batch-size 2 --block-size 8 --local-context 4 `
+    --n-embd 8 --n-head 2 --n-layer 1 `
+    --first-decay-step 1 --second-decay-step 2 --max-iters 3 `
+    --eval-interval 1 --eval-iters 1 --precise-eval-iters 2 `
+    --benchmark-warmup 1 --benchmark-steps 2 --sample-length 0 `
+    --local-checkpoint-path .\my-gpt\checkpoints\stage_18_local_smoke.pt `
+    --full-checkpoint-path .\my-gpt\checkpoints\stage_18_full_smoke.pt
+```
+
+The default best-checkpoint outputs are:
+
+```text
+my-gpt/checkpoints/stage_18_local_64_best_checkpoint.pt
+my-gpt/checkpoints/stage_18_full_128_best_checkpoint.pt
+```
+
+### Results
+
+The canonical XPU run completed all 18,000 updates on an Intel Arc 140T. The
+controlled protocol passed its initialization audit. Benchmark, training
+history, final-step, and generated-text values below come from the supplied
+console output. Best-checkpoint metadata and the fresh 500-batch evaluation
+were independently reproduced from the saved checkpoints.
+
+```text
+shared learned-parameter SHA-256:
+bfccda39e33b36457f947fa1a41c9f230e860b96f25531cb61e3cf965ffcf02c
+
+local mask-policy SHA-256:
+756634e0909fbbd2bb7d7fc5cebc20666e435aca6fe6b37257f1ae6cde79a4d6
+
+full mask-policy SHA-256:
+91fc1df848a40db0decca26c27935e4ae74bc4ec8a09f3bf8ee6dda243dceabd
+
+initial first-half maximum logit difference: 0.000e+00
+```
+
+The dense local and full implementations had indistinguishable systems
+requirements:
+
+| Metric | Local-64 | Full-128 | Full change |
+| --- | ---: | ---: | ---: |
+| Iterations/second | 41.819 | 42.228 | +1.0% |
+| Target characters/second | 85,645.851 | 86,482.053 | +1.0% |
+| Peak allocated memory | 54.988 MiB | 54.988 MiB | 0 |
+| Peak reserved memory | 62.000 MiB | 62.000 MiB | 0 |
+
+The small throughput difference is within what this two-run-per-branch
+benchmark can plausibly attribute to timing noise. Both policies materialize
+the same dense attention tensors, so this experiment does not demonstrate a
+computational benefit for local attention.
+
+Full attention had lower fixed-panel loss at the final common update and at
+its independently selected best checkpoint. It lagged through the first 1,500
+updates and the ordering remained mixed through update 6,000; from update
+6,500 onward, full attention had lower overall validation loss at every fixed
+panel report.
+
+| Branch | Best step | Best fixed val | Final train | Final val |
+| --- | ---: | ---: | ---: | ---: |
+| Local-64 | 17,000 | 1.5688 | 1.3375 | 1.5695 |
+| Full-128 | 16,500 | **1.5628** | **1.3345** | **1.5649** |
+
+The best fixed-panel difference was `-0.005977`, and the same-step final
+difference was approximately `-0.0046`, where negative `full - local` values
+favor full attention. The final fixed-panel band differences were `-0.0055`,
+`-0.0074`, `-0.0051`, and `-0.0005` from the earliest to latest band. These
+same-step measurements have no repeated-panel uncertainty interval.
+
+Fresh evaluation reloaded the two overall-best checkpoints on 500 paired
+validation batches with seed 1,344:
+
+| Best checkpoint | Step | Overall | First half | Second half |
+| --- | ---: | ---: | ---: | ---: |
+| Local-64 | 17,000 | 1.579086 | 1.597815 | 1.560356 |
+| Full-128 | 16,500 | **1.577779** | **1.595293** | **1.560265** |
+
+The paired Student-t intervals separate the small overall difference into two
+very different effects:
+
+| Paired delta, `full - local` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | -0.001306 | 0.000690 | [-0.002661, +0.000049] |
+| First half | -0.002522 | 0.001036 | [-0.004557, -0.000487] |
+| Second half | -0.000090 | 0.001020 | [-0.002094, +0.001914] |
+| Positions 0-31 | -0.002841 | 0.001385 | [-0.005562, -0.000120] |
+| Positions 32-63 | -0.002204 | 0.001545 | [-0.005238, +0.000831] |
+| Positions 64-95 | -0.002937 | 0.001497 | [-0.005878, +0.000005] |
+| Positions 96-127 | +0.002756 | 0.001485 | [-0.000161, +0.005673] |
+
+The second half was the predeclared context-sensitive diagnostic. It was
+effectively tied: the point estimate was `-0.000090`, and its interval spans
+both practically small benefits and costs. Stage 18 therefore does not show a
+measurable predictive benefit from direct attention edges longer than 63
+positions.
+
+The apparent overall gap also shrank from `-0.005977` on the repeatedly used
+checkpoint-selection panel to `-0.001306` on the fresh panel. That contraction
+is consistent with selection-panel optimism and is another reason not to treat
+the fixed best gap as the context effect.
+
+The small overall advantage is instead concentrated in the first half, where
+the branch masks are identical for every layer. Half of that first-half delta
+contributes `-0.001261` to the overall mean, versus only `-0.000045` from the
+second-half delta. Approximately 96.5% of the apparent overall improvement is
+therefore an indirect consequence of training different shared weights. The
+fresh overall interval narrowly crosses zero.
+
+The exploratory bands do not show the hypothesized advantage increasing with
+position. The final band trends toward local attention, and none of the four
+pointwise band results supports a separate claim after accounting for the
+four exploratory comparisons. The first-half result and differing best steps
+also mean that the best-checkpoint comparison includes training dynamics and
+the shared early-stopping rule, not just inference-time mask access.
+
+This substantially narrows the Stage 17 interpretation. Its large first-half
+penalty disappears and reverses when batch geometry, all 128 position rows,
+initial learned tensors, and tensor shapes are matched. That is consistent
+with the Stage 17 first-half loss arising from its positional and optimization
+changes rather than from longer attention itself. The Stage 17 second-half
+benefit does not reappear here as a benefit from direct long-range edges.
+
+The result does not establish that information beyond 64 characters is
+useless. With four local-64 blocks, information can relay across the entire
+128-position sequence. The supported conclusion is narrower:
+
+```text
+full causal attention produced no detectable second-half improvement over
+four-layer local-64 attention, while costing essentially the same in this
+dense implementation
+```
+
+Under the predefined overall-checkpoint rule, Full-128 is the nominal Stage 18
+winner: its fixed best and final losses were lower, and it carried no measured
+systems penalty. It should not be recorded as a demonstrated context-length
+win: the fresh overall result is borderline, the primary second-half result is
+null, and the experiment contains only one paired training seed.
+
+```text
+local checkpoint:
+my-gpt/checkpoints/stage_18_local_64_best_checkpoint.pt
+
+local checkpoint SHA-256:
+ae8c3e7652eaacd40242ce508d6b98fadb99bb95d699a1e67fe2ced1e319c827
+
+full checkpoint:
+my-gpt/checkpoints/stage_18_full_128_best_checkpoint.pt
+
+full checkpoint SHA-256:
+93db6fed4f96ef9ba6a362eca676635c7e4b344a9f61e29f042c9c5b8f03c6c9
+```
+
+The complete canonical console output supplied after the run is archived in
+`my-gpt/checkpoints/stage_18_training.log`. This is a post-run transcript of
+the supplied output, not the original live `Tee-Object` capture. The checkpoint
+metadata, hashes, and fresh 500-batch evaluation above were independently
+revalidated from the saved artifacts.
