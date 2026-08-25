@@ -2669,3 +2669,82 @@ console transcript SHA-256:
 The checkpoint passed the strict Stage 22 validator, its selected fixed-panel
 losses were replayed from the saved tensors, and the fresh 500-batch panel was
 run on identically sampled validation batches for both checkpoints.
+
+One measurement detail is now explicit: the fixed-panel `train` values in
+Stages 20-22 were already produced by `model.eval()` under `torch.no_grad()`.
+Dropout was therefore disabled for both the fixed training and validation
+panels. In particular, Stage 22's `1.216079` training-panel loss measures the
+fit of the learned weights with dropout off; it is not mechanically inflated
+by active dropout noise. What is not reported by those curves is the noisy
+single-batch loss seen by an individual optimizer update.
+
+## Stage 23: increase residual dropout from 0.10 to 0.15
+
+`23_dropout_strength.py` continues the controlled regularization sweep with
+the next local increment. It trains only a new `p=0.15` branch and keeps the
+Stage 22 best checkpoint as a read-only `p=0.10` control:
+
+| Setting | Reused control | New treatment |
+| --- | ---: | ---: |
+| Batch size | 32 | 32 |
+| Sequence length | 64 | 64 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN width / blocks | 512 / 4 | 512 / 4 |
+| Residual dropout | 0.10 | 0.15 |
+| Parameters | 816,705 | 816,705 |
+| Updates | 18,000 | 18,000 |
+
+The Stage 22 control is pinned to best step 13,500 and SHA-256
+`dabb5b9d235460b9c3ab4b7b1a43d70c0ecd3403d48b447bf7f5d45f68823fc9`.
+Stage 23 validates its full provenance and hashes it before and after training,
+checkpoint replay, and fresh validation. The treatment starts from the same
+byte-identical initialization, uses a fresh AdamW optimizer, and preserves the
+training batches, RNG seeds, fixed panels, LR schedule, evaluation cadence,
+18,000-update budget, architecture, and parameter count.
+
+A non-default Stage 22 control path must be accompanied by both
+`--control-checkpoint-sha256` and `--control-checkpoint-step`; Stage 23 never
+infers a custom control's expected identity from that checkpoint's own
+metadata. The selected Stage 23 treatment hash is also carried in the
+in-memory experiment report, so replacing that file between training and
+fresh validation is rejected.
+
+At every evaluation checkpoint, the console now labels the three comparable
+diagnostics explicitly:
+
+```text
+eval-train   fixed training panel, model.eval(), dropout off
+eval-val     fixed validation panel, model.eval(), dropout off
+eval-gap     eval-val - eval-train
+```
+
+This is a clarification of the existing evaluator rather than an extra model
+pass or a protocol change. The Stage 23 checkpoint records and strictly
+validates the fixed-panel seed, eval mode, disabled gradients/dropout, split
+order, and batch count, along with `identical_fixed_training_batches=True`.
+
+Run the canonical treatment-only XPU experiment with:
+
+```powershell
+python .\my-gpt\23_dropout_strength.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_23_training.log
+```
+
+Run the focused CPU workflow, provenance, and measurement-mode tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_dropout_strength_015.py" -v
+```
+
+The canonical run will write the selected treatment checkpoint to:
+
+```text
+my-gpt/checkpoints/stage_23_dropout_015_best_checkpoint.pt
+```
+
+The primary Stage 23 question is whether the smaller `0.05 -> 0.10` gain
+continues at `p=0.15` or turns around. Fresh paired validation compares the
+Stage 22 and Stage 23 best checkpoints on the same 500 validation batches;
+negative `p=0.15 - p=0.10` loss favors the new treatment.
