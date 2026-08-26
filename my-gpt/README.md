@@ -2875,3 +2875,193 @@ The only new canonical checkpoint is:
 ```text
 my-gpt/checkpoints/stage_24_depth_6_best_checkpoint.pt
 ```
+
+### Stage 24 result
+
+Depth produced a clear validation gain, although most of the added capacity
+went into fitting the training panel:
+
+| Metric | `L=4` | `L=6` | `L=6 - L=4` |
+| --- | ---: | ---: | ---: |
+| Parameters | 816,705 | 1,212,481 | +48.5% |
+| Best fixed validation | 1.4960 | **1.4871** | -0.0089 |
+| Paired-panel validation | 1.487083 | **1.478018** | **-0.009065** |
+| Eval-train at best | 1.2161 | **1.1559** | -0.0602 |
+| Gap at best | 0.2799 | 0.3312 | +0.0513 |
+| Selected step | 13,500 | 15,500 | +2,000 |
+| Training throughput | 64,191 chars/s | 46,424 chars/s | -27.7% |
+| Peak allocated memory | 90.4 MiB | 132.1 MiB | +46.2% |
+
+The paired `L=6 - L=4` estimate was `-0.009065 +/- 0.000656 SE`, with a
+two-sided 95% interval of `[-0.010354,-0.007777]`. Every 16-position band
+favored `L=6`; the band deltas ranged from `-0.007723` to `-0.011132`.
+Conditional on these checkpoints, the deeper model therefore wins across the
+sequence rather than only at late positions.
+
+The wider generalization gap does not reverse that conclusion: validation
+loss selects the model, while the gap diagnoses how it got there. At the
+selected checkpoints, the additional layers reduced eval-train loss by
+`0.0602` but fixed validation by only `0.0089`. After the L=6 optimum,
+eval-train continued from `1.1559` to `1.1468` while eval-val worsened from
+`1.4871` to `1.4914`, making the added overfitting pressure directly visible.
+The fixed-panel values from steps 13,500 through 15,500 differ by at most
+about `0.0015`, so the selected step is best read as part of a broad late
+plateau rather than evidence that six layers intrinsically need exactly 2,000
+more updates.
+
+The improvement costs about 38% more time per update and roughly 46% more
+allocated memory. Memory still remains small in absolute terms for this
+experiment; throughput is the more immediate scaling constraint.
+
+The selected Stage 24 checkpoint is pinned at step 15,500 with SHA-256:
+
+```text
+b44f591123bb3679557b07135dd1c44ca0392ecfa4f5b96f1ffc24f4c65a2727
+```
+
+## Stage 25: dropout strength at six layers
+
+`25_dropout_strength.py` tests whether the stronger overfitting pressure at
+`L=6` shifts the useful residual-dropout dose upward. It holds the Stage 24
+architecture fixed and changes only `p=0.10 -> p=0.15`:
+
+| Setting | Reused control | New treatment |
+| --- | ---: | ---: |
+| Batch size | 32 | 32 |
+| Sequence length | 64 | 64 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN hidden width | 512 | 512 |
+| Transformer blocks | 6 | 6 |
+| Residual dropout | 0.10 | 0.15 |
+| Parameters | 1,212,481 | 1,212,481 |
+| Updates | 18,000 | 18,000 |
+
+The Stage 24 control is read-only and pinned to the hash and step above. The
+new treatment recreates the byte-identical L=6 initialization with seed 1,337
+and state SHA-256:
+
+```text
+2a4639d1eff064c51d7cd103e11ddd32b782314e7d0f98b560b860224a937ab0
+```
+
+Because dropout modules have no learned state, changing the probability does
+not change initialization or parameter count. The treatment uses a fresh
+AdamW optimizer, training-batch seed 1,338, model/dropout RNG seed 1,340, the
+same 18,000-update learning-rate schedule, and the same fixed panels as Stage
+24. The common RNG seed does not imply identical dropout masks: different
+probabilities retain different elements even when the random stream is
+matched.
+
+The Stage 25 validator checks the complete L=6 state identity, 24 causal-mask
+buffers, 12 `p=0.15` dropout sites, optimizer state and step, batch-generator
+replay, schedule, data fingerprint, fixed eval-mode panels, and the pinned
+Stage 24 source identity. It also records that depth and parameter count are
+fixed while dropout masks are not identical. Both checkpoint files are
+hashed around training, replay, and paired validation so the control stays
+read-only and replacement of either selected artifact is rejected.
+
+After selection, `p=0.10` and `p=0.15` run on the same 500 paired validation
+batches from seed 1,344. The primary statistic is `p=0.15 - p=0.10`; a
+negative value favors stronger regularization. The interval remains
+conditional on the two selected checkpoints and measures validation-batch
+sampling uncertainty, not variation across training seeds or dropout streams.
+
+Run the canonical XPU experiment with:
+
+```powershell
+python .\my-gpt\25_dropout_strength.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_25_training.log
+```
+
+Run the focused CPU workflow and provenance tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_dropout_strength_depth_6.py" -v
+```
+
+The selected treatment checkpoint was written to:
+
+```text
+my-gpt/checkpoints/stage_25_depth_6_dropout_015_best_checkpoint.pt
+```
+
+### Stage 25 result
+
+Increasing residual dropout to `p=0.15` did not improve the six-layer model.
+The Stage 24 `p=0.10` checkpoint remains the champion:
+
+| Metric | `p=0.10` | `p=0.15` | `p=.15 - p=.10` |
+| --- | ---: | ---: | ---: |
+| Best fixed validation | **1.487101** | 1.497398 | +0.010298 |
+| Paired-panel validation | **1.478018** | 1.486290 | **+0.008272** |
+| Eval-train at best | **1.155896** | 1.180082 | +0.024186 |
+| Gap at best | 0.331204 | **0.317316** | -0.013888 |
+| Selected step | 15,500 | 17,000 | +1,500 |
+
+The paired `p=0.15 - p=0.10` estimate was `+0.008272 +/- 0.000673 SE`,
+with a two-sided 95% interval of `[+0.006950,+0.009595]`. Positive favors
+`p=0.10`, so the primary comparison resolves the regression conditional on
+these checkpoints. The stronger dose worsened paired-panel validation by
+about 0.56%.
+
+Every exploratory 16-position band also worsened. The deltas were
+`+0.009727`, `+0.007915`, `+0.005415`, and `+0.010031` from earliest to
+latest, and every unadjusted interval excluded zero. The effect is therefore
+not confined to one context region, although these bands do not establish
+that every individual position became worse.
+
+The smaller gap does not make `p=0.15` the better model. Stronger dropout
+raised eval-train loss by `0.024186` while validation also rose; the gap
+shrank because fitting weakened, not because generalization improved. The
+treatment still showed mild late overfitting: from its selected step to step
+18,000, eval-train improved from `1.1801` to `1.1778` while eval-val worsened
+from `1.4974` to `1.5001`. The late fixed-panel optimum is broad enough that
+step 17,000 should not be interpreted as proof that stronger dropout
+intrinsically requires 1,500 more updates.
+
+Both learning-rate reductions were followed by new best regions. The
+treatment reached `1.5314` at step 10,000, improved to `1.5032` after the
+first reduction, and did not move below `1.50` until the second reduction.
+This mirrors the earlier trajectories, although this run does not provide a
+no-decay counterfactual that isolates the schedule's causal effect.
+
+The cross-stage pattern goes in the opposite direction from the motivating
+hypothesis. On the same 500 validation batches, the `p=.15 - p=.10` penalty
+was `+0.001753` at `L=4` and `+0.008272` at `L=6`. A post-hoc paired
+difference-in-differences contrast gives:
+
+```text
+[L6(.15 - .10)] - [L4(.15 - .10)]
+    = +0.006519 +/- 0.000872 SE
+
+95% CI:
+[+0.004805,+0.008234]
+```
+
+Positive means the move to `p=0.15` was more harmful at six layers under
+this protocol. This interaction interval measures validation-batch sampling
+uncertainty conditional on four selected checkpoints. It does not include
+training-seed, dropout-stream, or checkpoint-selection uncertainty, and it
+does not establish `p=0.10` as globally optimal or rule out an intermediate
+probability.
+
+Depth still helped at `p=0.15`: the paired `L=6 - L=4` fresh delta was
+`-0.002546 +/- 0.000706 SE`, with a 95% interval of
+`[-0.003933,-0.001159]`. That is only about 28.1% of the depth gain measured
+at `p=0.10`; the stronger dose erased roughly 71.9% of that gain without
+reversing it completely.
+
+The selected `p=0.15` checkpoint is pinned at step 17,000 with SHA-256:
+
+```text
+9bab97c690d31b164e8210ae29d96e2ade1ed25bfd4e8aa1dc7a27a6e324e4a3
+```
+
+The checkpoint passed the strict validator, and its fixed panel and complete
+500-batch paired panel were independently replayed without changing either
+artifact. The supplied console transcript was not persisted as
+`stage_25_training.log` in this workspace, so the intermediate trajectory
+and rounded final-step values above are documented from that transcript
+rather than an authenticated log file.
