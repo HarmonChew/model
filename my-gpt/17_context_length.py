@@ -71,6 +71,36 @@ DEFAULT_FINAL_LEARNING_RATE = _STAGE_15.DEFAULT_FINAL_LEARNING_RATE
 DEFAULT_PRECISE_EVAL_ITERS = 500
 DEFAULT_DROPOUT = 0.0
 DROPOUT_PLACEMENT = _STAGE_15.DROPOUT_PLACEMENT
+DEFAULT_N_EMBD = 64
+DEFAULT_N_HEAD = 4
+DEFAULT_N_LAYER = 4
+EXPERIMENT_STAGE = 17
+RECORD_SHARED_PARAMETER_INITIALIZATION_HASH = False
+RECORD_BEST_TRAINING_LOSSES = False
+GENERATE_FROM_SELECTED_CHECKPOINT = False
+
+
+def _stage_label() -> str:
+    """Return the configured provenance label for reusable context trials."""
+
+    return f"Stage {EXPERIMENT_STAGE}"
+
+
+def _extend_context_checkpoint_payload(
+    checkpoint: object,
+    payload: dict[str, object],
+) -> None:
+    """Hook for later context stages to add provenance without duplicating code."""
+
+
+def _validate_context_stage_options(
+    args: argparse.Namespace,
+    *,
+    training_batch_seed: int,
+    training_rng_seed: int,
+    precise_eval_seed: int,
+) -> None:
+    """Hook for later context stages with stricter protocol requirements."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +185,7 @@ class PairedInitialStates:
     control_state_sha256: str
     treatment_state_sha256: str
     extra_position_rows_sha256: str
+    shared_parameter_initialization_sha256: str
     control_parameter_count: int
     treatment_parameter_count: int
 
@@ -167,6 +198,7 @@ class BranchReport:
     training: ContextTrainingResult
     best_val_loss: float
     best_step: int
+    best_training_losses: SplitLosses
     best_validation_losses: SplitLosses
     final_batch_generator_sha256: str
     attention_shape: tuple[int, ...]
@@ -189,6 +221,8 @@ class ExperimentReport:
     treatment: BranchReport
     final_val_delta: float
     best_val_delta: float
+    control_checkpoint_sha256: str
+    treatment_checkpoint_sha256: str
 
     @property
     def final_winner(self) -> str:
@@ -232,6 +266,7 @@ class PreciseDelta:
     standard_error: SplitLosses
     confidence_low: SplitLosses
     confidence_high: SplitLosses
+    critical_value: float = 1.96
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,9 +297,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--treatment-block-size", type=int, default=DEFAULT_TREATMENT_BLOCK_SIZE
     )
-    parser.add_argument("--n-embd", type=int, default=64)
-    parser.add_argument("--n-head", type=int, default=4)
-    parser.add_argument("--n-layer", type=int, default=4)
+    parser.add_argument("--n-embd", type=int, default=DEFAULT_N_EMBD)
+    parser.add_argument("--n-head", type=int, default=DEFAULT_N_HEAD)
+    parser.add_argument("--n-layer", type=int, default=DEFAULT_N_LAYER)
     parser.add_argument(
         "--initial-learning-rate",
         type=float,
@@ -355,12 +390,12 @@ def _validate_context_geometry(
 
     if treatment.block_size != 2 * control.block_size:
         raise ValueError(
-            "Stage 17 requires treatment block size to be exactly twice "
+            f"{_stage_label()} requires treatment block size to be exactly twice "
             "the control block size"
         )
     if control.batch_size != 2 * treatment.batch_size:
         raise ValueError(
-            "Stage 17 requires control batch size to be exactly twice "
+            f"{_stage_label()} requires control batch size to be exactly twice "
             "the treatment batch size"
         )
     if control.tokens_per_update != treatment.tokens_per_update:
@@ -768,6 +803,10 @@ def create_paired_initial_states(
     seed_everything(control_config.seed)
     control_model = _build_model(data, control_config, n_head, n_layer)
     control_state = _clone_state(control_model)
+    parameter_names = tuple(name for name, _ in control_model.named_parameters())
+    shared_parameter_initialization_sha256 = tensor_mapping_sha256(
+        {name: control_state[name] for name in parameter_names}
+    )
     control_parameter_count = sum(
         parameter.numel()
         for parameter in control_model.parameters()
@@ -832,6 +871,7 @@ def create_paired_initial_states(
         control_state_sha256=tensor_mapping_sha256(control_state),
         treatment_state_sha256=tensor_mapping_sha256(treatment_state),
         extra_position_rows_sha256=extra_position_rows_sha256,
+        shared_parameter_initialization_sha256=(shared_parameter_initialization_sha256),
         control_parameter_count=control_parameter_count,
         treatment_parameter_count=treatment_parameter_count,
     )
@@ -892,7 +932,7 @@ def verify_initial_first_half_equivalence(
 
 @dataclass(slots=True)
 class ContextValidationCheckpoint(BestValidationCheckpoint):
-    """Persist a Stage 17 best checkpoint and the complete pairing contract."""
+    """Persist a context-scaling checkpoint and its complete pairing contract."""
 
     branch_spec: ContextSpec | None = None
     control_spec: ContextSpec | None = None
@@ -903,10 +943,12 @@ class ContextValidationCheckpoint(BestValidationCheckpoint):
     branch_initial_state_sha256: str = ""
     common_state_sha256: str = ""
     extra_position_rows_sha256: str = ""
+    shared_parameter_initialization_sha256: str = ""
     training_batch_seed: int = 0
     training_rng_seed: int = 0
     attention_shape: tuple[int, ...] = ()
     best_validation_losses: SplitLosses | None = None
+    best_training_losses: SplitLosses | None = None
 
     def _payload(self, step: int) -> dict[str, object]:
         payload = super(ContextValidationCheckpoint, self)._payload(step)
@@ -917,7 +959,7 @@ class ContextValidationCheckpoint(BestValidationCheckpoint):
             or self.schedule is None
             or self.best_validation_losses is None
         ):
-            raise RuntimeError("incomplete Stage 17 checkpoint metadata")
+            raise RuntimeError(f"incomplete {_stage_label()} checkpoint metadata")
 
         optimizer_rates = {float(group["lr"]) for group in self.optimizer.param_groups}
         if len(optimizer_rates) != 1:
@@ -969,8 +1011,14 @@ class ContextValidationCheckpoint(BestValidationCheckpoint):
             "extra_position_initialization": ("normal_from_post_control_rng_stream"),
             "extra_position_rows_sha256": self.extra_position_rows_sha256,
         }
+        if RECORD_SHARED_PARAMETER_INITIALIZATION_HASH:
+            initialization = payload["initialization"]
+            assert isinstance(initialization, dict)
+            initialization["shared_parameter_initialization_sha256"] = (
+                self.shared_parameter_initialization_sha256
+            )
         payload["experiment"] = {
-            "stage": 17,
+            "stage": EXPERIMENT_STAGE,
             "branch": self.branch_spec.name,
             "from_scratch": True,
             "comparison_variable": "context_length",
@@ -1001,6 +1049,14 @@ class ContextValidationCheckpoint(BestValidationCheckpoint):
             "first_half": self.best_validation_losses.first_half,
             "second_half": self.best_validation_losses.second_half,
         }
+        if RECORD_BEST_TRAINING_LOSSES:
+            assert self.best_training_losses is not None
+            payload["best_training_losses"] = {
+                "overall": self.best_training_losses.overall,
+                "first_half": self.best_training_losses.first_half,
+                "second_half": self.best_training_losses.second_half,
+            }
+        _extend_context_checkpoint_payload(self, payload)
         return payload
 
     def consider(self, record: ContextEvaluationRecord) -> bool:
@@ -1011,6 +1067,7 @@ class ContextValidationCheckpoint(BestValidationCheckpoint):
             return False
         self.best_val_loss = val_loss
         self.best_step = record.step
+        self.best_training_losses = record.losses.train
         self.best_validation_losses = record.losses.val
         self.save(record.step)
         return True
@@ -1453,6 +1510,7 @@ def run_branch(
     training_batch_seed: int,
     training_rng_seed: int,
     benchmark: BenchmarkConfig | None,
+    shared_parameter_initialization_sha256: str = "",
 ) -> BranchReport:
     _validate_branch_config(config, spec, schedule)
     clear_accelerator_cache(device)
@@ -1492,15 +1550,21 @@ def run_branch(
         branch_initial_state_sha256=initial_state_sha256,
         common_state_sha256=common_state_sha256,
         extra_position_rows_sha256=extra_position_rows_sha256,
+        shared_parameter_initialization_sha256=(shared_parameter_initialization_sha256),
         training_batch_seed=training_batch_seed,
         training_rng_seed=training_rng_seed,
         attention_shape=expected_attention_shape,
     )
     record_evaluation = make_evaluation_callback(best, schedule)
 
-    print(f"\n{spec.name} branch (B={spec.batch_size}, T={spec.block_size}, dropout=0)")
+    print(
+        f"\n{spec.name} branch (B={spec.batch_size}, T={spec.block_size}, "
+        f"dropout={DEFAULT_DROPOUT:g})"
+    )
     print(f"  branch initialization: {initial_state_sha256}")
-    print(f"  common T=64 projection:{common_state_sha256}")
+    print(f"  common T={control.block_size} projection:{common_state_sha256}")
+    if shared_parameter_initialization_sha256:
+        print(f"  shared parameter state: {shared_parameter_initialization_sha256}")
     print(f"  training-batch seed:   {training_batch_seed}")
     print(f"  training RNG seed:     {training_rng_seed}")
 
@@ -1529,8 +1593,27 @@ def run_branch(
         raise RuntimeError("attention shape changed during training")
 
     assert best.best_step is not None
+    assert best.best_training_losses is not None
     assert best.best_validation_losses is not None
     final_batch_generator_sha256 = tensor_sha256(training_generator.get_state())
+    if GENERATE_FROM_SELECTED_CHECKPOINT:
+        checkpoint_hash = checkpoint_sha256(spec.checkpoint_path)
+        selected = torch.load(
+            spec.checkpoint_path,
+            map_location="cpu",
+            weights_only=True,
+        )
+        selected = _require_mapping(selected, name="selected checkpoint")
+        selected_state = _require_mapping(
+            selected.get("model_state_dict"),
+            name="model_state_dict",
+        )
+        model.load_state_dict(selected_state, strict=True)
+        if checkpoint_sha256(spec.checkpoint_path) != checkpoint_hash:
+            raise RuntimeError(
+                f"checkpoint changed while reloading selected model: "
+                f"{spec.checkpoint_path}"
+            )
     sample = generate_from_final_model(
         model,
         data,
@@ -1545,6 +1628,7 @@ def run_branch(
         training=result,
         best_val_loss=best.best_val_loss,
         best_step=best.best_step,
+        best_training_losses=best.best_training_losses,
         best_validation_losses=best.best_validation_losses,
         final_batch_generator_sha256=final_batch_generator_sha256,
         attention_shape=attention_shape,
@@ -1623,16 +1707,19 @@ def run_experiment(
     print("\nControlled from-initialization protocol")
     print("  Both branches train from step zero on paired target characters.")
     print(
-        "  Every common parameter and the first 64 positional rows are "
-        "initialized identically."
+        "  Every common parameter and the first "
+        f"{control.block_size} positional rows are initialized identically."
     )
     print(
         f"  Targets per update: {targets_per_update:,}; total per branch: "
         f"{targets_per_update * control_config.max_iters:,}."
     )
-    print(f"  common T=64 projection SHA-256: {initialization.common_state_sha256}")
     print(
-        "  extra T=128 position rows SHA-256: "
+        f"  common T={control.block_size} projection SHA-256: "
+        f"{initialization.common_state_sha256}"
+    )
+    print(
+        f"  extra T={treatment.block_size} position rows SHA-256: "
         f"{initialization.extra_position_rows_sha256}"
     )
 
@@ -1674,7 +1761,10 @@ def run_experiment(
     treatment_benchmark: BenchmarkStats | None = None
     if benchmark is not None:
         print("\nCounterbalanced disposable training benchmark")
-        print("  Order: T=64, T=128, T=128, T=64")
+        print(
+            f"  Order: T={control.block_size}, T={treatment.block_size}, "
+            f"T={treatment.block_size}, T={control.block_size}"
+        )
         print(
             f"  Each run: {benchmark.num_warmup} warmup + "
             f"{benchmark.num_steps} timed updates"
@@ -1715,7 +1805,11 @@ def run_experiment(
         training_batch_seed=training_batch_seed,
         training_rng_seed=training_rng_seed,
         benchmark=None,
+        shared_parameter_initialization_sha256=(
+            initialization.shared_parameter_initialization_sha256
+        ),
     )
+    control_checkpoint_hash = checkpoint_sha256(control.checkpoint_path)
     treatment_report = run_branch(
         data,
         treatment_config,
@@ -1735,7 +1829,15 @@ def run_experiment(
         training_batch_seed=training_batch_seed,
         training_rng_seed=training_rng_seed,
         benchmark=None,
+        shared_parameter_initialization_sha256=(
+            initialization.shared_parameter_initialization_sha256
+        ),
     )
+    if checkpoint_sha256(control.checkpoint_path) != control_checkpoint_hash:
+        raise RuntimeError(
+            "control checkpoint changed while the treatment branch trained"
+        )
+    treatment_checkpoint_hash = checkpoint_sha256(treatment.checkpoint_path)
 
     if control_benchmark is not None and treatment_benchmark is not None:
         control_report = replace(
@@ -1780,7 +1882,7 @@ def run_experiment(
     )
     best_val_delta = treatment_report.best_val_loss - control_report.best_val_loss
 
-    print("\nStage 17 experimental summary")
+    print(f"\n{_stage_label()} experimental summary")
     print(
         f"  control B/T, treatment B/T:  "
         f"{control.batch_size}/{control.block_size}, "
@@ -1812,7 +1914,8 @@ def run_experiment(
         f"{treatment_report.training.final.val.overall:.4f}"
     )
     print(
-        f"  final val delta (128-64):    {final_val_delta:+.4f} (negative favors T=128)"
+        f"  final val delta ({treatment.block_size}-{control.block_size}): "
+        f"{final_val_delta:+.4f} (negative favors T={treatment.block_size})"
     )
     print(
         f"  control best val:            {control_report.best_val_loss:.4f} "
@@ -1822,14 +1925,37 @@ def run_experiment(
         f"  treatment best val:          {treatment_report.best_val_loss:.4f} "
         f"@ {treatment_report.best_step}"
     )
+    if RECORD_BEST_TRAINING_LOSSES:
+        control_gap = (
+            control_report.best_validation_losses.overall
+            - control_report.best_training_losses.overall
+        )
+        treatment_gap = (
+            treatment_report.best_validation_losses.overall
+            - treatment_report.best_training_losses.overall
+        )
+        print(
+            "  control best train / gap:    "
+            f"{control_report.best_training_losses.overall:.4f} / "
+            f"{control_gap:.4f}"
+        )
+        print(
+            "  treatment best train / gap:  "
+            f"{treatment_report.best_training_losses.overall:.4f} / "
+            f"{treatment_gap:.4f}"
+        )
     print(
-        f"  best val delta (128-64):     {best_val_delta:+.4f} (negative favors T=128)"
+        f"  best val delta ({treatment.block_size}-{control.block_size}):  "
+        f"{best_val_delta:+.4f} (negative favors T={treatment.block_size})"
     )
     print(f"  control checkpoint:          {control.checkpoint_path}")
     print(f"  treatment checkpoint:        {treatment.checkpoint_path}")
-    print("\nT=64 final-step generated text")
+    sample_source = (
+        "selected-best" if GENERATE_FROM_SELECTED_CHECKPOINT else "final-step"
+    )
+    print(f"\nT={control.block_size} {sample_source} generated text")
     print(control_report.sample)
-    print("\nT=128 final-step generated text")
+    print(f"\nT={treatment.block_size} {sample_source} generated text")
     print(treatment_report.sample)
 
     return ExperimentReport(
@@ -1843,6 +1969,8 @@ def run_experiment(
         treatment=treatment_report,
         final_val_delta=final_val_delta,
         best_val_delta=best_val_delta,
+        control_checkpoint_sha256=control_checkpoint_hash,
+        treatment_checkpoint_sha256=treatment_checkpoint_hash,
     )
 
 
@@ -1897,15 +2025,16 @@ def validate_stage_17_checkpoint(
     extra_position_rows_sha256: str,
     training_batch_seed: int,
     training_rng_seed: int,
+    shared_parameter_initialization_sha256: str = "",
 ) -> Mapping[str, object]:
     if not path.is_file():
-        raise FileNotFoundError(f"Stage 17 checkpoint not found: {path}")
+        raise FileNotFoundError(f"{_stage_label()} checkpoint not found: {path}")
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
     checkpoint = _require_mapping(checkpoint, name=str(path))
     if checkpoint.get("checkpoint_version") != 1:
-        raise ValueError("Stage 17 checkpoint_version must be 1")
+        raise ValueError(f"{_stage_label()} checkpoint_version must be 1")
     if checkpoint.get("checkpoint_kind") != "best":
-        raise ValueError("Stage 17 checkpoint_kind must be 'best'")
+        raise ValueError(f"{_stage_label()} checkpoint_kind must be 'best'")
     step = checkpoint.get("step")
     if (
         isinstance(step, bool)
@@ -1946,9 +2075,11 @@ def validate_stage_17_checkpoint(
     if checkpoint.get("data_fingerprint") != fingerprint_data(data):
         raise ValueError("checkpoint data fingerprint does not match")
     if checkpoint.get("optimizer_restart_step") is not None:
-        raise ValueError("Stage 17 checkpoint must have uninterrupted AdamW state")
+        raise ValueError(
+            f"{_stage_label()} checkpoint must have uninterrupted AdamW state"
+        )
     if checkpoint.get("optimizer_provenance_known") is not True:
-        raise ValueError("Stage 17 optimizer provenance must be known")
+        raise ValueError(f"{_stage_label()} optimizer provenance must be known")
 
     schedule_metadata = schedule.as_metadata(max_iters=config.max_iters)
     initialization = _require_mapping(
@@ -1971,13 +2102,21 @@ def validate_stage_17_checkpoint(
                 f"checkpoint initialization.{key} must be {expected!r}, "
                 f"got {initialization.get(key)!r}"
             )
+    if RECORD_SHARED_PARAMETER_INITIALIZATION_HASH:
+        key = "shared_parameter_initialization_sha256"
+        if initialization.get(key) != shared_parameter_initialization_sha256:
+            raise ValueError(
+                f"checkpoint initialization.{key} must be "
+                f"{shared_parameter_initialization_sha256!r}, "
+                f"got {initialization.get(key)!r}"
+            )
 
     experiment = _require_mapping(
         checkpoint.get("experiment"),
         name="experiment",
     )
     expected_experiment = {
-        "stage": 17,
+        "stage": EXPERIMENT_STAGE,
         "branch": spec.name,
         "from_scratch": True,
         "comparison_variable": "context_length",
@@ -2050,6 +2189,21 @@ def validate_stage_17_checkpoint(
             raise ValueError(f"checkpoint best_validation_losses.{key} must be finite")
     if float(split_losses["overall"]) != float(best_val_loss):
         raise ValueError("overall split loss must equal best_val_loss")
+    if RECORD_BEST_TRAINING_LOSSES:
+        training_losses = _require_mapping(
+            checkpoint.get("best_training_losses"),
+            name="best_training_losses",
+        )
+        for key in ("overall", "first_half", "second_half"):
+            value = training_losses.get(key)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+            ):
+                raise ValueError(
+                    f"checkpoint best_training_losses.{key} must be finite"
+                )
 
     optimizer_state = _require_mapping(
         checkpoint.get("optimizer_state_dict"),
@@ -2213,6 +2367,8 @@ def run_precise_validation(
     training_rng_seed: int,
     eval_iters: int,
     seed: int,
+    expected_control_checkpoint_sha256: str | None = None,
+    expected_treatment_checkpoint_sha256: str | None = None,
 ) -> PreciseValidationReport:
     if eval_iters <= 0:
         raise ValueError(f"eval_iters must be positive, got {eval_iters}")
@@ -2222,15 +2378,25 @@ def run_precise_validation(
             control,
             control_config,
             initialization.control_state_sha256,
+            expected_control_checkpoint_sha256,
         ),
         (
             treatment,
             treatment_config,
             initialization.treatment_state_sha256,
+            expected_treatment_checkpoint_sha256,
         ),
     )
-    for spec, config, branch_initial_hash in branches:
+    for spec, config, branch_initial_hash, expected_checkpoint_hash in branches:
         before_hash = checkpoint_sha256(spec.checkpoint_path)
+        if (
+            expected_checkpoint_hash is not None
+            and before_hash != expected_checkpoint_hash
+        ):
+            raise ValueError(
+                f"{spec.name} checkpoint SHA-256 must be "
+                f"{expected_checkpoint_hash}, got {before_hash}"
+            )
         checkpoint = validate_stage_17_checkpoint(
             spec.checkpoint_path,
             data,
@@ -2247,13 +2413,20 @@ def run_precise_validation(
             extra_position_rows_sha256=(initialization.extra_position_rows_sha256),
             training_batch_seed=training_batch_seed,
             training_rng_seed=training_rng_seed,
+            shared_parameter_initialization_sha256=(
+                initialization.shared_parameter_initialization_sha256
+            ),
         )
-        model = _build_model(data, config, n_head, n_layer, device)
-        model_state = _require_mapping(
-            checkpoint.get("model_state_dict"),
-            name="model_state_dict",
-        )
-        model.load_state_dict(model_state, strict=True)
+        # Building a disposable compatibility shell must not perturb the
+        # caller's model/dropout RNG stream. All parameters are overwritten by
+        # the selected checkpoint before evaluation.
+        with torch.random.fork_rng(devices=[]):
+            model = _build_model(data, config, n_head, n_layer, device)
+            model_state = _require_mapping(
+                checkpoint.get("model_state_dict"),
+                name="model_state_dict",
+            )
+            model.load_state_dict(model_state, strict=True)
         batch_losses = estimate_validation_precise(
             model,
             data,
@@ -2293,7 +2466,7 @@ def run_precise_validation(
 
 
 def print_precise_validation(report: PreciseValidationReport) -> None:
-    print("\nFresh paired validation of Stage 17 best checkpoints")
+    print(f"\nFresh paired validation of {_stage_label()} best checkpoints")
     print(
         f"  {report.eval_iters} paired validation batches per checkpoint, "
         f"seed={report.seed}"
@@ -2337,7 +2510,7 @@ def print_precise_validation(report: PreciseValidationReport) -> None:
             f"  delta {delta.candidate} - {delta.baseline}, {label}: "
             f"{mean:+.6f} +/- {se:.6f} SE "
             f"(95% CI [{low:+.6f}, {high:+.6f}]); "
-            "negative favors T=128"
+            f"negative favors {delta.candidate}"
         )
 
 
@@ -2367,13 +2540,13 @@ def main() -> None:
         final_learning_rate=args.final_learning_rate,
     )
     control = ContextSpec(
-        name="T=64 control",
+        name=f"T={args.control_block_size} control",
         batch_size=args.control_batch_size,
         block_size=args.control_block_size,
         checkpoint_path=args.control_checkpoint_path,
     )
     treatment = ContextSpec(
-        name="T=128 treatment",
+        name=f"T={args.treatment_block_size} treatment",
         batch_size=args.treatment_batch_size,
         block_size=args.treatment_block_size,
         checkpoint_path=args.treatment_checkpoint_path,
@@ -2415,6 +2588,12 @@ def main() -> None:
         ("precise evaluation seed", precise_eval_seed),
     ):
         _validate_non_negative_integer(value, name=name)
+    _validate_context_stage_options(
+        args,
+        training_batch_seed=training_batch_seed,
+        training_rng_seed=training_rng_seed,
+        precise_eval_seed=precise_eval_seed,
+    )
     benchmark = None
     if args.benchmark_steps > 0:
         benchmark = BenchmarkConfig(
@@ -2424,7 +2603,10 @@ def main() -> None:
 
     device = resolve_device(args.device)
     data = CharacterData.from_file(args.data)
-    print("Stage 17: controlled context scaling T=64 -> 128")
+    print(
+        f"{_stage_label()}: controlled context scaling "
+        f"T={control.block_size} -> {treatment.block_size}"
+    )
     print(f"Device: {device}")
     if device.type == "xpu":
         print(f"Accelerator: {torch.xpu.get_device_name(0)}")
@@ -2436,7 +2618,7 @@ def main() -> None:
         f"treatment: B={treatment.batch_size}, T={treatment.block_size}; "
         f"C={args.n_embd}, H={args.n_head}, "
         f"D={args.n_embd // args.n_head}, FF={4 * args.n_embd}, "
-        f"L={args.n_layer}, dropout=0"
+        f"L={args.n_layer}, dropout={DEFAULT_DROPOUT:g}"
     )
     print(
         "Schedule by zero-based update: "
@@ -2482,6 +2664,8 @@ def main() -> None:
             training_rng_seed=training_rng_seed,
             eval_iters=args.precise_eval_iters,
             seed=precise_eval_seed,
+            expected_control_checkpoint_sha256=(report.control_checkpoint_sha256),
+            expected_treatment_checkpoint_sha256=(report.treatment_checkpoint_sha256),
         )
         print_precise_validation(precise_report)
 

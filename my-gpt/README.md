@@ -3065,3 +3065,281 @@ artifact. The supplied console transcript was not persisted as
 `stage_25_training.log` in this workspace, so the intermediate trajectory
 and rounded final-step values above are documented from that transcript
 rather than an authenticated log file.
+
+## Stage 26: controlled context scaling from 64 to 128 characters
+
+`26_context_length.py` locks the Stage 25 verdict at the winning
+`C=128,H=4,L=6,p=0.10` architecture and tests whether predictions benefit
+from another 64 characters of available history:
+
+| Setting | New control | New treatment |
+| --- | ---: | ---: |
+| Batch size | 32 | 16 |
+| Sequence length | 64 | 128 |
+| Targets/update | 2,048 | 2,048 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN hidden width | 512 | 512 |
+| Transformer blocks | 6 | 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Parameters | 1,212,481 | 1,220,673 |
+| Updates | 18,000 | 18,000 |
+
+Both branches must be trained again from step zero. The saved Stage 24 model
+is the right architecture and initialization source, but it is not a valid
+trained control for this experiment: it saw 32 independently sampled
+64-character windows per update. Stage 26 instead samples 16 long segments
+and derives both branches from each segment:
+
+```text
+T=128: 16 x [---------------- 128 ----------------]
+T=64:  16 x [------ 64 ------][------ 64 ------]
+        = 32 short windows
+```
+
+The reshape preserves flattened input and target order exactly. Consequently,
+each optimizer update in both branches contains the same 2,048 corresponding
+target characters, and both branches consume 36,864,000 targets over the
+canonical run. Batch size and sequence geometry differ, but target identity,
+update count, learning-rate schedule, dropout probability, initialization
+seed, model/dropout RNG seed, and optimizer configuration are held fixed.
+The metadata conservatively does not claim identical dropout masks across
+the different tensor geometries.
+
+### Overlap-matched initialization
+
+The `T=64` control reproduces the exact Stage 24 six-layer initialization.
+Every shared trainable parameter and positional row 0-63 is copied
+byte-for-byte into the `T=128` treatment. Only positional rows 64-127 are new,
+and they are drawn with the embedding layer's native normal initializer from
+an isolated continuation of the control initialization stream. Constructing
+the larger positional table therefore cannot shift the initialization of any
+later Transformer parameter.
+
+The canonical provenance pins are:
+
+```text
+corpus fingerprint:
+fa03e609cfc0769eb1fa73fb4e81239fee0c6e9ab0608c549b0a742a25535493
+
+T=64 complete initial state (also the Stage 24 L=6 hash):
+2a4639d1eff064c51d7cd103e11ddd32b782314e7d0f98b560b860224a937ab0
+
+shared trainable parameters:
+9f4a599cf43ab3b5e38dc697767afd6f4e8eb908639fec6c5fc139c97ba1d1ee
+
+new positional rows 64-127:
+e2776f1eedcb60b39b36e2ce4bbf210f7fbbdc221178871b39645d2546158da5
+
+T=128 complete initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+```
+
+The 8,192-parameter difference is exactly `64 x 128` additional positional
+embedding values, or about 0.676% of the control. An initialization audit also
+requires the two models' first-half logits to agree within `1e-6` with
+dropout disabled before training begins.
+
+### Paired panel interpretation
+
+Fixed and fresh panels report overall loss plus two diagnostics:
+
+```text
+panel positions 000-063
+panel positions 064-127
+```
+
+For the treatment, these are model positions 0-63 and 64-127. For the
+control, the second panel half is the second derived short window, so its
+model positions reset to 0-63. The first panel half has no more than 63 prior
+within-sequence characters in either branch; the second is where `T=128` can
+use up to 127. A useful-context result should therefore preferentially improve
+the second half, although the halves are diagnostics and overall validation
+loss remains the checkpoint-selection objective.
+
+The first half is not a pure post-training internal control. The branches are
+optimized separately, may select different steps, and the control reuses
+absolute positions 0-63 for both windows while the treatment learns positions
+0-127. Likewise, a second-half gain is consistent with useful longer context
+but remains conditional on the complete training treatment.
+
+After selection, both best checkpoints run on the same fresh paired batches
+from seed 1,344. Stage 26 forms per-batch `T=128 - T=64` differences and uses
+an unbiased paired SE with a two-sided Student-t 95% interval. Negative favors
+longer context. At least two batches are required, and the fresh seed may not
+equal fixed-panel seed 1,339. These intervals measure validation-panel
+sampling uncertainty conditional on the selected checkpoints, not variation
+across training seeds or checkpoint selection.
+
+Run the canonical XPU experiment with:
+
+```powershell
+python .\my-gpt\26_context_length.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_26_training.log
+```
+
+Run the focused pairing, initialization, workflow, RNG-isolation, checkpoint,
+and paired-statistics tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_context_length_scaling_depth_6.py" -v
+```
+
+The canonical run writes two newly trained selected checkpoints:
+
+```text
+my-gpt/checkpoints/stage_26_context_64_best_checkpoint.pt
+my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
+```
+
+### Stage 26 result: longer context wins through the second half
+
+Stage 26 gives a decisive answer for the current `C=128,H=4,L=6,p=0.10`
+model: use `T=128`. On 500 fresh paired validation batches, the selected
+`T=128` checkpoint lowered overall loss by `0.014058 +/- 0.000810 SE`; its
+two-sided 95% Student-t interval is `[-0.015649,-0.012468]`. The entire
+interval favors the longer context.
+
+The selected-checkpoint measurements are:
+
+| Metric | `T=64` control | `T=128` treatment | `T=128 - T=64` |
+| --- | ---: | ---: | ---: |
+| Parameters | 1,212,481 | 1,220,673 | +8,192 (+0.676%) |
+| Best step | 14,000 | 13,500 | -500 |
+| Best fixed val | 1.491739 | **1.476912** | **-0.014827** |
+| Eval-train at best step | 1.167894 | **1.153023** | -0.014871 |
+| Eval gap at best step | 0.323845 | 0.323890 | +0.000045 |
+
+The nearly identical changes in fixed validation and eval-train loss leave
+the selected-checkpoint gap unchanged to four decimal places. This does not
+look like a regularization effect. The longer-context branch learned a better
+fit without paying an additional validation penalty relative to that fit.
+
+Fresh evaluation used seed 1,344 and the predeclared 500 paired batches:
+
+| Best checkpoint | Overall | First half/window | Second half/window |
+| --- | ---: | ---: | ---: |
+| `T=64` control | 1.500019 | **1.497060** | 1.502977 |
+| `T=128` treatment | **1.485961** | 1.506290 | **1.465631** |
+
+| Paired delta, `T=128 - T=64` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | **-0.014058** | 0.000810 | [-0.015649, -0.012468] |
+| First half/window | +0.009230 | 0.000968 | [+0.007328, +0.011132] |
+| Second half/window | **-0.037346** | 0.001191 | [-0.039687, -0.035006] |
+
+The position result is more informative than the overall number alone. The
+two equal-sized halves reproduce the overall effect exactly, apart from the
+displayed rounding:
+
+```text
+(+0.009230 - 0.037346) / 2 = -0.014058
+```
+
+The first half became significantly worse even though the branches' initial
+first-half logits were identical. The second half improved by about four times
+the magnitude of that penalty, more than compensating for it. This is the
+specific pattern predicted when positions 64-127 can exploit useful history
+from positions 0-63. It is strong evidence that the current model is partly
+context-limited at 64 characters.
+
+It is not a context-only causal estimate. The branches are trained separately;
+the treatment also halves batch size, adds positional rows 64-127, distributes
+the target budget across twice as many absolute positions, and selects a
+checkpoint 500 updates earlier. The small parameter increase is entirely the
+new position rows, and the localization of the gain to the context-sensitive
+half makes a generic parameter-count explanation unlikely, but this comparison
+does not eliminate the other training-treatment differences.
+
+### Audit against the incumbent Stage 24 champion
+
+The Stage 26 pair answers the controlled treatment question, but its newly
+trained `T=64` branch is not the incumbent model. A read-only three-way audit
+therefore evaluated the Stage 24 `L=6,p=0.10,T=64` champion and both Stage 26
+checkpoints on the exact same 500 long panels from seed 1,344. Each `T=64`
+model saw the two reset 64-character halves in the same target order used by
+the Stage 26 evaluator.
+
+| Checkpoint on Stage 26 panels | Overall | First half/window | Second half/window |
+| --- | ---: | ---: | ---: |
+| Stage 24 `T=64` champion | 1.492336 | **1.488982** | 1.495690 |
+| Stage 26 `T=64` control | 1.500019 | 1.497060 | 1.502977 |
+| Stage 26 `T=128` treatment | **1.485961** | 1.506290 | **1.465631** |
+
+| Paired delta against Stage 24 | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Stage 26 `T=64 -` Stage 24 `T=64` | +0.007683 | 0.000801 | [+0.006108, +0.009257] |
+| Stage 26 `T=128 -` Stage 24 `T=64` | **-0.006375** | 0.000783 | [-0.007913, -0.004837] |
+
+This establishes `T=128` as the new project champion, not merely the winner
+against a specially retrained control. It also tightens the effect-size story.
+The Stage 26 `T=64` retraining is `0.007683` worse than Stage 24, accounting
+descriptively for about 54.65% of the within-stage `0.014058` difference. The
+net improvement over the actual incumbent is `0.006375`, or the remaining
+45.35%:
+
+```text
++0.007683 - 0.014058 = -0.006375
+```
+
+This decomposition does not identify why the `T=64` retraining regressed; its
+training stream and trajectory differ from Stage 24. It prevents that
+regression from being misreported as part of the operational context gain.
+Against the incumbent, `T=128` is worse by `+0.017308` on the first half but
+better by `-0.030059` on the second, so the champion result remains localized
+to positions with access to the preceding half.
+
+The outcome also reverses Stage 17 at the smaller
+`C=64,H=4,L=4,p=0.00` configuration:
+
+| Fresh paired delta, `T=128 - T=64` | Stage 17 | Stage 26 |
+| --- | ---: | ---: |
+| Overall | +0.019344 | **-0.014058** |
+| First half/window | +0.042107 | +0.009230 |
+| Second half/window | -0.003419 | **-0.037346** |
+
+The larger current model has a much smaller first-half penalty and a much
+larger context-sensitive gain. Because width, depth, dropout, initialization,
+and training trajectories differ between stages, this cross-stage reversal
+does not identify which change enabled the gain. It does show that the Stage 17
+rejection of `T=128` was conditional on that earlier model rather than a corpus-
+wide verdict about 64-character history.
+
+The supplied counterbalanced benchmark records the systems cost:
+
+| Metric | `T=64` control | `T=128` treatment | Treatment change |
+| --- | ---: | ---: | ---: |
+| Attention elements/block | 524,288 | 1,048,576 | +100.0% |
+| Iterations/second | **30.473** | 27.997 | -8.1% |
+| Target characters/second | **62,409.217** | 57,338.106 | -8.1% |
+| Peak allocated memory | **132.107 MiB** | 145.607 MiB | +10.2% |
+| Peak reserved memory | **144.000 MiB** | 158.000 MiB | +9.7% |
+
+Thus the longer window doubles each block's attention-score elements but costs
+only about 8.1% measured training throughput and 13.5 MiB of peak allocated
+accelerator memory in this benchmark. Given both the controlled Stage 26 win
+and the direct incumbent-checkpoint win, `T=128` is the new default for this
+architecture.
+
+The selected artifacts are pinned as:
+
+```text
+Stage 24 incumbent T=64 checkpoint SHA-256:
+b44f591123bb3679557b07135dd1c44ca0392ecfa4f5b96f1ffc24f4c65a2727
+
+T=64 checkpoint SHA-256:
+fbe973aee9fb82dc74278e9d77aae0b9bba7708ae134f81cb1357daaa18b9e42
+
+T=128 checkpoint SHA-256:
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+```
+
+Both Stage 26 checkpoints passed strict validation. An independent XPU replay
+reproduced every reported fresh mean, SE, paired delta, and confidence interval
+at the displayed precision, and the subsequent three-way champion audit left
+all three artifact hashes unchanged. The supplied console transcript reports
+the benchmark, complete training curves, final-step values, and generated
+samples, but it was not persisted as
+`stage_26_training.log` in this workspace. Those transcript-only observations
+therefore do not have a local log hash.
