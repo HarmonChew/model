@@ -3343,3 +3343,152 @@ the benchmark, complete training curves, final-step values, and generated
 samples, but it was not persisted as
 `stage_26_training.log` in this workspace. Those transcript-only observations
 therefore do not have a local log hash.
+
+## Stage 27: hard cross-half context isolation at T=128
+
+`27_context_isolation.py` tests whether Stage 26 improved because predictions
+at positions 64-127 can use information from positions 0-63. Both branches
+have the Stage 26 treatment geometry:
+
+| Setting | Blocked control | Full-context reference |
+| --- | ---: | ---: |
+| Batch size | 16 | 16 |
+| Sequence length | 128 | 128 |
+| Targets/update | 2,048 | 2,048 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN hidden width | 512 | 512 |
+| Transformer blocks | 6 | 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Parameters | 1,220,673 | 1,220,673 |
+
+The full branch uses ordinary causal attention. The blocked branch uses a
+hard block-diagonal causal mask in every head of every layer:
+
+```text
+allowed(q, k) = (k <= q) and (q // 64 == k // 64)
+```
+
+Each 128-character sequence is therefore two independent causal islands.
+Queries 64-127 cannot attend to keys 0-63 directly, and the same boundary in
+all six layers prevents information from relaying across it indirectly. This
+is deliberately different from a rolling 64-character attention window,
+which could propagate older information through intermediate representations
+as layers accumulate.
+
+The full mask has 8,256 allowed query-key edges per head. The blocked mask has
+4,160 and removes exactly `64 x 64 = 4,096` cross-half edges. Tensor geometry,
+parameter count, positional embeddings, targets per update, optimizer,
+schedule, and dropout probability remain unchanged.
+
+### Reused reference and matched anchor
+
+Stage 27 does not retrain the full-context branch. It validates and reuses the
+selected Stage 26 `T=128` checkpoint at step 13,500, pinned by SHA-256:
+
+```text
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+```
+
+Only the blocked branch is trained from step zero. Its learned parameters are
+initialized byte-for-byte from the Stage 26 `T=128` initialization; the 24
+attention-mask buffers are the only differing state entries. The canonical
+initialization pins are:
+
+```text
+learned parameters:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+full initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+
+blocked initial state:
+f2cd4762e4bc96f0086df2f2cbff0e364ddf06f66b67aac4b5a24e9e530f686d
+```
+
+The blocked run uses the same training-batch seed and model RNG seed as the
+Stage 26 treatment. It saves both its independently selected overall-best
+checkpoint and an unconditional step-13,500 anchor. The anchor validator
+requires its batch-generator and CPU/XPU RNG states to equal the Stage 26
+reference states exactly. This verifies matching stream consumption at the
+comparison endpoint; it does not expand the confidence interval to cover
+training-seed or backend variability.
+
+The primary trained-model comparison is therefore:
+
+```text
+full-context Stage 26 checkpoint @ 13,500
+minus
+blocked Stage 27 anchor @ 13,500
+```
+
+Comparing the two independently selected best checkpoints is secondary,
+because their selected steps may differ.
+
+### Four-condition mechanistic evaluation
+
+The fresh evaluator loads two persisted weight checkpoints and applies both
+masks to each without saving either crossed condition:
+
+| Weights | Inference mask | Role |
+| --- | --- | --- |
+| Full-trained | Full | Natural Stage 26 model |
+| Full-trained | Blocked | Same-weight removal of cross-half access |
+| Block-trained | Blocked | Natural Stage 27 control |
+| Block-trained | Full | Exploratory same-weight opening of access |
+
+Within either same-weight pair, positions 0-63 are mathematically unaffected
+by the mask change, so their first-half logits and batchwise losses must be
+exactly equal. First-half values need not match between independently trained
+weight sets.
+
+The canonical fresh panel uses 500 validation batches from seed 1,345 and
+reports overall loss, both halves, and six contiguous position bands:
+
+```text
+000-031  032-063  064-079  080-095  096-111  112-127
+```
+
+The reported paired deltas are:
+
+```text
+natural:           full/full - blocked/blocked
+full-weight mask:  full/full - full/blocked
+block-weight mask: block/full - blocked/blocked
+```
+
+Negative values favor cross-half information access. The natural matched-step
+delta is the primary training-treatment endpoint, with second-half loss as the
+primary mechanistic diagnostic. Blocking the full-trained model measures its
+same-weight reliance on earlier-half information. Opening the block-trained
+model is exploratory because those weights were never optimized with the new
+connections. Student-t intervals quantify validation-panel sampling only,
+conditional on the persisted checkpoints. The matched-step natural overall
+endpoint and its predeclared second-half diagnostic carry primary evidential
+weight. Selected-best, crossed-mask, and position-band intervals are
+exploratory, pointwise, and unadjusted for multiplicity.
+
+The canonical CLI requires `Intel(R) Arc(TM) 140T GPU (16GB)`, not merely an
+arbitrary XPU, so the newly trained branch uses the same accelerator model as
+its reused reference:
+
+```powershell
+python .\my-gpt\27_context_isolation.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_27_training.log
+```
+
+It writes two new artifacts and verifies that the Stage 26 reference hash is
+unchanged before returning:
+
+```text
+my-gpt/checkpoints/stage_27_block_64_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_27_block_64_at_128_step_13500_checkpoint.pt
+```
+
+Run the focused mask, initialization, checkpoint, matched-stream, and
+four-condition workflow tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_long_range_information.py" -v
+```
