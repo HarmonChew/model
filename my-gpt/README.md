@@ -2748,3 +2748,130 @@ The primary Stage 23 question is whether the smaller `0.05 -> 0.10` gain
 continues at `p=0.15` or turns around. Fresh paired validation compares the
 Stage 22 and Stage 23 best checkpoints on the same 500 validation batches;
 negative `p=0.15 - p=0.10` loss favors the new treatment.
+
+### Stage 23 result
+
+The canonical run found the turning point. The Stage 22 `p=0.10` checkpoint
+remains the champion:
+
+| Metric | `p=0.10` | `p=0.15` | `p=.15 - p=.10` |
+| --- | ---: | ---: | ---: |
+| Best fixed validation | **1.4960** | 1.4986 | +0.0026 |
+| Fresh validation | **1.487083** | 1.488836 | **+0.001753** |
+| Eval-train at best | **1.2161** | 1.2371 | +0.0210 |
+| Eval gap at best | 0.2799 | **0.2615** | -0.0184 |
+| Best step | 13,500 | 15,500 | +2,000 |
+
+The fresh paired delta was `+0.001753 +/- 0.000512 SE`, with a two-sided 95%
+interval of `[+0.000746,+0.002759]`. Positive favors `p=0.10`, so the paired
+panel resolves the small regression conditional on these checkpoints. The
+result also demonstrates why validation loss, rather than the smallest
+train/validation gap, remains the objective: `p=0.15` reduced the gap by
+weakening training fit but did not improve validation.
+
+## Stage 24: controlled depth scaling from 4 to 6 layers
+
+`24_scale_depth.py` locks the winning residual dropout at `p=0.10` and asks a
+new architectural question: what do two additional rounds of attention and
+nonlinear transformation buy at fixed representation width?
+
+| Setting | Reused control | New treatment |
+| --- | ---: | ---: |
+| Batch size | 32 | 32 |
+| Sequence length | 64 | 64 |
+| Targets/update | 2,048 | 2,048 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN hidden width | 512 | 512 |
+| Transformer blocks | 4 | 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Parameters | 816,705 | 1,212,481 |
+| Updates | 18,000 | 18,000 |
+
+Each `C=128` block contains 197,888 parameters, so the two added blocks add
+395,776 parameters, a 48.46% increase over the four-layer model. Attention
+geometry within a layer remains `(B,H,T,T) = (32,4,64,64)`, while the number
+of causal-mask buffers rises from 16 to 24 and the number of residual dropout
+sites rises from 8 to 12.
+
+### Native initialization and read-only control
+
+The architectures cannot have byte-identical complete initial states. Stage
+24 resets initialization seed 1,337 before constructing each native model and
+records a separate state hash for each branch. It does not initialize `L=6`
+by copying the trained `L=4` checkpoint or by grafting new layers onto it.
+
+The `L=4` branch does not need another 18,000-update run: it is exactly the
+Stage 22 `C=128,L=4,p=0.10` champion produced with the requested batch stream,
+optimizer, schedule, update count, and initialization. Stage 24 therefore
+pins that checkpoint at step 13,500 and SHA-256
+`dabb5b9d235460b9c3ab4b7b1a43d70c0ecd3403d48b447bf7f5d45f68823fc9`,
+strictly validates its provenance, and keeps it read-only. A custom control
+path requires both `--control-checkpoint-sha256` and
+`--control-checkpoint-step`; expected identity is never inferred from a custom
+checkpoint's own metadata.
+
+The new `L=6` branch uses a fresh AdamW optimizer and the established schedule:
+
+```text
+update indices 0-9,999:       1e-3
+update indices 10,000-12,999: 3e-4
+update indices 13,000-17,999: 1e-4
+```
+
+Its explicit training-batch generator is recreated from seed 1,338, so its
+inputs and targets match the Stage 22 stream exactly. Global model/dropout RNG
+is reset to seed 1,340 before update zero. The RNG seed is shared, but the
+models do not receive identical dropout masks: six layers consume more random
+draws than four. Checkpoint selection again uses fixed eval-mode train and
+validation panels from seed 1,339, with dropout and gradients disabled. This
+keeps each best-step generalization gap apples-to-apples.
+
+The Stage 24 checkpoint validator checks the treatment depth and parameter
+count, 24 causal masks, 12 `p=0.10` dropout sites, optimizer state and step,
+schedule, data fingerprint, explicit batch-generator replay, both native
+initialization hashes, fixed-panel protocol, and pinned control identity. The
+selected treatment hash is carried into fixed-panel replay and fresh
+validation so replacing either checkpoint is rejected.
+
+### Compute benchmark and paired validation
+
+Disposable native-initialized models run before quality training in the
+counterbalanced order `L4,L6,L6,L4`. Each trial uses 20 warmup and 100 timed
+optimizer updates with the real dropout-active training path. The aggregated
+report includes parameters, iterations/second, target characters/second, and
+peak allocated and reserved accelerator memory. These models and optimizers
+are discarded before the `L=6` treatment starts, and tests verify that enabling
+the benchmark cannot change its quality trajectory.
+
+After training, the independently selected Stage 22 and Stage 24 best
+checkpoints run on 500 fresh paired validation batches from seed 1,344. The
+primary statistic is the paired `L=6 - L=4` overall-loss delta; negative favors
+the deeper model. First/second-half and four 16-position band intervals remain
+exploratory and are not multiplicity-adjusted. As in prior stages, these
+intervals quantify validation-batch sampling uncertainty conditional on the
+selected checkpoints, not training-seed uncertainty.
+
+Run the canonical XPU experiment with:
+
+```powershell
+python .\my-gpt\24_scale_depth.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_24_training.log
+```
+
+The canonical comparison should use XPU, matching the numerical training path
+that produced the reused Stage 22 checkpoint. CPU, CUDA, or MPS runs remain
+useful for plumbing or separate replications, but device-dependent numerical
+differences mean they are not the single-intervention canonical depth run.
+
+Run the focused protocol and workflow tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt -p "test_depth_scaling.py" -v
+```
+
+The only new canonical checkpoint is:
+
+```text
+my-gpt/checkpoints/stage_24_depth_6_best_checkpoint.pt
+```
