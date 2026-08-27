@@ -3870,6 +3870,209 @@ python -m unittest discover -s .\my-gpt `
     -p "test_context_continuity.py" -v
 ```
 
-This section specifies the Stage 28 protocol. It does not report a Stage 28
+### Stage 28 result
+
+The canonical run selected the bounded branch at step 12,500. At the matched
+step 13,500, the fixed-panel train losses were 1.1530 for Full and 1.1242 for
+W=12, while fixed-panel validation favored Full (1.4769 versus 1.4981). Thus
+the local restriction fit the training corpus better but generalized worse.
+
+On 500 fresh paired validation panels, the primary matched-step result was:
+
+| Metric | Full-128 | W=12 / RF=67 | Full - local |
+| --- | ---: | ---: | ---: |
+| Overall | 1.483298 | 1.503408 | -0.020110 |
+| First half | 1.506782 | 1.523949 | -0.017167 |
+| Second half | 1.459814 | 1.482867 | -0.023054 |
+| Positions 67-127 | 1.460053 | 1.482991 | -0.022938 |
+
+The overall 95% CI was `[-0.021524,-0.018697]`, and the predeclared
+`[67,128)` interval was `[-0.024964,-0.020912]`. Full also won in `[12,67)`,
+where every earlier source was still theoretically reachable by the local
+model's final layer. Only `[0,12)`, whose direct mask rows are identical at
+initialization, crossed zero. Stage 28 therefore rejects a reset-only account
+and shows that theoretical reachability is not equivalent to equally usable
+information. It does not separate source age beyond 67 from direct fan-in,
+path length, or relay bottlenecks.
+
+The dense benchmark measured 37,593 targets/second for W=12 and 36,907 for
+Full despite removing 82% of logical causal edges. Dense masking did not
+produce sparse computation.
+
+The audited Stage 28 artifacts are pinned by:
+
+```text
+selected best @ 12,500:
+2a7dfe443307b9262af9e19112fe86f3915df89bca0cdabebf7f212a1251ab26
+
+matched anchor @ 13,500:
+104676cb90ae17b5271755407a18c85420f5578bfea78cf805f0e351b104d83e
+
+canonical console transcript:
+234ad988e84f5acf8a535c40476606532a2f7b01e3da03448e81bce8ddf1b17b
+```
+
+## Stage 29: global receptive field through local routing
+
+`29_global_receptive_field.py` tests whether a stacked local Transformer can
+match Full-128 once its final-layer theoretical receptive field covers the
+entire sequence. It uses the smallest uniform per-layer window that provides
+global coverage at `T=128,L=6`:
+
+```text
+W_min = 1 + ceil((T - 1) / L)
+      = 1 + ceil(127 / 6)
+      = 23
+
+W=22: 1 + 6(22 - 1) = 127  (short)
+W=23: 1 + 6(23 - 1) = 133  (global at T=128)
+```
+
+The W=23 receptive-field progression is:
+
+```text
+layer 1:  23
+layer 2:  45
+layer 3:  67
+layer 4:  89
+layer 5: 111
+layer 6: 133 uncapped, 128 effective
+```
+
+The final representation at every query can therefore reach its complete
+causal source prefix. The intervention no longer changes which source origins
+are theoretically reachable at the final layer. It still changes direct
+fan-in, route length, intermediate relay demands, and the number of allowed
+logical edges.
+
+### Controlled protocol
+
+Stage 29 preserves the Stage 28 geometry and training controls:
+
+| Setting | W=23 global-RF local branch | Full-128 reference |
+| --- | ---: | ---: |
+| Batch size / sequence length | 16 / 128 | 16 / 128 |
+| Targets per update | 2,048 | 2,048 |
+| Width / heads / head size | 128 / 4 / 32 | 128 / 4 / 32 |
+| FFN width / blocks | 512 / 6 | 512 / 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Parameters | 1,220,673 | 1,220,673 |
+| Dense attention shape/block | `(16,4,128,128)` | `(16,4,128,128)` |
+| Direct attention | latest 23 positions | complete causal prefix |
+| Final theoretical RF | 133, capped to 128 | 128 |
+
+Only W=23 is newly trained. Full is the read-only Stage 26 checkpoint at step
+13,500, SHA-256:
+
+```text
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+```
+
+The new branch starts from the same learned Stage 26 initialization. Exactly
+24 per-head mask buffers differ; all learned tensors, position embeddings,
+parameter counts, batch streams, training RNG seeds, dropout probability,
+schedule, update count, and dense tensor geometry remain matched. The
+18,000-update learning-rate schedule and unconditional step-13,500 anchor are
+unchanged. Strict validation requires the anchor's training-batch generator
+and CPU/XPU RNG states to equal the pinned Full trajectory.
+
+Canonical W=23 fingerprints are predeclared as:
+
+```text
+learned parameters:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+full initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+
+W=23 initial state:
+3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f
+
+W=23 Boolean mask:
+bab7c894395eb65e7ac2d5b7d2eaa0f8687e991914182ec2ad36858d0f16544b
+
+W=23 float mask buffer:
+d0ec90278c3d187be126d359bdb43d62e763eb478dc5c3d0fa07ca30f8603089
+```
+
+Rows `[0,23)` of the local and Full masks are identical, so their initial
+logits over that prefix must match exactly. Query 23 is the first row where
+Full has a shorter route to source 0: one direct attention edge versus at
+least two local-attention layers.
+
+### Hop-aligned evaluation
+
+The position partition records a one-indexed local-routing bucket for the
+oldest source in each query prefix; self-only query 0 is grouped with the
+direct bucket:
+
+```text
+[0,23)    self/direct bucket (at most one local layer); exact initial-mask prefix
+[23,45)   two local layers
+[45,67)   three local layers
+[67,89)   four local layers
+[89,111)  five local layers
+[111,128) six local layers
+```
+
+The matched step-13,500 natural overall delta remains primary. Stage 29 also
+predeclares `[23,128)` as one mechanistic multi-hop aggregate, where Full has
+wider direct fan-in and a shorter route to the oldest source. It is calculated
+for each validation panel before the paired mean, standard error, and
+Student-t CI are formed; it is not reconstructed by combining band standard
+errors. The six individual hop bands are secondary or exploratory.
+
+Held-out paired evaluation deliberately reuses Stage 28's 500 panels at seed
+1,346, allowing the W=12 and W=23 deltas to be compared on the same examples.
+They remain held out from training and checkpoint selection, but they are not
+a newly unseen post-Stage-28 research panel. Both Stage 29 branches see each
+panel in paired order. Negative `full - local` values favor Full-128.
+Intervals remain conditional on one initialization, training stream, device,
+and backend.
+
+### Interpretation
+
+If W=23 nearly matches Full and its interval falls inside a predeclared
+equivalence margin, global direct attention is not necessary here: stacked
+local routing is sufficient once its theoretical receptive field spans the
+sequence. Stage 29 does not currently declare such a margin, so an interval
+that merely crosses zero means no difference was detected, not that the two
+branches are practically equivalent. If W=23 closes only part of the Stage 28
+gap, both end-to-end coverage and routing ease matter. If it remains near
+W=12, theoretical reachability by itself is insufficient, pointing toward
+direct fan-in, shorter paths, or intermediate bottlenecks. Because both
+branches have global final-layer reachability, Stage 29 must not describe any
+band as an extra-history or unreachable-source diagnostic.
+
+The W=23 mask allows 2,691 of 8,256 causal edges per head and removes 5,565
+(67.4%). Both branches still compute dense `128 x 128` score tensors, so the
+counterbalanced benchmark is a mask-overhead check rather than a sparse-speed
+benchmark.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+python .\my-gpt\29_global_receptive_field.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_29_training.log
+```
+
+The canonical CLI requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU as
+Stage 26. It writes:
+
+```text
+my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
+my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt  (read-only reference)
+```
+
+Run the focused mask, global reachability, hop-band, initialization,
+checkpoint, matched-stream, and paired-evaluator tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_global_receptive_field.py" -v
+```
+
+This section specifies the Stage 29 protocol. It does not report a Stage 29
 outcome; those measurements must come from the canonical run and persisted
 artifacts.
