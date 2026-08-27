@@ -3492,3 +3492,384 @@ four-condition workflow tests with:
 python -m unittest discover -s .\my-gpt `
     -p "test_long_range_information.py" -v
 ```
+
+### Stage 27 result: cross-half access wins at the matched endpoint
+
+The canonical XPU run completed all 18,000 blocked-branch updates and left the
+pinned Stage 26 Full-128 checkpoint unchanged. The blocked branch's selected
+fixed-panel best occurred at step 11,500 with validation loss `1.4921`; its
+unconditional step-13,500 anchor had validation loss `1.4957`. At the matched
+anchor, the reused full branch had validation loss `1.4769`, a fixed-panel
+`full - block` difference of about `-0.0188`. The corresponding first- and
+second-half differences were approximately `+0.0054` and `-0.0431`. These
+fixed-panel values describe the repeatedly evaluated selection panel and do
+not carry repeated-panel confidence intervals.
+
+The primary result comes from the new 500-batch panel at seed 1,345. Both
+natural conditions use the attention policy under which their weights were
+trained, and both are evaluated at the predeclared step-13,500 endpoint:
+
+| Natural matched condition | Overall | First half | Second half |
+| --- | ---: | ---: | ---: |
+| Full-trained / full mask | **1.485688** | 1.509163 | **1.462213** |
+| Block-trained / block mask | 1.507208 | **1.507579** | 1.506837 |
+
+| Paired delta, `full/full - block/block` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | **-0.021520** | 0.000725 | [-0.022945, -0.020096] |
+| First half | +0.001584 | 0.000965 | [-0.000312, +0.003480] |
+| Second half | **-0.044625** | 0.001136 | [-0.046856, -0.042394] |
+
+The overall and second-half intervals are wholly below zero, while the
+first-half interval includes zero. In this matched training run, changing the
+cross-half attention policy therefore caused a clear natural performance
+difference, localized almost entirely to positions where the two policies
+provide different source information. This sharply strengthens the Stage 26
+interpretation: its second-half gain was not merely correlated with absolute
+position, tensor geometry, batch size, parameter count, or the extra learned
+position rows. Stage 27 holds those factors fixed and changes the mask.
+
+The natural position bands show that the effect is not distributed uniformly
+through the second half:
+
+| Position band | Natural `full - block` | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| 000-031 | +0.002331 | 0.001314 | [-0.000250, +0.004913] |
+| 032-063 | +0.000837 | 0.001466 | [-0.002043, +0.003716] |
+| 064-079 | **-0.168371** | 0.002852 | [-0.173975, -0.162767] |
+| 080-095 | **-0.011493** | 0.002218 | [-0.015851, -0.007135] |
+| 096-111 | -0.001329 | 0.002123 | [-0.005500, +0.002842] |
+| 112-127 | +0.002693 | 0.002183 | [-0.001597, +0.006983] |
+
+The dominant loss is a context cold start immediately after the hard
+boundary. At query 64 the blocked model has no preceding characters inside
+its new island; it then rebuilds a local prefix one character at a time. The
+natural Full-128 advantage is enormous over positions 64-79, much smaller over
+80-95, and not detected in either later 16-position band. The bands are
+exploratory and their intervals are pointwise and unadjusted, so they do not
+identify an exact recovery position. They do establish the broader shape:
+the matched aggregate advantage is driven mainly by avoiding the reset, not by
+a benefit that grows monotonically with distance into the sequence.
+
+That distinction narrows what Stage 27 proves. It provides strong evidence
+that cross-boundary continuity is useful, but it does not by itself show that
+source characters substantially older than 64 positions are needed. By the
+end of the second island the blocked model has rebuilt nearly a full
+64-character local prefix, and the natural difference has largely
+disappeared. A continuous bounded-receptive-field control is needed to remove
+old source information without periodically resetting the available prefix.
+
+The independently selected blocked checkpoint gives the same qualitative
+answer, but it is secondary because the branch steps are unmatched:
+
+| Natural selected-best condition | Step | Overall | First half | Second half |
+| --- | ---: | ---: | ---: | ---: |
+| Full-trained / full mask | 13,500 | **1.485688** | 1.509163 | **1.462213** |
+| Block-trained / block mask | 11,500 | 1.503928 | **1.504271** | 1.503586 |
+
+| Selected-best `full - block` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | -0.018240 | 0.000801 | [-0.019814, -0.016667] |
+| First half | +0.004893 | 0.001004 | [+0.002921, +0.006864] |
+| Second half | -0.041373 | 0.001204 | [-0.043739, -0.039007] |
+
+### Crossed masks measure reliance, not the natural architecture effect
+
+The same-weight crossed-mask comparisons answer different questions from the
+natural trained-model comparison. Removing cross-half edges from the
+Full-trained weights at inference produced:
+
+| Full-trained mask effect, `full mask - block mask` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | -0.143977 | 0.000865 | [-0.145677, -0.142278] |
+| First half | +0.000000 | 0.000000 | [+0.000000, +0.000000] |
+| Second half | **-0.287954** | 0.001730 | [-0.291353, -0.284555] |
+
+The exact first-half equality is a strong mask-implementation audit: changing
+the second island's incoming edges cannot affect first-half logits. The large
+second-half change shows that the trained Full-128 weights actively rely on
+cross-half access. It is not an estimate that cross-half context is naturally
+worth `0.287954` loss, because deleting expected connections at inference is
+a distribution shift. The natural matched training-treatment estimate is
+`-0.044625` in the second half; the blocked model adapted to its restriction
+during training and therefore performs much better than the crossed
+Full-trained model.
+
+Opening the previously absent connections for Block-trained weights is even
+more distribution-shifted:
+
+| Block-trained mask effect, `full mask - block mask` | Mean | Paired SE | 95% CI |
+| --- | ---: | ---: | ---: |
+| Overall | +1.008444 | 0.002661 | [+1.003215, +1.013673] |
+| First half | +0.000000 | 0.000000 | [+0.000000, +0.000000] |
+| Second half | +2.016888 | 0.005323 | [+2.006430, +2.027346] |
+
+Giving these weights more visible keys catastrophically redistributes their
+attention over connections they were never optimized to use. In this model,
+the exploratory result shows that simply making more inputs accessible does
+not guarantee an improvement when the weights were trained under another
+connectivity policy; it does not show that the earlier-half text is harmful.
+The natural and crossed magnitudes must therefore remain separate.
+
+All of these statistical intervals condition on two persisted checkpoints
+from one matched initialization, batch stream, and training RNG seed. They
+measure sampling uncertainty across the 500 validation panels, not variation
+across training seeds, initialization draws, devices, or backends. The
+matched-step natural overall result and its predeclared second-half diagnostic
+carry the primary evidential weight. Selected-best, crossed-mask, and band
+results remain exploratory.
+
+### Dense-mask systems result and artifacts
+
+The blocked mask removes 4,096 of the full mask's 8,256 allowed edges per head,
+or about 49.6%, but both implementations still materialize and multiply dense
+`128 x 128` attention tensors:
+
+| Training benchmark | Block 64+64 | Full-128 |
+| --- | ---: | ---: |
+| Iterations/second | 13.691 | 13.594 |
+| Target characters/second | 28,038.854 | 27,840.934 |
+| Peak allocated memory | 145.607 MiB | 145.607 MiB |
+| Peak reserved memory | 158.000 MiB | 158.000 MiB |
+
+The short counterbalanced benchmark found practically identical memory use
+and only a small throughput difference. Logical sparsity alone therefore
+provides no dense-kernel compute or memory saving; a specialized sparse or
+block-sparse implementation would be required to exploit the removed edges.
+
+The persisted Stage 27 artifacts are pinned as:
+
+```text
+blocked selected-best checkpoint SHA-256:
+986bb48d79c780c2fd11c1d7bac62ca225396b827b999291c2962efe75c7878d
+
+blocked step-13,500 anchor SHA-256:
+bde769ec8a1eb7c385bd320024ce2659fdbf4f968d04471495756a75251a349a
+
+reused Full-128 checkpoint SHA-256:
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+
+canonical console transcript SHA-256:
+d14a9258d26b71d1ccddf7de611743afeb25d79690ec8c6272331e1d6abd1000
+```
+
+The checkpoint validator confirmed the learned initialization, mask buffers,
+metadata, schedule, optimizer provenance, and matched step-13,500 batch and
+RNG states. The complete training curve, benchmark, generated samples, and
+four-condition panel are recorded in
+`my-gpt/checkpoints/stage_27_training.log`.
+
+## Stage 28: continuous bounded receptive field at T=128
+
+`28_context_continuity.py` tests the hypothesis refined by Stage 27: does the
+current model benefit from source information older than approximately 64
+characters when its context is never reset? It compares the pinned Full-128
+reference with a continuous bounded branch whose six-layer maximum theoretical
+receptive field is 67 positions.
+
+This is not a literal per-layer sliding window of 64. In a multilayer
+Transformer, contextualized representations can relay older source
+information across layers. With a uniform direct-attention window `W` and
+`L` blocks, the maximum theoretical source receptive-field width is:
+
+```text
+R = 1 + L(W - 1)
+```
+
+A six-layer `W=64` model would have an uncapped theoretical width of 379 and
+would cover the complete 128-position sequence. Such a mask tests whether
+direct long edges matter, not whether source history older than 64 positions
+matters. Stage 28 instead uses `W=12` in every layer:
+
+```text
+direct mask:  allowed(q, k) = (k <= q) and (k >= q - 11)
+stacked RF:   1 + 6(12 - 1) = 67
+```
+
+For query `q` after block `l`, the theoretical reachable-source width is:
+
+```text
+R_l(q) = min(q + 1, 1 + l(12 - 1))
+```
+
+At query 66, the bounded branch can still theoretically receive information
+from the complete source prefix 0-66. Query 67 is the first position where
+Full-128 has an additional reachable origin: the bounded branch can reach
+sources 1-67, while Full-128 can also reach source 0. At query 127, the
+bounded branch can theoretically reach sources 61-127. These are reachability
+bounds, not guarantees that training preserves or uses every source.
+
+The window rolls one position at every query and has no island boundary. For
+example, direct keys at queries 63, 64, and 65 are respectively 52-63, 53-64,
+and 54-65. Unlike Stage 27, no query abruptly falls from a populated prefix to
+zero preceding characters.
+
+### Stage 18 and Stage 19 precedent
+
+Stage 18 compared Full-128 with a per-layer local window whose stacked
+receptive field still covered the whole sequence. It was primarily a test of
+direct attention span. Stage 19 then used `W=17,L=4`, giving a maximum
+theoretical receptive field of 65, to bound end-to-end source history without
+a reset. Stage 28 repeats the Stage 19 logic at the current
+`C=128,L=6,p=0.10` architecture, choosing `W=12` because six layers yield a
+closely matched 67-position bound.
+
+| Mask policy at `T=128` | Hard reset | Direct span/layer | Maximum theoretical RF |
+| --- | --- | ---: | ---: |
+| Stage 27 Block 64+64 | Yes, at 64 | Up to 64 within each island | Up to 64 within each island |
+| Stage 28 bounded | No | 12 | 67 |
+| Full causal reference | No | Complete causal prefix | 128 |
+
+### Controlled training protocol
+
+Both Stage 28 conditions retain the current champion geometry:
+
+| Setting | Bounded `W=12` branch | Full-128 reference |
+| --- | ---: | ---: |
+| Batch size | 16 | 16 |
+| Sequence length | 128 | 128 |
+| Targets/update | 2,048 | 2,048 |
+| Residual width | 128 | 128 |
+| Attention heads / channels per head | 4 / 32 | 4 / 32 |
+| FFN hidden width | 512 | 512 |
+| Transformer blocks | 6 | 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Parameters | 1,220,673 | 1,220,673 |
+| Dense attention shape/block | `(16, 4, 128, 128)` | `(16, 4, 128, 128)` |
+
+Only the bounded branch is newly trained. The full branch is the read-only
+Stage 26 checkpoint selected at step 13,500, pinned by SHA-256:
+
+```text
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+```
+
+The bounded branch starts from the exact Stage 26 `T=128` learned
+initialization; only its 24 per-head attention-mask buffers differ. The
+canonical seeds remain initialization 1,337, training batches 1,338, fixed
+panel 1,339, training RNG 1,340, sample generation 1,342, and initial audit
+1,343. It uses the same 18,000-update schedule: `1e-3` over updates
+`[0,10000)`, `3e-4` over `[10000,13000)`, and `1e-4` over `[13000,18000)`.
+It saves an unconditional step-13,500 anchor as well as its independently
+selected overall-best checkpoint. At the anchor, strict validation requires
+the bounded branch's training-batch generator and CPU/XPU RNG states to match
+the pinned full reference. Rows 0-11 of the two direct masks are identical, so
+their initial logits over `[0,12)` must also match exactly.
+
+The canonical initialization and mask fingerprints are predeclared as:
+
+```text
+learned parameters:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+full initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+
+bounded initial state:
+aeccf31749087409758c2de3b1e31d79b24d12798d8d7ee51f21ba92d13c89f9
+
+bounded Boolean mask:
+7ec1b36fc194b2f73d2d1ff723fbb8f523cab5160f7e03ebe100a7255ffdd1d4
+
+bounded float mask buffer:
+0509f55a67587266e0d8670daec81e1b22b923160f6a89590e46934c04ba87a8
+```
+
+The primary natural comparison is:
+
+```text
+full-context Stage 26 checkpoint @ 13,500
+minus
+bounded-W12 Stage 28 anchor @ 13,500
+```
+
+The selected-best comparison is secondary because the independently selected
+bounded checkpoint may come from another update. Stage 28 does not use crossed
+inference masks: Stage 27 already showed how severely a connectivity policy
+can shift a model that was trained under another policy.
+
+Fresh paired evaluation uses 500 validation panels from the new seed 1,346,
+distinct from the fixed panel and the Stage 26 and Stage 27 fresh panels. It
+reports overall and half losses plus the following predeclared position
+aggregates:
+
+```text
+[0,12)   exact direct-mask prefix
+[12,32)  topology differs, complete source prefix remains theoretically reachable
+[32,64)  topology differs, complete source prefix remains theoretically reachable
+[64,67)  last queries with a complete source prefix theoretically reachable
+[67,128) Full has additional reachable source origins
+```
+
+The matched-step natural overall delta is primary. The `[67,128)` aggregate
+is the predeclared extra-history diagnostic. Negative `full - bounded` values
+favor Full-128. Student-t intervals quantify validation-panel sampling
+uncertainty conditional on this one paired training seed; they do not measure
+training-seed, initialization, device, or backend variability. Selected-best
+and finer positional comparisons are secondary or exploratory, and an
+interval that merely crosses zero is not proof of practical equivalence.
+
+### Outcome interpretation is asymmetric
+
+A clear Full-128 win concentrated in `[67,128)`, with little difference before
+query 67, would be the strongest Stage 28 evidence that source information
+older than about 67 positions is useful. Even then, the intervention also
+changes path length and intermediate-representation bottlenecks, so it cannot
+assign the entire magnitude to raw history length alone.
+
+An aggregate Full-128 win that begins well before query 67 would establish a
+mask-topology advantage, but not specifically an old-source-history benefit.
+Before the receptive-field bound becomes active, both branches can reach the
+same source origins theoretically, while Full-128 has shorter paths and wider
+direct attention.
+
+If the matched Full-128 and bounded results are close, the supported statement
+is that Full-128 did not demonstrate an advantage over a continuous
+67-position theoretical receptive field in this training run. Practical
+equivalence requires the full confidence interval to fall inside a
+predeclared equivalence margin; failure to reject zero alone is inconclusive.
+Stage 28 does not currently declare such a margin, so a zero-crossing interval
+must be reported as no detected difference rather than practical equivalence.
+A bounded-branch win likewise would not prove that older history is
+intrinsically harmful, only that full connectivity did not help under this
+training protocol.
+
+Both branches continue to compute dense `128 x 128` score tensors. The bounded
+mask allows 1,470 of 8,256 causal query-key edges per head, but masking the
+other entries does not remove dense matrix-multiplication work. The
+counterbalanced benchmark therefore measures mask-policy overhead; it is not
+a sparse-attention performance benchmark, and similar throughput and memory
+are expected without a specialized kernel. Its canonical order is bounded,
+full, full, bounded, with 20 warmup and 100 timed updates in each disposable
+run.
+
+Run the canonical Stage 28 experiment from the repository root with:
+
+```powershell
+python .\my-gpt\28_context_continuity.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_28_training.log
+```
+
+The canonical XPU path requires `Intel(R) Arc(TM) 140T GPU (16GB)`, matching
+the accelerator used for the pinned full-reference trajectory.
+
+It writes the newly trained bounded artifacts below and verifies that the
+pinned Stage 26 reference remains unchanged:
+
+```text
+my-gpt/checkpoints/stage_28_window_12_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_28_window_12_at_128_step_13500_checkpoint.pt
+my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt  (read-only reference)
+```
+
+Run the focused no-reset mask, six-layer reachability, initialization,
+checkpoint, matched-stream, and paired-evaluator tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_context_continuity.py" -v
+```
+
+This section specifies the Stage 28 protocol. It does not report a Stage 28
+outcome; those measurements must come from the canonical run and persisted
+artifacts.
