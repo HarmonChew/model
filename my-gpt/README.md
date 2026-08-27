@@ -4073,6 +4073,168 @@ python -m unittest discover -s .\my-gpt `
     -p "test_global_receptive_field.py" -v
 ```
 
-This section specifies the Stage 29 protocol. It does not report a Stage 29
+### Canonical outcome
+
+The canonical run completed and produced the artifacts above. On the 500
+paired held-out panels at seed 1,346, the matched step-13,500 endpoint was:
+
+| Metric | Full-128 | W=23 / RF=133 | Full - W=23 |
+| --- | ---: | ---: | ---: |
+| Overall | **1.483298** | 1.493074 | **-0.009776** |
+| First half | **1.506782** | 1.516672 | -0.009890 |
+| Second half | **1.459814** | 1.469476 | -0.009662 |
+
+The paired 95% CI for the overall delta was
+`[-0.011210, -0.008342]`. The predeclared `[23,128)` multi-hop delta was
+`-0.010095`, with 95% CI `[-0.011692, -0.008499]`. Full therefore retained a
+clear advantage even though W=23 had global final-layer theoretical
+reachability. W=23 nevertheless recovered about 51% of W=12's matched-step
+deficit to Full; the selected-best comparison recovered about 68% and left a
+Full advantage of `0.006154`.
+
+The W=23 fixed-panel checkpoint selected step 10,500. Its validation loss then
+worsened while training loss continued to improve through step 18,000, making
+early stopping important but insufficient to match Full. These results motivate
+Stage 30's direct test of whether a single global routing opportunity supplies
+most of the remaining benefit.
+
+## Stage 30: one global routing layer
+
+`30_sparse_global_shortcut.py` tests whether the remaining gap between the
+Stage 29 W=23 model and Full-128 is mostly a need for one long-range
+communication opportunity or for repeated global integration throughout the
+network. The newly trained branch uses one Full-128 layer in the middle of the
+otherwise local stack:
+
+```text
+layer 1: W=23
+layer 2: W=23
+layer 3: FULL
+layer 4: W=23
+layer 5: W=23
+layer 6: W=23
+```
+
+Layer numbering here is one-based; the implementation's global block index is
+`2`. The layerwise theoretical receptive-field progression is:
+
+```text
+layer 1:  23
+layer 2:  45
+layer 3: 128  (global exchange)
+layer 4: 128
+layer 5: 128
+layer 6: 128
+```
+
+Thus the hybrid offers a one-attention-hop route from every query to every
+causal source representation at layer 3, followed by three layers that can
+refine the globally integrated representation. Full-128 offers that direct
+fan-in at all six layers. The intervention therefore tests sparse versus
+repeated global routing in depth; it is not another test of eventual source
+reachability.
+
+### Controlled protocol
+
+| Setting | W=23 all-local | Stage 30 hybrid | Full-128 |
+| --- | ---: | ---: | ---: |
+| Batch size / sequence length | 16 / 128 | 16 / 128 | 16 / 128 |
+| Width / heads / head size | 128 / 4 / 32 | 128 / 4 / 32 | 128 / 4 / 32 |
+| FFN width / blocks | 512 / 6 | 512 / 6 | 512 / 6 |
+| Residual dropout | 0.10 | 0.10 | 0.10 |
+| Parameters | 1,220,673 | 1,220,673 | 1,220,673 |
+| Per-layer masks | 6 local | 5 local + 1 full | 6 full |
+| First globally reachable layer | 6 | 3 | 1 |
+| Dense attention shape/block | `(16,4,128,128)` | `(16,4,128,128)` | `(16,4,128,128)` |
+
+Only the hybrid is newly trained. Its learned tensors, initialization seed,
+position embeddings, batch stream, training RNG seed, optimizer, schedule,
+dropout, tensor dimensions, and 18,000-update budget are identical to the
+prior branches. Relative to the all-Full initial state, exactly 20 mask
+buffers differ: five local layers times four heads. Layer 3's four mask
+buffers remain identical to Full. The masks first differ at query 23, so
+initial logits on `[0,23)` must match exactly.
+
+The Stage 26 Full reference and both Stage 29 W=23 artifacts are pinned and
+reused read-only:
+
+```text
+Stage 26 Full best, step 13,500:
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+
+Stage 29 W=23 best, step 10,500:
+1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+
+Stage 29 W=23 matched anchor, step 13,500:
+ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+```
+
+Canonical hybrid initialization fingerprints are predeclared as:
+
+```text
+learned parameters:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+full initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+
+hybrid initial state:
+ea57548caadcd0bcc4298471c1e959d1c4e508e028ea19656785e594810db68a
+
+hybrid mask-buffer mapping:
+5af692a38c69f823f5f9d835a84f1845a87388020f21dbd7863c5a6fa38b6486
+```
+
+Summed over depth, the hybrid permits 21,711 logical causal edges per head:
+`5 * 2,691 + 8,256`. Full permits 49,536. Across four heads this removes
+111,300 logical edges, although both models retain the same dense attention
+kernels and tensor shapes.
+
+### Predeclared evaluation
+
+The primary endpoint is the natural-mask Full-minus-Hybrid overall validation
+loss at the common step-13,500 anchor. Negative values favor Full. The key
+secondary comparison is Hybrid-minus-W23 at that same step; negative values
+mean the global shortcut helped. Full-minus-W23 is recomputed on the same
+panels as an audit. The descriptive recovered fraction is:
+
+```text
+(W23 loss - Hybrid loss) / (W23 loss - Full loss)
+```
+
+It is a descriptive ratio, not an equivalence test. The `[23,128)` aggregate
+is predeclared as the topology-divergent range, while the six Stage 29
+hop-aligned bands remain exploratory. Selected-best comparisons are secondary
+because the W=23, Hybrid, and Full checkpoints may be selected at different
+steps.
+
+Stage 30 uses 500 newly held-out paired panels at seed 1,347. It deliberately
+does not reuse seed 1,346: Stage 30 was chosen after the Stage 28/29 results on
+that panel were inspected. Intervals remain conditional on one initialization,
+training stream, corpus split, device, and backend.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+python .\my-gpt\30_sparse_global_shortcut.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_30_training.log
+```
+
+The canonical CLI writes:
+
+```text
+my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt
+```
+
+and validates that all three reference files remain unchanged. Run its focused
+tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_sparse_global_shortcut.py" -v
+```
+
+This section specifies the Stage 30 protocol. It does not report a Stage 30
 outcome; those measurements must come from the canonical run and persisted
 artifacts.
