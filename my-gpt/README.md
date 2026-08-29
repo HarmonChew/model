@@ -4491,3 +4491,391 @@ checkpoint, matched-stream, and paired-evaluator tests with:
 python -m unittest discover -s .\my-gpt `
     -p "test_global_layer_placement.py" -v
 ```
+
+### Canonical outcome
+
+The canonical XPU run selected LastFull at step 11,000. On the 500 newly
+held-out paired panels at seed 1,348, the matched step-13,500 endpoint was:
+
+| Natural matched condition | Overall validation loss |
+| --- | ---: |
+| Full-128 | **1.485143** |
+| LastFull | 1.492108 |
+| W23 | 1.496053 |
+| MidFull | 1.501920 |
+
+The primary `LastFull - MidFull` delta was `-0.009812 +/- 0.000757 SE`, with a
+95% CI of `[-0.011300,-0.008324]`. Placement therefore mattered decisively in
+this run: moving the single Full layer from block 3 to block 6 changed it from
+worse than W23 to better than W23.
+
+The two matched-step secondary comparisons separated benefit from
+sufficiency. `LastFull - W23` was `-0.003946 +/- 0.000714 SE`, with a 95% CI of
+`[-0.005348,-0.002543]`, so the final global readout provided a real gain.
+`Full - LastFull` was still `-0.006964 +/- 0.000730 SE`, with a 95% CI of
+`[-0.008399,-0.005530]`, so one final global operation did not explain most of
+Full's advantage. LastFull recovered a descriptive 36.2% of W23's matched-step
+deficit to Full.
+
+The predeclared `[23,128)` LastFull-minus-W23 aggregate was `-0.004639`, with a
+95% CI of `[-0.006249,-0.003029]`. Its positionwise pattern supplied the
+expected topology check: the deltas over positions `000-022` and `023-044`
+were `-0.000780` and `-0.002575`, with intervals crossing zero, while all four
+later bands favored LastFull by between `-0.004867` and `-0.005439`. Full also
+beat LastFull on positions `000-022` by `-0.009427`, although every topology
+has identical direct masks on that prefix. That short-prefix result is a
+training effect of the shared weights learned under different later-token
+topologies, not a direct inference-time context advantage.
+
+LastFull's fixed-panel optimum had train/validation losses
+`1.1488 / 1.4811` and a `0.3323` gap at step 11,000. By step 18,000 its
+training loss had fallen to `1.0894`, but validation had worsened to `1.4880`
+and the gap had grown to `0.3986`. Together, the remaining Full advantage and
+the successful final placement motivate a direct test of a second consecutive
+global-computation round near the output.
+
+## Stage 32: iterative global refinement
+
+`32_iterative_global_refinement.py` tests whether adding one global operation
+immediately before LastFull's final global readout recovers substantially more
+of the Full-128 advantage. Only one new branch is trained:
+
+```text
+Last2Full contexts = (23, 23, 23, 23, None, None)
+
+layer 1: W=23
+layer 2: W=23
+layer 3: W=23
+layer 4: W=23
+layer 5: FULL
+layer 6: FULL
+```
+
+Layer numbering is one-based; the implementation's global block indices are
+`(4,5)`. The capped theoretical receptive-field progression is:
+
+```text
+layer 1:  23
+layer 2:  45
+layer 3:  67
+layer 4:  89
+layer 5: 128  (first global integration)
+layer 6: 128  (global refinement and readout)
+```
+
+The branch is compared under natural trained masks with three already-trained
+references:
+
+| Branch | Per-layer contexts | First globally reachable layer | Full-attention layers | Source |
+| --- | --- | ---: | ---: | --- |
+| W23 | `(23,23,23,23,23,23)` | 6, through local relays | 0 | Stage 29, read-only |
+| LastFull | `(23,23,23,23,23,None)` | 6 | 1 | Stage 31, read-only |
+| Last2Full | `(23,23,23,23,None,None)` | 5 | 2 | Stage 32, newly trained |
+| Full | `(None,None,None,None,None,None)` | 1 | 6 | Stage 26, read-only |
+
+Last2Full gives block 6 representations that have already undergone one round
+of global mixing. The primary contrast with LastFull therefore changes the
+number of consecutive final Full layers from one to two without changing the
+final layer's placement. MidFull is not an evaluation branch, but both of its
+Stage 30 artifacts remain pinned transitive dependencies because Stage 32 uses
+Stage 31's strict LastFull artifact validator.
+
+### Controlled protocol
+
+All four evaluated branches retain the Stage 26 geometry and training
+contract:
+
+| Setting | Value |
+| --- | ---: |
+| Batch size / sequence length | 16 / 128 |
+| Targets per update | 2,048 |
+| Width / heads / channels per head | 128 / 4 / 32 |
+| FFN width / Transformer blocks | 512 / 6 |
+| Residual dropout | 0.10 |
+| Parameters | 1,220,673 |
+| Dense attention shape per block | `(16,4,128,128)` |
+| Training updates | 18,000 |
+
+Only Last2Full is trained from step zero. It uses the same learned Stage 26
+initialization, corpus split, position embeddings, batch stream, dropout RNG,
+optimizer, and schedule as Full, W23, and LastFull. The schedule remains
+`1e-3` over updates `[0,10000)`, `3e-4` over `[10000,13000)`, and `1e-4` over
+`[13000,18000)`. Canonical seeds remain initialization 1,337, training batches
+1,338, fixed panel 1,339, training RNG 1,340, sample generation 1,342, and
+initial audit 1,343.
+
+The branch independently selects its fixed-panel best checkpoint and saves an
+unconditional step-13,500 anchor. Strict anchor validation requires the saved
+training-batch generator and CPU/XPU RNG states to match all three evaluated
+references. Mask rows `[0,23)` are identical under every topology, so initial
+logits over that prefix must match exactly.
+
+The logical causal-edge counts per head make the intervention explicit:
+
+| Branch | Allowed edges by layer | Total across depth |
+| --- | --- | ---: |
+| W23 | `2691,2691,2691,2691,2691,2691` | 16,146 |
+| LastFull | `2691,2691,2691,2691,2691,8256` | 21,711 |
+| Last2Full | `2691,2691,2691,2691,8256,8256` | 27,276 |
+| Full | `8256,8256,8256,8256,8256,8256` | 49,536 |
+
+At initialization, Last2Full differs from LastFull in exactly four mask
+buffers: four heads in layer 5. It differs from W23 in eight mask buffers, from
+Full in 16, and from MidFull in 12. Relative to Full it removes 22,260 logical
+edges per head, or 89,040 across four heads. These are topology counts only;
+all branches retain identical dense attention kernels and tensor shapes.
+
+### Pinned references and initialization fingerprints
+
+The canonical CLI authenticates every older artifact before training, rechecks
+it throughout the run, and rejects replacement or aliasing. The evaluated
+references are:
+
+```text
+Stage 26 Full best, step 13,500:
+my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+
+Stage 29 W23 best, step 10,500:
+my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
+1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+
+Stage 29 W23 matched anchor, step 13,500:
+my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
+ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+
+Stage 31 LastFull best, step 11,000:
+my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_best_checkpoint.pt
+2788b45772b1ad03611d9a1d37dc69c0fb94ca509a101f53f117931eed9f3d0c
+
+Stage 31 LastFull matched anchor, step 13,500:
+my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_step_13500_checkpoint.pt
+56883cae4040f849a26e1d97ed33b03c2d934d2afe6fdb606bbb51395c5909bd
+```
+
+The Stage 30 artifacts required transitively to authenticate LastFull are:
+
+```text
+Stage 30 MidFull best, step 10,500:
+my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt
+dadb65bd5b8af294a3df8368e923afb02e90faceece88b074ecfa52bbd147800
+
+Stage 30 MidFull matched anchor, step 13,500:
+my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt
+90485453900376a5788958e53936aebdb0c418e474d0f1d895ffbf7617245d00
+```
+
+The predeclared corpus and initialization fingerprints are:
+
+```text
+corpus data:
+fa03e609cfc0769eb1fa73fb4e81239fee0c6e9ab0608c549b0a742a25535493
+
+initial learned-parameter tensors shared by every branch:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+Full initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+
+W23 initial state:
+3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f
+
+LastFull initial state:
+afed757340a41fa7d3563d8e62a6fb05ca2af8de67cdaf67bb2818e372c78ff4
+
+Last2Full initial state:
+46fcaba035be6690157eacff951dadc6fc0fa7e532ec60807f5b78ff9b882d8f
+
+Last2Full Boolean mask stack:
+3dfb31737b5aa941cdc6edebab9eabaa127387f6ff6bc4611f99e5c6d0b39c1a
+
+Last2Full float mask stack:
+666cd4fae5d33ae177a6755ab200e24e9527e70bc1d56ac696b160d782a22e81
+
+Last2Full mask-buffer mapping:
+78d3b32b51957f0bd0ce3aa9b1ca7e68533fbb12a2b61f04292169ff134b8611
+```
+
+### Predeclared evaluation
+
+Held-out evaluation uses 500 newly sampled paired validation panels at seed
+1,349. This panel is fresh because Stage 32 was selected after inspecting
+Stage 31's seed-1,348 results. Every comparison uses each checkpoint's natural
+trained mask.
+
+The primary endpoint is the matched step-13,500 natural-mask overall delta:
+
+```text
+Last2Full - LastFull
+```
+
+Negative values favor the second consecutive final Full layer. This is the
+direct iterative-refinement test: the branches share their final Full layer,
+and differ only in whether layer 5 is local or Full.
+
+Two matched-step secondary endpoints test sufficiency and total benefit:
+
+```text
+Full - Last2Full
+Last2Full - W23
+```
+
+Negative `Full - Last2Full` values measure the gap remaining to six rounds of
+Full attention. Negative `Last2Full - W23` values measure the total gain from
+the two final global layers over the all-local route. Three established deltas
+are recomputed on the same seed-1,349 panels as reference audits:
+
+```text
+Full - LastFull
+LastFull - W23
+Full - W23
+```
+
+The `[23,128)` range is the predeclared topology-divergent aggregate. The six
+hop-aligned bands `(0,23)`, `(23,45)`, `(45,67)`, `(67,89)`, `(89,111)`, and
+`(111,128)` remain secondary or exploratory. The selected-best four-branch
+comparison is secondary because checkpoints may select different update
+steps. The two descriptive recovery fractions are:
+
+```text
+(W23 loss - Last2Full loss) / (W23 loss - Full loss)
+(W23 loss - LastFull loss)  / (W23 loss - Full loss)
+```
+
+They are ratios of paired point estimates, not equivalence tests. Student-t
+intervals quantify sampling uncertainty over the 500 paired panels conditional
+on this initialization, training stream, corpus split, device, and backend;
+they do not measure training-seed variation. No equivalence margin is
+predeclared.
+
+### Interpretation and artifacts
+
+A clear Last2Full win over LastFull would support the claim that a second round
+of global computation near the output adds value beyond one final global
+readout. Nearly closing the Full gap would suggest that two late rounds recover
+most of the benefit; an intermediate result would support an incremental
+global-depth curve. No improvement would instead indicate that global access
+may need to begin earlier in representation construction. This stage does not
+by itself identify the causal internal computation.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+python .\my-gpt\32_iterative_global_refinement.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_32_training.log
+```
+
+The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
+used by the reference runs. It writes only the new Last2Full artifacts:
+
+```text
+my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_step_13500_checkpoint.pt
+my-gpt/checkpoints/stage_32_training.log
+```
+
+Run the focused topology, reachability, initialization, transitive-provenance,
+checkpoint, matched-stream, and paired-evaluator tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_iterative_global_refinement.py" -v
+```
+
+### Canonical outcome
+
+The canonical XPU run completed all 18,000 updates and selected Last2Full at
+step 16,500. On the 500 newly held-out paired panels at seed 1,349, the matched
+step-13,500 endpoint was:
+
+| Natural matched condition | Overall validation loss |
+| --- | ---: |
+| Last2Full | **1.475743** |
+| Full-128 | 1.486889 |
+| LastFull | 1.493733 |
+| W23 | 1.497290 |
+
+The primary `Last2Full - LastFull` delta was
+`-0.017991 +/- 0.000854 SE`, with a 95% CI of
+`[-0.019669,-0.016312]`. A second consecutive final Full layer therefore
+provided a large gain in this run. The improvement was about 5.1 times the
+same-panel `LastFull - W23` gain of `-0.003556`, although that ratio is only a
+descriptive comparison of point estimates.
+
+The result was stronger than merely closing the Full gap. `Full - Last2Full`
+was `+0.011146 +/- 0.000839 SE`, with a 95% CI of
+`[+0.009497,+0.012795]`, so Last2Full also beat the six-Full-layer reference.
+`Last2Full - W23` was `-0.021547 +/- 0.000771 SE`, with a 95% CI of
+`[-0.023062,-0.020032]`. The predeclared recovery fraction was therefore
+207.2%; a value above 100% means that Last2Full overshot Full rather than
+establishing equivalence.
+
+The predeclared topology-divergent `[23,128)` aggregates were:
+
+| Matched contrast | Mean delta | 95% CI |
+| --- | ---: | ---: |
+| Last2Full - LastFull | -0.019809 | `[-0.021681,-0.017938]` |
+| Full - Last2Full | +0.012912 | `[+0.011092,+0.014731]` |
+| Last2Full - W23 | -0.022909 | `[-0.024609,-0.021209]` |
+
+The hop-aligned position bands supplied the expected topology check:
+
+| Target positions | Last2Full - LastFull | Full - Last2Full | Last2Full - W23 |
+| --- | ---: | ---: | ---: |
+| 000-022 | -0.009688 | +0.003085 | -0.015330 |
+| 023-044 | -0.016321 | +0.010767 | -0.018345 |
+| 045-066 | -0.017428 | +0.012492 | -0.023086 |
+| 067-088 | -0.020791 | +0.015129 | -0.024230 |
+| 089-110 | -0.022781 | +0.015837 | -0.023799 |
+| 111-127 | -0.022291 | +0.009577 | -0.025724 |
+
+Every Last2Full-minus-LastFull and Last2Full-minus-W23 band interval excluded
+zero. Only the `000-022` Full-minus-Last2Full interval crossed zero; every
+later band favored Last2Full. The growing advantage beyond position 22
+is consistent with the point at which the masks diverge. The short-prefix
+Last2Full gains over LastFull and W23 cannot be a direct inference-time
+context advantage because those mask rows are identical; they reflect shared
+weights learned under different later-token topologies.
+
+Selected-best evaluation corroborated the matched result. Last2Full at step
+16,500 scored `1.474679`, ahead of Full at step 13,500 (`1.486889`), LastFull
+at step 11,000 (`1.491399`), and W23 at step 10,500 (`1.493388`). The paired
+`Last2Full - LastFull` and `Last2Full - W23` deltas were `-0.016721` and
+`-0.018709`; `Full - Last2Full` was `+0.012210`. All three 95% intervals
+excluded zero. This comparison remains secondary because the checkpoints were
+selected at different updates.
+
+The fixed-panel validation loss first printed `1.4643` at step 11,500 and
+selected step 16,500 only on the unrounded value. At the selected checkpoint,
+train/validation losses were `1.1010 / 1.4643`, with a `0.3633` gap. By step
+18,000, training loss improved to `1.0937` while validation worsened to
+`1.4691` and the gap grew to `0.3754`. The late selection therefore weakens
+the earlier simple pattern that every local-heavy branch peaks early, but it
+should be read as a broad validation plateau followed by late overfitting,
+not a large improvement between steps 11,500 and 16,500.
+
+This run strongly supports the value of iterative global processing near the
+output, but it does not show that more global layers are monotonically better.
+Four local layers followed by two Full layers outperformed both one final Full
+layer and Full attention at all six layers under this single initialization,
+corpus, training stream, device, and backend. That is evidence for an
+interaction between local representation construction and late global
+refinement, not direct identification of the internal mechanism. A natural
+next controlled point is three consecutive final Full layers,
+`(23,23,23,None,None,None)`.
+
+The disposable dense-kernel benchmark measured 11,887.743 targets/s for
+Last2Full and 17,782.249 targets/s for Full. Because the tensor shapes and
+dense attention computation are identical, this is an implementation,
+compiler, or kernel observation rather than evidence of a different
+asymptotic attention cost.
+
+The authenticated Stage 32 artifacts are:
+
+```text
+best checkpoint, step 16,500:
+bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
+
+matched anchor, step 13,500:
+9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
+```
