@@ -4235,6 +4235,259 @@ python -m unittest discover -s .\my-gpt `
     -p "test_sparse_global_shortcut.py" -v
 ```
 
-This section specifies the Stage 30 protocol. It does not report a Stage 30
-outcome; those measurements must come from the canonical run and persisted
-artifacts.
+### Canonical outcome
+
+The canonical XPU run selected MidFull at step 10,500. On the 500 newly held-out
+paired panels at seed 1,347, the matched step-13,500 endpoint was:
+
+| Natural matched condition | Overall validation loss |
+| --- | ---: |
+| Full-128 | **1.483673** |
+| W=23 all-local | 1.493649 |
+| MidFull | 1.498985 |
+
+The primary `Full - MidFull` delta was `-0.015312 +/- 0.000716 SE`, with a 95%
+CI of `[-0.016719,-0.013905]`. The secondary `MidFull - W23` delta was
+`+0.005336 +/- 0.000685 SE`, with a 95% CI of
+`[+0.003990,+0.006682]`. Thus the single layer-3 global exchange did not close
+the Full gap in this run; it performed worse than leaving all six layers at
+W=23. Selected-best evaluation gave the same ordering: Full `1.483673`, W=23
+`1.490253`, and MidFull `1.492520`.
+
+Stage 30 therefore makes layer order part of the hypothesis. It does not show
+that subsequent local layers caused the regression, but it motivates removing
+that possible failure mode by moving the one Full layer to the final block.
+
+## Stage 31: global-layer placement
+
+`31_global_layer_placement.py` tests whether the Stage 30 result is specific to
+where its one Full-attention layer appears. Only one new branch is trained:
+
+```text
+LastFull contexts = (23, 23, 23, 23, 23, None)
+
+layer 1: W=23
+layer 2: W=23
+layer 3: W=23
+layer 4: W=23
+layer 5: W=23
+layer 6: FULL
+```
+
+It is compared with three already-trained natural-mask references:
+
+| Branch | Per-layer contexts | First globally reachable layer | Final-layer direct fan-in | Source |
+| --- | --- | ---: | --- | --- |
+| W23 | `(23,23,23,23,23,23)` | 6, through local relays | Latest 23 positions | Stage 29, read-only |
+| MidFull | `(23,23,None,23,23,23)` | 3 | Latest 23 positions | Stage 30, read-only |
+| LastFull | `(23,23,23,23,23,None)` | 6 | Complete causal prefix | Stage 31, newly trained |
+| Full | `(None,None,None,None,None,None)` | 1 | Complete causal prefix | Stage 26, read-only |
+
+Layer numbering is one-based; the implementation's LastFull global block index
+is `5`. Its capped theoretical receptive-field progression is:
+
+```text
+layer 1:  23
+layer 2:  45
+layer 3:  67
+layer 4:  89
+layer 5: 111
+layer 6: 128  (direct global readout)
+```
+
+W23 also becomes theoretically global at layer 6, but reaches old sources
+through up to six local routing steps. LastFull instead lets five local layers
+develop representations and then gives the final attention sublayer a direct
+read from the complete causal prefix. Unlike MidFull, no later local-attention
+layer can dilute or reroute that global exchange. The final block's feed-forward
+sublayer, the model's final layer norm, and the language-model head still follow
+the global attention operation.
+
+This isolates a sharp mechanistic question: is one final global readout enough,
+or does Full attention benefit from repeated global integration across depth?
+
+### Controlled protocol
+
+All four branches retain the established Stage 26 geometry and training
+contract:
+
+| Setting | Value |
+| --- | ---: |
+| Batch size / sequence length | 16 / 128 |
+| Targets per update | 2,048 |
+| Width / heads / channels per head | 128 / 4 / 32 |
+| FFN width / Transformer blocks | 512 / 6 |
+| Residual dropout | 0.10 |
+| Parameters | 1,220,673 |
+| Dense attention shape per block | `(16,4,128,128)` |
+| Training updates | 18,000 |
+
+Only LastFull is trained from step zero. It uses the same learned Stage 26
+initialization, corpus split, position embeddings, batch stream, dropout RNG,
+optimizer, and learning-rate schedule as the references. The schedule is
+`1e-3` over updates `[0,10000)`, `3e-4` over `[10000,13000)`, and `1e-4` over
+`[13000,18000)`. The canonical seeds are initialization 1,337, training batches
+1,338, fixed panel 1,339, training RNG 1,340, sample generation 1,342, and
+initial audit 1,343.
+
+The branch saves both its independently selected fixed-panel best checkpoint
+and an unconditional step-13,500 anchor. Strict validation at the anchor
+requires its training-batch generator and CPU/XPU RNG states to match all three
+pinned trajectories. Mask rows `[0,23)` are identical under every topology, so
+the initial logits over that prefix must also match exactly.
+
+Placement is the only new architectural variable:
+
+- LastFull and MidFull have the same learned-parameter initialization,
+  parameter count, one Full layer, five local layers, and 21,711 allowed causal
+  edges per head summed over depth. They differ in eight initial mask buffers:
+  four heads at layer 3 and four at layer 6.
+
+- At initialization, LastFull differs from W23 in only the final layer's four
+  mask buffers.
+
+- At initialization, LastFull differs from Full in 20 mask buffers, five local
+  layers times four heads. Full permits 49,536 causal edges per head across
+  depth, so LastFull removes 27,825 per head, or 111,300 across four heads.
+
+These remain logical-edge counts. Every branch materializes the same dense
+attention tensors, so the counterbalanced benchmark is an implementation
+overhead check rather than a sparse-compute benchmark.
+
+### Pinned references and initialization fingerprints
+
+The canonical CLI authenticates the following checkpoints before training and
+rechecks that they remain unchanged during benchmarking, training, and held-out
+evaluation:
+
+```text
+Stage 26 Full best, step 13,500:
+my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+
+Stage 29 W23 best, step 10,500:
+my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
+1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+
+Stage 29 W23 matched anchor, step 13,500:
+my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
+ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+
+Stage 30 MidFull best, step 10,500:
+my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt
+dadb65bd5b8af294a3df8368e923afb02e90faceece88b074ecfa52bbd147800
+
+Stage 30 MidFull matched anchor, step 13,500:
+my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt
+90485453900376a5788958e53936aebdb0c418e474d0f1d895ffbf7617245d00
+```
+
+The predeclared corpus and initialization fingerprints are:
+
+```text
+corpus data:
+fa03e609cfc0769eb1fa73fb4e81239fee0c6e9ab0608c549b0a742a25535493
+
+initial learned-parameter tensors shared by every branch:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+Full initial state:
+c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+
+W23 initial state:
+3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f
+
+MidFull initial state:
+ea57548caadcd0bcc4298471c1e959d1c4e508e028ea19656785e594810db68a
+
+LastFull initial state:
+afed757340a41fa7d3563d8e62a6fb05ca2af8de67cdaf67bb2818e372c78ff4
+
+LastFull Boolean mask stack:
+b3c0e3680309a948d57c9e414062756b35bf111d9ee639df86d9b1472350def1
+
+LastFull float mask stack:
+00ccb2c7c1eafd868baaa48eab4d3a186c13c487deda79193f6d2ad43bd85509
+
+LastFull mask-buffer mapping:
+7ffbed327de930489cff91c78055fb87d380ce1dab05e01dcd01eb8a1208bcd0
+```
+
+### Predeclared evaluation
+
+Held-out evaluation uses 500 newly sampled paired validation panels from seed
+1,348. This is fresh relative to Stage 30's seed-1,347 panel because Stage 31
+was chosen after the Stage 30 result was inspected. All comparisons use each
+checkpoint's natural trained mask.
+
+The primary endpoint is the matched step-13,500 natural-mask overall delta:
+
+```text
+LastFull - MidFull
+```
+
+Negative values favor moving the single Full layer from block 3 to block 6.
+This is the direct placement test: both branches have one Full layer and the
+same logical edge count across depth.
+
+Two matched-step secondary endpoints separate benefit from sufficiency:
+
+```text
+Full - LastFull
+LastFull - W23
+```
+
+For `Full - LastFull`, negative values favor repeated Full attention and measure
+the gap left after the final global readout. For `LastFull - W23`, negative
+values show that the final Full layer improved on the all-local route. The
+existing `Full - MidFull`, `MidFull - W23`, and `Full - W23` deltas are
+recomputed on the same seed-1,348 panels as reference audits.
+
+The `[23,128)` range is a predeclared topology-divergent aggregate. The six
+Stage 29 hop-aligned position bands remain secondary or exploratory. The
+selected-best four-branch comparison is also secondary because Full, W23,
+MidFull, and LastFull can select different update steps. Descriptive recovery
+fractions are ratios of paired point estimates, not equivalence tests.
+
+Student-t intervals quantify sampling uncertainty over the 500 paired panels
+conditional on one initialization, training stream, corpus split, device, and
+backend. They do not quantify variation across training seeds. No equivalence
+margin is predeclared, so a confidence interval that crosses zero means no
+difference was detected; it does not establish practical equivalence.
+
+### Interpretation
+
+A clear LastFull win over MidFull would show that the placement of one global
+communication round matters under this protocol. If LastFull also improves on
+W23 and nearly closes the Full gap, the result would support a final-readout
+account: global access is most useful after the local features have developed.
+
+If LastFull does not improve on W23, then simply providing one direct global
+operation is insufficient at both tested placements. A remaining clear
+`Full - LastFull` advantage would point toward repeated global integration
+across depth as the next mechanism to test. Neither result alone identifies
+representation dilution inside the post-global local layers as a cause.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+python .\my-gpt\31_global_layer_placement.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_31_training.log
+```
+
+The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
+used by Stages 26, 29, and 30. It writes only the new LastFull artifacts:
+
+```text
+my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_step_13500_checkpoint.pt
+my-gpt/checkpoints/stage_31_training.log
+```
+
+Run the focused placement, reachability, initialization, pinned-reference,
+checkpoint, matched-stream, and paired-evaluator tests with:
+
+```powershell
+python -m unittest discover -s .\my-gpt `
+    -p "test_global_layer_placement.py" -v
+```
