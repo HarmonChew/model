@@ -5179,3 +5179,323 @@ best checkpoint, step 11,500:
 matched anchor, step 13,500:
 2c9ad23e62a9b8678c3b66f661da4124111c88fed5b61c198523651b9ef12e0f
 ```
+
+## Stage 34: two-global-layer placement control
+
+`34_two_global_layer_placement.py` tests the remaining placement confound in
+the Stage 32 and Stage 33 results. The reference and treatment contain the
+same number of local and Full-attention layers:
+
+```text
+Last2Full reference = (23, 23, 23, 23, None, None) = L L L L G G
+Split2Full treatment = (23, 23, 23, None, 23, None) = L L L G L G
+```
+
+Only the placement changes. Last2Full puts both global rounds in a
+consecutive final suffix; Split2Full moves the first global round from layer 5
+to layer 4 and restores W23 attention at layer 5. Both retain Full attention
+at layer 6. This directly asks whether two global communication rounds are
+sufficient in general or whether they work best after four local layers and
+as two consecutive final rounds.
+
+Layer numbering is one-based. Split2Full's implementation indices are
+`(3,5)`, and its capped theoretical receptive-field progression is:
+
+```text
+layer 1:  23
+layer 2:  45
+layer 3:  67
+layer 4: 128  (first global integration)
+layer 5: 128  (local processing after global integration)
+layer 6: 128  (second global integration and readout)
+```
+
+The four evaluated natural-mask branches are:
+
+| Branch | Per-layer contexts | First globally reachable layer | Full-attention layers | Source |
+| --- | --- | ---: | ---: | --- |
+| W23 | `(23,23,23,23,23,23)` | 6, through local relays | 0 | Stage 29, read-only |
+| Split2Full | `(23,23,23,None,23,None)` | 4 | 2 | Stage 34, newly trained |
+| Last2Full | `(23,23,23,23,None,None)` | 5 | 2 | Stage 32, read-only |
+| Full | `(None,None,None,None,None,None)` | 1 | 6 | Stage 26, read-only |
+
+LastFull and MidFull remain authenticated transitive dependencies of the
+Stage 32 reference rather than additional Stage 34 evaluation branches.
+Last3Full is contextual evidence from Stage 33, not a Stage 34 training target
+or paired endpoint.
+
+### Controlled protocol and topology counts
+
+Split2Full preserves the established canonical contract: batch size 16,
+sequence length 128, width 128, four heads of width 32, FFN width 512, six
+Transformer blocks, residual dropout 0.10, and 1,220,673 learned parameters.
+Every branch uses dense attention tensors of shape `(16,4,128,128)`. The two
+primary branches therefore have the same parameter count, tensor shapes, and
+aggregate logical edge budget.
+
+The logical causal-edge counts per head are:
+
+| Branch | Allowed edges by layer | Total across depth |
+| --- | --- | ---: |
+| W23 | `2691,2691,2691,2691,2691,2691` | 16,146 |
+| Split2Full | `2691,2691,2691,8256,2691,8256` | 27,276 |
+| Last2Full | `2691,2691,2691,2691,8256,8256` | 27,276 |
+| Full | `8256,8256,8256,8256,8256,8256` | 49,536 |
+
+Relative to Full, Split2Full removes 22,260 logical edges per head, or 89,040
+across four heads. At initialization it differs from Last2Full in eight mask
+buffers: four heads at layer 4 and four at layer 5. It differs from W23 in
+eight mask buffers and from Full in 16. Mask rows `[0,23)` are identical under
+all four topologies, so initial logits over that prefix must match exactly.
+The learned tensors are initialized identically; only the registered
+attention-mask buffers differ.
+
+Only Split2Full is trained from step zero. It uses the same corpus split,
+position embeddings, learned initialization, batch stream, dropout RNG,
+optimizer, and learning-rate schedule as the pinned runs. Training remains
+18,000 updates with learning rates `1e-3` over `[0,10000)`, `3e-4` over
+`[10000,13000)`, and `1e-4` over `[13000,18000)`. Canonical seeds remain
+initialization 1,337, training batches 1,338, fixed panel 1,339, training RNG
+1,340, sample generation 1,342, and initial audit 1,343.
+
+Split2Full independently selects its fixed-panel best checkpoint and saves an
+unconditional step-13,500 anchor. Strict anchor validation requires the saved
+training-batch generator and CPU/XPU RNG states to match the authenticated
+Full, W23, MidFull, LastFull, and Last2Full streams.
+
+### Pinned references and initialization fingerprints
+
+The canonical CLI treats the Stage 32 reference and its complete transitive
+chain through Stages 31, 30, 29, and 26 as read-only. The three directly
+reported references are pinned as follows:
+
+```text
+Stage 32 Last2Full best, step 16,500:
+my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_best_checkpoint.pt
+bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
+
+Stage 32 Last2Full matched anchor, step 13,500:
+my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_step_13500_checkpoint.pt
+9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
+
+Stage 29 W23 best, step 10,500:
+my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
+1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+
+Stage 29 W23 matched anchor, step 13,500:
+my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
+ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+
+Stage 26 Full reference, step 13,500:
+my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
+3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+```
+
+The older LastFull and MidFull paths and hashes remain those recorded in the
+Stage 32 and Stage 33 sections. The predeclared Split2Full initialization
+fingerprints are:
+
+```text
+initial learned-parameter tensors shared by every branch:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+Split2Full initial state:
+b6c225ee58ad87f4477199a191a5e8078802ac8407ddfe47952115d3ad5c8eb0
+
+Split2Full Boolean mask stack:
+541ce760f6f85b16056c6974a4ac5b8138dc3bbd2d6ac6e2efc46519f0f690e2
+
+Split2Full float mask stack:
+f45a6b205a8282eaba79977d86367d63491e21c3630ee03fb9c751a07cb3be3a
+
+Split2Full mask-buffer mapping:
+5e57cf3d64acb1d57b1cdce6d7c4e2ac4a61077d29f576651899ee3b1bd44dcf
+
+Last2Full reference initial state:
+46fcaba035be6690157eacff951dadc6fc0fa7e532ec60807f5b78ff9b882d8f
+```
+
+### Predeclared evaluation
+
+Held-out evaluation uses 500 newly sampled paired validation panels at seed
+1,351. This panel is fresh because Stage 34 was selected after inspecting
+Stage 33's seed-1,350 results. Every comparison uses each checkpoint's natural
+trained mask.
+
+The primary endpoint is the matched step-13,500 natural-mask overall delta:
+
+```text
+Split2Full - Last2Full
+```
+
+Negative values favor splitting the two global rounds across layers 4 and 6;
+positive values favor keeping them consecutive at layers 5 and 6. Because
+both branches contain exactly two Full and four W23 layers, this contrast
+isolates placement while holding the total number of global rounds and the
+aggregate edge count fixed.
+
+Two matched-step secondary endpoints measure Split2Full's position relative
+to the all-global and all-local controls:
+
+```text
+Full - Split2Full
+Split2Full - W23
+```
+
+Three established deltas are recomputed on the same seed-1,351 panels as
+reference audits:
+
+```text
+Full - Last2Full
+Last2Full - W23
+Full - W23
+```
+
+The `[23,128)` range is the predeclared topology-divergent aggregate. The six
+hop-aligned bands `(0,23)`, `(23,45)`, `(45,67)`, `(67,89)`, `(89,111)`, and
+`(111,128)` remain secondary or exploratory. The selected-best four-branch
+comparison is secondary because checkpoints may select different update
+steps. Recovery fractions relative to W23 and Full are descriptive ratios of
+paired point estimates, not equivalence tests. Student-t intervals quantify
+sampling uncertainty over the 500 paired panels conditional on this single
+initialization, training stream, corpus split, device, and backend. They do
+not measure training-seed variation, and no equivalence margin is
+predeclared.
+
+### Interpretation guidance and expected artifacts
+
+If the primary Split2Full-minus-Last2Full interval spans zero with a small
+point estimate, the result would be consistent with two global communication
+rounds being the important ingredient without requiring a consecutive final
+suffix. It would weaken the stronger claim that four local layers must always
+precede global mixing. Without a predeclared equivalence margin, however, it
+would not establish formal equivalence.
+
+If Split2Full is clearly worse than Last2Full and regresses toward W23, the
+result would indicate that introducing global mixing at layer 4 is harmful in
+this fixed-two-global-layer control. Together with the Stage 33 observation
+that Last3Full was near W23, that pattern would support the tested hierarchy
+of four local layers followed by two consecutive global layers.
+
+If Split2Full falls between Last2Full and W23, with a clear improvement over
+W23 but a clear deficit to Last2Full, both effects would matter: two global
+rounds would be useful, while delaying them and keeping the final rounds
+consecutive would provide an additional benefit. A primary interval wholly
+below zero would instead favor the split placement. Any causal or general
+architectural claim remains conditional on this corpus, initialization,
+training stream, device, and backend.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\34_two_global_layer_placement.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_34_training.log
+```
+
+The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
+used by the reference runs. It is expected to write only these new Stage 34
+artifacts:
+
+```text
+my-gpt/checkpoints/stage_34_split_two_global_layers_4_6_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_34_split_two_global_layers_4_6_at_128_step_13500_checkpoint.pt
+my-gpt/checkpoints/stage_34_training.log
+```
+
+Run the focused topology, equal-edge-budget, reachability, initialization,
+transitive-provenance, checkpoint, matched-stream, and paired-evaluator tests
+with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_two_global_layer_placement.py" -v
+```
+
+The material above predeclared the experiment before the canonical run; its
+outcome follows.
+
+### Canonical outcome
+
+The canonical XPU run completed all 18,000 updates and selected Split2Full at
+step 11,500. On the 500 newly held-out paired panels at seed 1,351, the
+matched step-13,500 endpoint was:
+
+| Natural matched condition | Overall validation loss |
+| --- | ---: |
+| Last2Full | **1.469749** |
+| Full-128 | 1.481369 |
+| Split2Full | 1.483088 |
+| W23 | 1.491607 |
+
+The primary `Split2Full - Last2Full` delta was
+`+0.013338 +/- 0.000734 SE`, with a 95% CI of
+`[+0.011897,+0.014780]`. The entire interval is above zero, so separating the
+two global rounds across layers 4 and 6 was clearly worse in this run than
+keeping them consecutive at layers 5 and 6. The predeclared `[23,128)`
+aggregate was `+0.014737`, with a 95% CI of
+`[+0.013093,+0.016380]`.
+
+Split2Full nevertheless improved on W23: `Split2Full - W23` was
+`-0.008520 +/- 0.000769 SE`, with a 95% CI of
+`[-0.010031,-0.007008]`. Full was slightly better than Split2Full at the
+matched overall endpoint: `Full - Split2Full` was
+`-0.001718 +/- 0.000739 SE`, with a 95% CI of
+`[-0.003169,-0.000267]`. Over `[23,128)`, however, the
+Full-minus-Split2Full interval narrowly crossed zero: the delta was
+`-0.001596`, with a 95% CI of `[-0.003249,+0.000057]`.
+
+Every Split2Full-minus-Last2Full position-band interval excluded zero and
+favored Last2Full. The deficit was `+0.006955` over `[0,23)` and larger in
+every later band, reaching `+0.017601` over `[111,128)`. Because the two
+topologies have identical inference-time mask rows over `[0,23)`, the
+short-prefix difference reflects weights learned under different later-token
+topologies rather than a direct context advantage in those rows.
+
+Selected-best evaluation corroborated the primary result. Last2Full at step
+16,500 scored `1.468207`, Split2Full at step 11,500 scored `1.481291`, Full
+at step 13,500 scored `1.481369`, and W23 at step 10,500 scored `1.487921`.
+`Split2Full - Last2Full` was `+0.013084`, with a 95% CI of
+`[+0.011645,+0.014523]`; `Split2Full - W23` was `-0.006630`, with a 95% CI
+of `[-0.008038,-0.005221]`, while the `Full - Split2Full` interval spanned
+zero. This endpoint remains secondary because the checkpoints selected
+different updates.
+
+Stage 34 therefore produced the predeclared intermediate pattern. Two split
+global rounds were useful relative to W23, but the number of global rounds
+alone was not sufficient to reproduce Last2Full. Among the tested placements,
+four local layers followed by two consecutive final global layers remained
+best. This contrast does not separately identify whether that advantage comes
+from delaying the first global mix, keeping the rounds consecutive, placing a
+global layer specifically at layer 5, or their interaction, because those
+properties change together. The conclusion remains conditional on this one
+initialization, corpus, training stream, device, and backend; the panel
+intervals do not measure training-seed variation.
+
+Split2Full selected fixed-panel train/validation losses of
+`1.1501 / 1.4782`, with a `0.3281` gap, at step 11,500. By step 18,000,
+training loss had fallen to `1.0975`, while validation had worsened to
+`1.4859` and the gap had grown to `0.3884`. The selected-best comparison
+leaves the Last2Full deficit essentially unchanged, so the placement result
+is not explained by the matched-step choice among the evaluated checkpoints.
+
+The disposable dense-kernel benchmark measured 37,061.814 target
+characters/s for Split2Full and 40,057.760 for Full. Their tensor shapes and
+dense attention computation are identical, so this remains an implementation
+or compiler observation rather than a topology-level efficiency result.
+
+This completes the planned topology sweep. Last2Full,
+`(23,23,23,23,None,None)`, is the architecture retained for the next
+context-scaling question.
+
+The authenticated Stage 34 artifacts are:
+
+```text
+best checkpoint, step 11,500:
+68ccad541f55cdac9775f75a3d902f7937b95dda811e4d563471199818ca10a3
+
+matched anchor, step 13,500:
+55c8f8d44b520ee4ad4fe9c75275ec2cf34be744e511bb3a6d781afba170602f
+
+training log:
+e8cb0a81682995d8f21c09ac4a4e5b85de3ef9da012feb60c0304aa953854d6c
+```
