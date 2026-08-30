@@ -4879,3 +4879,303 @@ bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
 matched anchor, step 13,500:
 9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
 ```
+
+## Stage 33: global-processing depth curve
+
+`33_global_processing_depth.py` tests the next point on the final-global-layer
+curve. Only one new branch is trained:
+
+```text
+Last3Full contexts = (23, 23, 23, None, None, None)
+
+layer 1: W=23
+layer 2: W=23
+layer 3: W=23
+layer 4: FULL
+layer 5: FULL
+layer 6: FULL
+```
+
+Layer numbering is one-based; the implementation's global block indices are
+`(3,4,5)`. The capped theoretical receptive-field progression is:
+
+```text
+layer 1:  23
+layer 2:  45
+layer 3:  67
+layer 4: 128  (first global integration)
+layer 5: 128  (global refinement)
+layer 6: 128  (global refinement and readout)
+```
+
+The primary comparison changes only layer 4 from W23 to Full:
+
+| Branch | Per-layer contexts | First globally reachable layer | Full-attention layers | Source |
+| --- | --- | ---: | ---: | --- |
+| W23 | `(23,23,23,23,23,23)` | 6, through local relays | 0 | Stage 29, read-only |
+| Last2Full | `(23,23,23,23,None,None)` | 5 | 2 | Stage 32, read-only |
+| Last3Full | `(23,23,23,None,None,None)` | 4 | 3 | Stage 33, newly trained |
+| Full | `(None,None,None,None,None,None)` | 1 | 6 | Stage 26, read-only |
+
+LastFull remains an authenticated transitive dependency of the Stage 32
+reference rather than a fifth evaluation branch. Its established Stage 31
+result supplies the one-global-layer point on the broader curve. The sharp
+new question is whether a third consecutive round of final global processing
+improves on the two-round best tested point observed in Stage 32.
+
+### Controlled protocol
+
+All four evaluated branches retain the Stage 26 geometry and training
+contract:
+
+| Setting | Value |
+| --- | ---: |
+| Batch size / sequence length | 16 / 128 |
+| Targets per update | 2,048 |
+| Width / heads / channels per head | 128 / 4 / 32 |
+| FFN width / Transformer blocks | 512 / 6 |
+| Residual dropout | 0.10 |
+| Parameters | 1,220,673 |
+| Dense attention shape per block | `(16,4,128,128)` |
+| Training updates | 18,000 |
+
+Only Last3Full is trained from step zero. It uses the same learned Stage 26
+initialization, corpus split, position embeddings, batch stream, dropout RNG,
+optimizer, and learning-rate schedule as the existing branches. The schedule
+remains `1e-3` over updates `[0,10000)`, `3e-4` over `[10000,13000)`, and
+`1e-4` over `[13000,18000)`. Canonical seeds remain initialization 1,337,
+training batches 1,338, fixed panel 1,339, training RNG 1,340, sample
+generation 1,342, and initial audit 1,343.
+
+Last3Full independently selects its fixed-panel best checkpoint and saves an
+unconditional step-13,500 anchor. Strict anchor validation requires the saved
+training-batch generator and CPU/XPU RNG states to match Full, W23, and
+Last2Full. Mask rows `[0,23)` are identical under every topology, so initial
+logits over that prefix must match exactly.
+
+The logical causal-edge counts per head are:
+
+| Branch | Allowed edges by layer | Total across depth |
+| --- | --- | ---: |
+| W23 | `2691,2691,2691,2691,2691,2691` | 16,146 |
+| Last2Full | `2691,2691,2691,2691,8256,8256` | 27,276 |
+| Last3Full | `2691,2691,2691,8256,8256,8256` | 32,841 |
+| Full | `8256,8256,8256,8256,8256,8256` | 49,536 |
+
+At initialization, Last3Full differs from Last2Full in exactly four mask
+buffers: four heads in layer 4. It differs from W23 in 12 mask buffers and
+from Full in 12. Relative to Full it removes 16,695 logical edges per head,
+or 66,780 across four heads. These are topology counts only; all branches
+retain identical dense attention kernels and tensor shapes.
+
+### Pinned Stage 32 reference and initialization fingerprints
+
+The canonical CLI treats every older artifact as read-only and authenticates
+the full transitive chain through Stages 32, 31, 30, 29, and 26. The immediate
+Last2Full reference is:
+
+```text
+Stage 32 Last2Full best, step 16,500:
+my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_best_checkpoint.pt
+bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
+
+Stage 32 Last2Full matched anchor, step 13,500:
+my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_step_13500_checkpoint.pt
+9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
+```
+
+The older pinned paths and hashes remain exactly those recorded in the Stage
+32 section. The predeclared Last3Full initialization fingerprints are:
+
+```text
+initial learned-parameter tensors shared by every branch:
+c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+
+Last3Full initial state:
+909a474abffc8459f0616f27ec95c3a1d47fa547622f620eaec324ac49e73a9d
+
+Last3Full Boolean mask stack:
+7d4a87eab60a08228dbe6b1b8f0f999d9e8a74af08b4d3d295512e192194d35b
+
+Last3Full float mask stack:
+4291fe296032a817d8b14ac2f2322105d60e90c18fa105e3634226e16b2a0736
+
+Last3Full mask-buffer mapping:
+10d2d6aa5633701371e31616368914b1de8159a93840f8dce6e668cf9aa8775d
+```
+
+### Predeclared evaluation
+
+Held-out evaluation uses 500 newly sampled paired validation panels at seed
+1,350. This panel is fresh because Stage 33 was selected after inspecting
+Stage 32's seed-1,349 results. Every comparison uses each checkpoint's natural
+trained mask.
+
+The primary endpoint is the matched step-13,500 natural-mask overall delta:
+
+```text
+Last3Full - Last2Full
+```
+
+Negative values favor adding the third consecutive final Full layer. This is
+the direct curve test: the branches share Full attention in layers 5 and 6
+and differ only in whether layer 4 is W23 or Full.
+
+Two matched-step secondary endpoints measure sufficiency and total benefit:
+
+```text
+Full - Last3Full
+Last3Full - W23
+```
+
+Three established deltas are recomputed on the same seed-1,350 panels as
+reference audits:
+
+```text
+Full - Last2Full
+Last2Full - W23
+Full - W23
+```
+
+The `[23,128)` range is the predeclared topology-divergent aggregate. The six
+hop-aligned bands `(0,23)`, `(23,45)`, `(45,67)`, `(67,89)`, `(89,111)`, and
+`(111,128)` remain secondary or exploratory. The selected-best four-branch
+comparison is secondary because checkpoints may select different update
+steps. Recovery fractions relative to W23 and Full are descriptive ratios of
+paired point estimates, not equivalence tests. Student-t intervals quantify
+sampling uncertainty over the 500 paired panels conditional on this single
+initialization, training stream, corpus split, device, and backend. They do
+not measure training-seed variation, and no equivalence margin is
+predeclared.
+
+### Interpretation guidance and artifacts
+
+A Last3Full-minus-Last2Full 95% interval wholly below zero would extend the
+improving part of the curve through three global layers and motivate testing
+four in Stage 34. An interval wholly above zero would bracket a local optimum
+at two among the tested neighboring points: one round was insufficient, two
+was best, and three was too much. An interval spanning zero would leave the
+direction unresolved. A small point estimate could be described as
+consistent with a broad two-to-three-layer plateau, but without a
+predeclared equivalence margin it would not establish formal equivalence or
+create an automatic stop rule.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\33_global_processing_depth.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_33_training.log
+```
+
+The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
+used by the reference runs. It writes only the new Last3Full artifacts:
+
+```text
+my-gpt/checkpoints/stage_33_last_three_global_layers_4_5_6_at_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_33_last_three_global_layers_4_5_6_at_128_step_13500_checkpoint.pt
+my-gpt/checkpoints/stage_33_training.log
+```
+
+Run the focused topology, reachability, initialization, transitive-provenance,
+checkpoint, matched-stream, and paired-evaluator tests with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_global_processing_depth.py" -v
+```
+
+### Canonical outcome
+
+The canonical XPU run completed all 18,000 updates and selected Last3Full at
+step 11,500. On the 500 newly held-out paired panels at seed 1,350, the
+matched step-13,500 endpoint was:
+
+| Natural matched condition | Overall validation loss |
+| --- | ---: |
+| Last2Full | **1.469819** |
+| Full-128 | 1.482339 |
+| Last3Full | 1.491022 |
+| W23 | 1.491903 |
+
+The primary `Last3Full - Last2Full` delta was
+`+0.021203 +/- 0.000873 SE`, with a 95% CI of
+`[+0.019488,+0.022917]`. The entire interval is above zero, so adding the
+third consecutive final Full layer was decisively worse in this run. Together
+with the Stage 31 and Stage 32 adjacent comparisons, this brackets a local
+optimum at two among the tested one-, two-, and three-layer final-global
+suffixes.
+
+Last3Full also lost to the six-Full-layer reference: `Full - Last3Full` was
+`-0.008682 +/- 0.000693 SE`, with a 95% CI of
+`[-0.010044,-0.007321]`. Its matched overall advantage over W23 was only
+`-0.000881 +/- 0.000754 SE`, with a 95% CI of
+`[-0.002363,+0.000600]`; this interval spans zero. Last3Full therefore gave
+back nearly all of the gain that Last2Full had achieved over both baselines.
+
+The predeclared topology-divergent `[23,128)` aggregates were:
+
+| Matched contrast | Mean delta | 95% CI |
+| --- | ---: | ---: |
+| Last3Full - Last2Full | +0.022827 | `[+0.020934,+0.024720]` |
+| Full - Last3Full | -0.009129 | `[-0.010693,-0.007565]` |
+| Last3Full - W23 | -0.000585 | `[-0.002287,+0.001118]` |
+
+The hop-aligned bands show that the Last3Full deficit was not confined to one
+part of the sequence:
+
+| Target positions | Last3Full - Last2Full | Full - Last3Full | Last3Full - W23 |
+| --- | ---: | ---: | ---: |
+| 000-022 | +0.013787 | -0.006644 | -0.002236 |
+| 023-044 | +0.017990 | -0.005901 | -0.002872 |
+| 045-066 | +0.022294 | -0.009548 | -0.002524 |
+| 067-088 | +0.026667 | -0.009182 | +0.001295 |
+| 089-110 | +0.025125 | -0.009049 | +0.002909 |
+| 111-127 | +0.021833 | -0.012799 | -0.002068 |
+
+Every Last3Full-minus-Last2Full band interval excluded zero and favored
+Last2Full. Every Full-minus-Last3Full band also favored Full. No individual
+Last3Full-minus-W23 band interval excluded zero. The deficit relative to
+Last2Full grew after the masks first diverged at position 23, but the positive
+short-prefix delta again shows a learned-weight effect: the two branches have
+identical inference-time mask rows over `[0,23)`.
+
+Selected-best evaluation corroborated the matched result. Last2Full at step
+16,500 scored `1.468865`, ahead of Full at step 13,500 (`1.482339`),
+Last3Full at step 11,500 (`1.486879`), and W23 at step 10,500 (`1.488258`).
+`Last3Full - Last2Full` was `+0.018014`, with a 95% CI of
+`[+0.016235,+0.019793]`; `Full - Last3Full` was `-0.004540`, with a 95% CI of
+`[-0.005904,-0.003176]`. The selected-best `Last3Full - W23` interval still
+crossed zero. This endpoint remains secondary because checkpoints selected
+different update steps.
+
+Last3Full's fixed-panel optimum had train/validation losses
+`1.1524 / 1.4806` and a `0.3282` gap at step 11,500. By step 18,000 its
+training loss had fallen to `1.1001`, but validation had worsened to `1.4903`
+and the gap had grown to `0.3902`. The third-global-layer branch therefore
+showed the earlier local-heavy pattern of selecting before the final decay
+and then overfitting.
+
+The topology curve now has the requested turning point. One final global
+layer improved on W23 but left substantial performance on the table; two
+final global layers were best; a third erased the advantage; and six Full
+layers were also worse than two. Under this single initialization, corpus,
+training stream, device, and backend, the result supports a narrow tested
+optimum: the three-local/three-global allocation was worse, while four local
+layers followed by two global rounds was best among the tested suffix depths.
+The stronger next test is replication across independent training seeds,
+rather than automatically filling in four and five global layers.
+
+The disposable dense-kernel benchmark measured 51,915.404 targets/s for
+Last3Full and 51,253.243 targets/s for Full. The tensor shapes and dense
+attention computation are identical, so this remains an implementation and
+compiler observation rather than a topology-level efficiency result.
+
+The authenticated Stage 33 artifacts are:
+
+```text
+best checkpoint, step 11,500:
+2e5b7804f984cc2c70b1be41879131bdd1bca9b549167548fe312f6f885becbd
+
+matched anchor, step 13,500:
+2c9ad23e62a9b8678c3b66f661da4124111c88fed5b61c198523651b9ef12e0f
+```
