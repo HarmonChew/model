@@ -5499,3 +5499,217 @@ matched anchor, step 13,500:
 training log:
 e8cb0a81682995d8f21c09ac4a4e5b85de3ef9da012feb60c0304aa953854d6c
 ```
+
+## Stage 35: context scaling 128 to 256
+
+`35_context_scaling.py` resumes genuine scaling experiments with the topology
+selected by Stages 32 through 34. Both branches use the same six-layer
+Last2Full architecture:
+
+```text
+C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+topology shorthand: L L L L G G
+```
+
+The sole experimental variable is usable context length. Both branches are
+new training runs from step zero; the trained Stage 32 checkpoint is not a
+control:
+
+| Branch | Batch size | Context | Targets/update |
+| --- | ---: | ---: | ---: |
+| T128 control | 16 | 128 | 2,048 |
+| T256 treatment | 8 | 256 | 2,048 |
+
+### Paired text and initialization contract
+
+Each update first samples eight contiguous 256-input/256-target windows, each
+backed by 257 source characters because targets are shifted by one. The
+treatment consumes those as `8 x 256`; the control consumes the exact same
+inputs and targets reshaped in source order as `16 x 128`. Thus the two
+branches see identical target characters in identical flattened order, not
+merely the same number of targets. Independent batch generators start from
+the same seed, so they consume the same long-window starts at every update.
+
+The T128 model is initialized first from seed 1,337. Every learned tensor it
+shares with T256 is copied byte-for-byte, including position rows 0 through
+127. Position rows 128 through 255 are new `nn.Embedding`-native normal draws
+from the continuation of the post-control RNG stream. Placeholder draws used
+to construct the correctly sized T256 shell are overwritten and do not enter
+either returned initialization. Every W23 and Full mask in T256 must have a
+top-left `128 x 128` submatrix identical to its T128 counterpart.
+
+Before training, eval-mode logits for the first 128 positions of the same
+long panel must match within `1e-6`. This comparison is architecturally valid:
+all six masks are causal, shared position rows are identical, and later input
+positions cannot affect the prefix. The second T128 window is deliberately
+not part of that audit because it resets positions and history.
+
+The canonical initialization boundary is pinned as follows:
+
+```text
+T128 initial state:
+e6e8d393ca8b854f6af04222d2e99c244934f8c8b3c61fab5a0ea4592ae18034
+
+T256 initial state:
+a05fad1a3ce76c66b7aebf5233aa4276ac91dcd3f6126e69399ef1358cd3f1bb
+
+shared learned parameters:
+41e65d2cf9951f493c4b4a120dd06bd7c76cde17864d0c77c6d6a83f6261673b
+
+new T256 position rows 128-255:
+48330f2d163c177a885f2c78599092ecac8e6fa2c9a29ff33c99b3cb584a4a6b
+```
+
+The learned parameter counts are 1,220,673 at T128 and 1,237,057 at T256.
+Their difference is exactly `128 x 128 = 16,384` new position-embedding
+values.
+
+### Topology and evaluation
+
+The first four W23 layers create an effective local receptive-field width of
+89 positions before global mixing. Layers 5 and 6 then integrate and refine
+features over all causal positions available to their branch. Logical causal
+edges per head are:
+
+| Context | Edges by layer | Total across depth |
+| --- | --- | ---: |
+| T128 | `2691,2691,2691,2691,8256,8256` | 27,276 |
+| T256 | `5635,5635,5635,5635,32896,32896` | 88,332 |
+
+Checkpoint selection continues to use overall fixed-panel validation loss.
+Fresh held-out inference uses 500 paired panels at seed 1,352 and reports the
+T256-minus-T128 delta with paired Student-t 95% intervals. Negative values
+favor T256. The predeclared position diagnostics are:
+
+```text
+000-127
+128-255
+128-159
+160-191
+192-223
+224-255
+```
+
+For the control, predictions are reshaped back to each underlying 256-target
+panel before these ranges are scored. Positions 128-255 therefore compare a
+T256 continuation that retains the first half against the exact same target
+characters predicted by a reset T128 window. The `128-255` contrast is the
+direct context-availability endpoint; the four 32-position bands show how
+any benefit changes with distance into the continuation. `000-127` is a
+paired prefix diagnostic. Panel intervals condition on this single corpus,
+initialization, training stream, device, and backend; they do not estimate
+training-seed variation.
+
+Both branches use the established 18,000-update schedule: `1e-3` over
+`[0,10000)`, `3e-4` over `[10000,13000)`, and `1e-4` over `[13000,18000)`.
+They reset AdamW and the training RNG independently, with the same seeds and
+dropout probability. Identical dropout masks are not claimed because the
+batch shapes differ.
+
+Run the canonical experiment from the repository root with:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\35_context_scaling.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_35_training.log
+```
+
+It creates only fresh Stage 35 artifacts:
+
+```text
+my-gpt/checkpoints/stage_35_last_two_global_context_128_best_checkpoint.pt
+my-gpt/checkpoints/stage_35_last_two_global_context_256_best_checkpoint.pt
+my-gpt/checkpoints/stage_35_training.log
+```
+
+Run the focused geometry, topology, initialization, checkpoint, paired-stream,
+and position-band tests with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_context_scaling_stage_35.py" -v
+```
+
+If the T256 advantage is clearly negative over positions 128-255, useful
+information remains beyond 128 characters for the local-composition/global-
+refinement architecture. If that gain is small or unresolved across the
+continuation bands, the corpus is plausibly near context saturation under
+this protocol and data scaling becomes the stronger next experiment. No
+canonical outcome is recorded until the new paired run is completed.
+
+The material above predeclared the experiment before the canonical run; its
+outcome follows.
+
+### Canonical outcome
+
+The canonical XPU run completed all 18,000 updates for both branches. Each
+branch independently selected step 13,500 on the fixed validation panel:
+
+| Branch | Selected train loss | Selected validation loss | Gap |
+| --- | ---: | ---: | ---: |
+| T128 control | 1.1138 | 1.4811 | 0.3673 |
+| T256 treatment | 1.1009 | **1.4582** | 0.3573 |
+
+The fixed-panel validation delta was `-0.0229` in favor of T256. By step
+18,000, train/validation losses were `1.0909 / 1.4860` for T128 and
+`1.0784 / 1.4633` for T256. Training loss continued to fall after the
+selected checkpoint while validation loss worsened by about `0.005` in both
+branches, supporting the predeclared checkpoint-selection rule.
+
+Fresh evaluation on 500 paired validation panels at seed 1,352 confirmed the
+advantage:
+
+| Paired endpoint | T128 loss | T256 loss | T256 - T128 | 95% CI |
+| --- | ---: | ---: | ---: | ---: |
+| Overall | 1.507368 | **1.481100** | -0.026269 | [-0.027850, -0.024687] |
+| Positions 000-127 | 1.508572 | **1.498185** | -0.010387 | [-0.012540, -0.008235] |
+| Positions 128-255 | 1.506165 | **1.464015** | -0.042150 | [-0.044421, -0.039878] |
+
+The direct continuation endpoint was therefore clearly negative: the T256
+branch, which retained the preceding 128 characters, lowered loss over
+positions 128-255 by `0.042150` in this paired run. Its advantage was
+`0.031763` larger than the prefix advantage. The predeclared 32-position
+bands localized the effect:
+
+| Continuation band | T256 - T128 | 95% CI |
+| --- | ---: | ---: |
+| 128-159 | -0.109444 | [-0.114483, -0.104405] |
+| 160-191 | -0.024597 | [-0.029217, -0.019977] |
+| 192-223 | -0.017400 | [-0.022065, -0.012734] |
+| 224-255 | -0.017159 | [-0.021560, -0.012758] |
+
+Every continuation-band interval excludes zero and favors T256. The largest
+gain occurred immediately after the T128 reset boundary, but the final band
+retained a clear `0.017159` advantage. Under this protocol, the corpus is not
+context-saturated at 128 characters for Last2Full: useful predictive
+information remains beyond that boundary, so further context scaling is a
+better-supported next experiment than pivoting immediately to data scaling.
+
+The `000-127` prefix also favored T256 even though both models had the same
+directly available token history and position indices there. That
+`-0.010387` delta reflects learned-weight differences induced by the two
+training conditions, not direct access to earlier characters at those
+positions. The larger continuation result is consistent with an additional
+context-availability benefit, but its full magnitude should not be attributed
+mechanically to the extra visible tokens. The conclusion remains conditional
+on this one corpus, initialization, paired training stream, device, and
+backend; the panel intervals do not measure training-seed variation.
+
+The disposable dense-kernel benchmark measured 41,267.779 target
+characters/s for T128 and 36,478.717 for T256, making T256 11.605% slower at
+the same 2,048 targets per update. Peak allocated memory increased from
+145.607 MiB to 175.421 MiB. These are implementation- and device-specific
+measurements rather than claims about sparse-topology scaling.
+
+The authenticated Stage 35 artifacts are:
+
+```text
+T128 best checkpoint, step 13,500:
+24376fcbc7de920e6f163edae1604201aada2861c256c0d7f9e60d82f481b7f0
+
+T256 best checkpoint, step 13,500:
+c90e172af1327e371f5e9fccf274a95c36c43d19c5123369e33066f03da9e05e
+
+training log:
+143c97158e27f5c091992538dfcc258050ac5561695d0ed1ea8e2d30a85792d9
+```
