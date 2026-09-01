@@ -4074,7 +4074,6 @@ python -m unittest discover -s .\my-gpt `
 ```
 
 ### Canonical outcome
-
 The canonical run completed and produced the artifacts above. On the 500
 paired held-out panels at seed 1,346, the matched step-13,500 endpoint was:
 
@@ -6104,4 +6103,174 @@ Complete Shakespeare best checkpoint, step 17,500:
 
 training log:
 a75fbdcd1c9fa97a888bd909f866a1d56e1faf92659da0b19314fe6c421c341c
+```
+
+## Stage 38: Extended Complete Shakespeare training
+
+`38_extended_training.py` freezes the Stage 37 model and data protocol while
+testing whether additional low-learning-rate optimization remains useful:
+
+```text
+B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+topology shorthand: L L L L G G
+corpus: Complete Shakespeare, unchanged 90%/10% sequential split
+```
+
+The training sampler is also unchanged. Each update samples four contiguous
+T512 source panels and reshapes them into eight T256 rows, preserving 2,048
+targets per update. Evaluation uses the same fixed train/validation panels at
+seed 1,339, with 100 batches per split, and runs at every absolute multiple of
+500 updates. Stage 38 changes neither the architecture, corpus, vocabulary,
+split, sampler geometry, evaluation panel, nor checkpoint-selection metric.
+
+### Full-state restore and the missing step-18,000 endpoint
+
+Stage 37 persisted its strict selected-best checkpoint at step 17,500, not its
+final step-18,000 state. The authenticated source is:
+
+```text
+my-gpt/checkpoints/stage_37_complete_shakespeare_best_checkpoint.pt
+SHA-256: 3abbea5e0c5fbaf31bfe8696fba7813fe9f8684a60f5deba57c930e7590906d7
+```
+
+That checkpoint contains the step-17,500 model weights, AdamW moments,
+training-batch generator state, and CPU/XPU random-number-generator states.
+The canonical Stage 38 run requires the recorded device, backend, and PyTorch
+runtime, restores all of those states without restarting AdamW, and replays
+the 500 update indices in `[17500,18000)` at `1e-4`. It then evaluates the
+reconstructed step-18,000 state on the unchanged fixed panel. The replay audit
+requires the train and validation losses to match Stage 37's reported
+four-decimal endpoint, `1.2212 / 1.4352`, before the extension proceeds.
+
+This is the strongest reconstruction supported by the available artifacts,
+but it is not proof of byte identity to the lost Stage 37 endpoint. No
+step-18,000 model, optimizer, or RNG snapshot survived for a tensor-by-tensor
+comparison. Stage 38 therefore labels the boundary artifact as reconstructed
+and records that byte identity is not provable, even when the runtime and
+four-decimal loss audit match.
+
+### Fourth learning-rate phase
+
+After reconstructing step 18,000, the same model continues for 7,000 updates:
+
+```text
+[17500,18000)  lr=1e-4  deterministic Stage 37 replay
+[18000,25000)  lr=3e-5  Stage 38 extension
+```
+
+The first update at `3e-5` has zero-based update index 18,000. Measurements
+remain on the absolute 500-update grid through step 25,000. Strict fixed-panel
+validation improvement selects the best checkpoint across the inherited
+step-17,500 result and all reconstructed or extended evaluations. The final
+endpoint is saved independently even if validation has already bottomed out.
+
+The canonical run creates distinct artifacts for the scientific roles of
+selection, reconstruction audit, and future continuation:
+
+```text
+my-gpt/checkpoints/stage_38_complete_shakespeare_extended_best_checkpoint.pt
+my-gpt/checkpoints/stage_38_complete_shakespeare_step_18000_reconstructed_checkpoint.pt
+my-gpt/checkpoints/stage_38_complete_shakespeare_step_25000_final_checkpoint.pt
+my-gpt/checkpoints/stage_38_training.log
+```
+
+Run the predeclared continuation from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\38_extended_training.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_38_training.log
+```
+
+Run the focused schedule-boundary, source-runtime contract, absolute-step
+training, reconstruction-callback, path, and checkpoint round-trip tests with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_extended_training_stage_38.py" -v
+```
+
+The material above predeclared Stage 38 before training. Its canonical outcome
+follows.
+
+### Canonical outcome
+
+The canonical XPU run completed the 500-update reconstruction and all 7,000
+new extension updates without a non-finite metric, replay-audit failure, or
+checkpoint error. The reconstructed step-18,000 state reproduced Stage 37's
+reported endpoint at `1.2212 / 1.4352` on the fixed train/validation panel.
+Its full-precision losses were `1.2211679792404175 / 1.4351774489879607`.
+This four-decimal agreement validates the replay protocol, but it does not
+prove byte identity to the Stage 37 endpoint that was not saved.
+
+| Step | LR | Train loss | Validation loss | Gap |
+| ---: | ---: | ---: | ---: | ---: |
+| 17,500 | `1e-4` | 1.2216 | 1.4340 | 0.2124 |
+| 18,000 | `1e-4` | 1.2212 | 1.4352 | 0.2140 |
+| 18,500 | `3e-5` | 1.2186 | 1.4315 | 0.2129 |
+| 19,000 | `3e-5` | 1.2175 | 1.4316 | 0.2141 |
+| 19,500 | `3e-5` | 1.2168 | 1.4306 | 0.2139 |
+| 20,000 | `3e-5` | 1.2162 | 1.4300 | 0.2137 |
+| 20,500 | `3e-5` | 1.2159 | 1.4296 | 0.2137 |
+| 21,000 | `3e-5` | 1.2154 | 1.4301 | 0.2147 |
+| 21,500 | `3e-5` | 1.2150 | 1.4297 | 0.2147 |
+| 22,000 | `3e-5` | 1.2143 | 1.4291 | 0.2148 |
+| 22,500 | `3e-5` | 1.2140 | 1.4293 | 0.2153 |
+| 23,000 | `3e-5` | 1.2135 | 1.4294 | 0.2159 |
+| 23,500 | `3e-5` | 1.2128 | 1.4280 | 0.2152 |
+| 24,000 | `3e-5` | 1.2125 | 1.4278 | 0.2153 |
+| 24,500 | `3e-5` | 1.2120 | 1.4280 | 0.2161 |
+| 25,000 | `3e-5` | **1.2115** | **1.4270** | **0.2155** |
+
+The extension produced eight strict new validation lows: steps 18,500,
+19,500, 20,000, 20,500, 22,000, 23,500, 24,000, and 25,000. The temporary
+setbacks at 19,000, 21,000-21,500, 22,500-23,000, and 24,500 were all
+followed by lower validation losses. The selected checkpoint is therefore the
+terminal step 25,000 state, with full-precision train/validation losses of
+`1.2115179455280305 / 1.4270337796211243`.
+
+Relative to the reconstructed step-18,000 boundary, step 25,000 reduced train
+loss by `0.0096500337` and validation loss by `0.0081436694`. Relative to the
+authenticated Stage 37 checkpoint at step 17,500, it reduced train loss by
+`0.0100749534` and validation loss by `0.0069450939`. The generalization gap
+grew only from `0.2140094697` at the reconstructed boundary to `0.2155158341`
+at step 25,000 while validation continued to improve. This is useful fine
+optimization, not a sustained overfitting reversal.
+
+At 2,048 target presentations per update, step 25,000 represents 51.2 million
+target presentations, or approximately 10.646 passes over the Complete
+Shakespeare training split. The 7,000-update extension added 14.336 million
+target presentations, approximately 2.981 training-split equivalents.
+
+Stage 38 answers its first question decisively: 18,000 updates were not
+enough under this schedule. It does not yet answer where validation bottoms
+out, because the strict global minimum occurs at the last evaluation. The
+clean next experiment is to resume the full step-25,000 state with the same
+`3e-5` learning rate, keep the 500-update evaluation grid, and extend modestly
+to about step 30,000. Changing the learning rate or architecture now would
+confound the attempt to locate the bottom of the current phase. Revisit depth
+or width only after this Complete Shakespeare compute baseline plateaus or
+reverses.
+
+The conclusion is limited to one training stream and one repeatedly queried
+fixed evaluation panel; it has no uncertainty estimate. A fresh held-out
+panel comparison of the step-17,500 and step-25,000 checkpoints would be a
+cheap robustness check. Stage 38 isolates added compute plus the new learning-
+rate phase within Complete Shakespeare; by itself it is not a causal estimate
+of the effect of corpus size.
+
+The authenticated Stage 38 artifacts are:
+
+```text
+best checkpoint, step 25,000:
+07e895eac3dbaf70fc7a30023302bfcb605653107f985078d4e547a1f64b172b
+
+reconstructed step-18,000 checkpoint:
+2ffd09caa2ddf327d0bf0644d2ebb5d07fe0b94f94338e287c41dcb437e14f56
+
+final checkpoint, step 25,000:
+8393cf786920ebd5e7e89b1b121f7d2492381825b656fbd2ed98d022432561ac
+
+training log:
+43f944ca6a6519ca125bc798c697d3aafa9c84dcbfa975fec65d3982af148601
 ```
