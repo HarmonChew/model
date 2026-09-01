@@ -5713,3 +5713,202 @@ c90e172af1327e371f5e9fccf274a95c36c43d19c5123369e33066f03da9e05e
 training log:
 143c97158e27f5c091992538dfcc258050ac5561695d0ed1ea8e2d30a85792d9
 ```
+
+## Stage 36: context scaling 256 to 512
+
+`36_context_scaling.py` continues context scaling with the six-layer
+Last2Full topology selected in Stage 35:
+
+```text
+C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+topology shorthand: L L L L G G
+```
+
+The sole experimental variable is usable context length. Both branches start
+fresh from step zero; in particular, the T256 control does not reuse the
+trained Stage 35 treatment checkpoint.
+
+| Branch | Batch size | Context | Targets/update |
+| --- | ---: | ---: | ---: |
+| T256 control | 8 | 256 | 2,048 |
+| T512 treatment | 4 | 512 | 2,048 |
+
+### Paired text and initialization contract
+
+Each update samples four contiguous 512-input/512-target windows, each backed
+by 513 source characters because targets are shifted by one. T512 consumes
+them as `4 x 512`; T256 consumes the same inputs and targets reshaped in
+source order as `8 x 256`. The flattened target tensors are therefore
+identical, and independently seeded branch generators sample the same four
+long-window starts at every update.
+
+T256 is initialized first from seed 1,337. All learned tensors shared with
+T512 are copied byte-for-byte, including position rows 0 through 255. Only
+position rows 256 through 511 are new architecture-native embedding draws.
+Eval-mode logits over the common first 256 positions must agree within
+`1e-6` before training.
+
+The canonical initialization boundary is pinned as:
+
+```text
+T256 initial state:
+ec43171118d5614bebe6fd49a7d04eca9cb4d2e8c1682c911d38fce3a873b0b9
+
+T512 initial state:
+68aaf6ff729b74ccf6049a864cdde8629f6e5294ab80d87e404f398543aa10b6
+
+shared learned parameters:
+2ab2ba5c501de66e8c6f1d431ee29e210e15227cd16865ffcf2808fb54242a07
+
+new T512 position rows 256-511:
+67a6bdbcc0d028a2d0babbdd62ff86362b35740033270c62d784fc6f2e5f29c8
+```
+
+The models contain 1,237,057 and 1,269,825 learned parameters. The difference
+is exactly `256 x 128 = 32,768` new position-embedding values.
+
+### Topology, benchmark, and evaluation
+
+The dense attention tensor per block has shape `(8,4,256,256)` for T256
+and `(4,4,512,512)` for T512: 2,097,152 versus 4,194,304 elements.
+The canonical command runs the disposable counterbalanced benchmark before
+training. Logical causal edges per head are:
+
+| Context | Edges by layer | Total across depth |
+| --- | --- | ---: |
+| T256 | `5635,5635,5635,5635,32896,32896` | 88,332 |
+| T512 | `11523,11523,11523,11523,131328,131328` | 308,748 |
+
+Checkpoint selection remains overall fixed-panel validation loss. Fresh
+held-out inference uses 500 paired panels at seed 1,353 and reports the
+T512-minus-T256 delta with paired Student-t 95% intervals. Negative values
+favor T512. The predeclared diagnostics are:
+
+```text
+000-255
+256-511
+256-319
+320-383
+384-447
+448-511
+```
+
+For the control, outputs from its two 256-character chunks are reshaped back
+onto each underlying 512-character panel before scoring. Thus the second-half
+and four 64-character bands compare the exact same targets while T256 has
+reset its positions and history. The final `448-511` band is the critical
+test of whether the benefit persists well beyond that reset boundary.
+
+Both branches use the established 18,000-update schedule: `1e-3` over
+`[0,10000)`, `3e-4` over `[10000,13000)`, and `1e-4` over
+`[13000,18000)`. AdamW state and training RNG are reset independently with
+the same seeds; identical dropout masks are not claimed because batch shapes
+differ.
+
+Run the canonical experiment from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\36_context_scaling.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_36_training.log
+```
+
+It creates only fresh Stage 36 artifacts:
+
+```text
+my-gpt/checkpoints/stage_36_last_two_global_context_256_best_checkpoint.pt
+my-gpt/checkpoints/stage_36_last_two_global_context_512_best_checkpoint.pt
+my-gpt/checkpoints/stage_36_training.log
+```
+
+Run the focused tests with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_context_scaling_stage_36.py" -v
+```
+
+No canonical outcome is recorded until the paired run completes. A meaningful
+T512 advantage in `448-511` would support further context scaling; a large
+`256-319` reset gain followed by an approximate tie over `320-511` would
+instead support a pivot toward data scaling.
+
+The material above predeclared the experiment before the canonical run; its
+outcome follows.
+
+### Canonical outcome
+
+The canonical XPU run completed all 18,000 updates for both branches without
+an error or non-finite metric. The initial common-prefix audit measured a
+maximum logit difference of `7.153e-07`, within the predeclared `1e-6`
+tolerance. Both branches independently selected step 15,000:
+
+| Branch | Selected train loss | Selected validation loss | Gap |
+| --- | ---: | ---: | ---: |
+| T256 control | 1.1062 | **1.4854** | 0.3792 |
+| T512 treatment | 1.1334 | 1.4862 | 0.3528 |
+
+The fixed-panel validation delta was `+0.0008`, slightly favoring T256. By
+step 18,000, train/validation losses were `1.0923 / 1.4903` for T256 and
+`1.1212 / 1.4915` for T512. Validation loss had risen by approximately
+`0.0049` and `0.0053` from the selected checkpoints while training loss
+continued to fall.
+
+Fresh evaluation on 500 paired validation panels at seed 1,353 found no
+overall difference:
+
+| Paired endpoint | T256 loss | T512 loss | T512 - T256 | 95% CI |
+| --- | ---: | ---: | ---: | ---: |
+| Overall | 1.489454 | 1.489442 | -0.000012 | [-0.001915, +0.001891] |
+| Positions 000-255 | **1.485166** | 1.498064 | +0.012898 | [+0.010492, +0.015304] |
+| Positions 256-511 | 1.493742 | **1.480820** | -0.012921 | [-0.015662, -0.010180] |
+
+The near-zero overall delta is a cancellation, not uniform equivalence.
+T512 was worse over positions 000-255, where both branches had the same
+directly available history and position indices. That prefix difference
+therefore reflects learned-weight differences induced by the training
+conditions rather than direct access to characters before position zero.
+T512 was better over the second half, but the 64-character diagnostics
+localized almost all of that gain immediately after the T256 reset:
+
+| Continuation band | T512 - T256 | 95% CI |
+| --- | ---: | ---: |
+| 256-319 | **-0.050703** | [-0.055858, -0.045547] |
+| 320-383 | -0.002158 | [-0.007021, +0.002704] |
+| 384-447 | +0.004661 | [-0.000470, +0.009792] |
+| 448-511 | -0.003486 | [-0.008493, +0.001521] |
+
+Only the reset-adjacent `256-319` band clearly favored T512. Every later
+interval included zero, including the predeclared critical `448-511` band.
+This is the predeclared reset-gain-then-tie pattern: the large reset-adjacent
+gain is consistent with a benefit from retaining context across the
+artificial T256 boundary, but this run does not resolve a persistent advantage
+deeper into positions 320-511. In contrast, Stage 35's final continuation
+band retained a clear `-0.017159` advantage.
+
+Under this architecture and corpus, Stage 36 therefore supports treating
+useful context as approximately saturated around 256 characters and pivoting
+the next controlled experiment to data scaling. That conclusion remains
+conditional on this initialization, paired training stream, device, and
+backend. The panel intervals quantify held-out-panel variation for these
+checkpoints; they do not measure training-seed variation or prove that longer
+context has no value under another training regime.
+
+The disposable dense-kernel benchmark measured 37,051.203 target
+characters/s for T256 and 29,388.704 for T512, making T512 20.681% slower at
+the same 2,048 targets per update. Peak allocated memory increased by
+70.877 MiB, from 175.421 MiB to 246.298 MiB. These measurements are specific
+to the Intel Arc 140T XPU implementation used for this run.
+
+The hash-verified Stage 36 artifacts are:
+
+```text
+T256 best checkpoint, step 15,000:
+e8961efa7d8a39ee1eb79a0959bc3653ecadd8ca6a5eb53df279a7ff0116374c
+
+T512 best checkpoint, step 15,000:
+314582c5edb8c0a3159ddf55ed9eb046ddf4bda8b9c13a856a29db7f0a089e19
+
+training log:
+b7385f719d1296d94073b04e810207255f5664972107b7888dc01056de0244c7
+```
