@@ -5912,3 +5912,196 @@ T512 best checkpoint, step 15,000:
 training log:
 b7385f719d1296d94073b04e810207255f5664972107b7888dc01056de0244c7
 ```
+
+## Stage 37: TinyShakespeare to Complete Shakespeare data scaling
+
+`37_data_scaling.py` keeps the Stage 36 T256 control architecture and
+training budget fixed, then trains exactly one fresh model on Complete
+Shakespeare:
+
+```text
+B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+topology shorthand: L L L L G G
+updates=18,000, targets/update=2,048, total targets=36,864,000
+```
+
+TinyShakespeare is a read-only historical control. Stage 37 neither loads nor
+retrains a TinyShakespeare model and does not require an old checkpoint to be
+present. The primary reference is the immediately preceding Stage 36 T256
+control because it has the exact B8/T256 architecture and direct
+architecture-native initialization. Stage 37 also preserves Stage 36's batch
+geometry: each update samples four contiguous T512 source panels and reshapes
+them into eight T256 rows. This still presents 2,048 targets per update while
+avoiding a hidden switch to eight independent T256 starts.
+
+### Corpus and compute contract
+
+The repository's existing complete-works filename is
+`data/full-shakespreare.txt` (including that historical misspelling). Its
+canonical identity after Python's UTF-8 newline handling is pinned as:
+
+| Corpus fact | TinyShakespeare control | Complete Shakespeare treatment |
+| --- | ---: | ---: |
+| Decoded characters | 1,115,394 | 5,343,766 |
+| 90% training split | 1,003,854 | 4,809,389 |
+| 10% validation split | 111,540 | 534,377 |
+| Vocabulary | 65 | 98 |
+| Target presentations | 36,864,000 | 36,864,000 |
+| Approx. training-corpus equivalents | 36.7225 | 7.6650 |
+
+The Complete Shakespeare training pool is 4.7909 times larger. In the audited
+Windows CRLF checkout, its source file has 5,589,865 bytes and SHA-256
+`9103ec54b761706256a2b66313311c52f2052d78e55d6e535a7cdc599feebed1`.
+The equivalent LF checkout has 5,407,045 bytes and SHA-256
+`811e63ec1ecac276e149193cac028d00888806c494aed70d772cf8670dd667e5`.
+The tokenized train/validation fingerprint is
+`c6cbdd246799ad495f7813e5d20afa52c03e6c339fe7dbe15912fd81a45d2b48`.
+
+The 98-character vocabulary increases the seeded model from 1,237,057 to
+1,245,538 learned parameters because the token embedding and language-model
+head are larger. The fresh seed-1,337 Complete Shakespeare initial state is
+pinned at:
+
+```text
+7a5b19780a98d02b4660b9e8f0d89715026ee9b7ae6439aaab320d41e8221726
+```
+
+Stage 37 starts from that corpus-specific initialization. It does not load or
+claim byte-identical initialization with a TinyShakespeare checkpoint; the
+vocabulary-dependent tensor shapes differ.
+
+### Historical controls and interpretation boundary
+
+The immutable Stage 36 T256 reference is:
+
+| Historical run | Selected train / val | Selected step | Final train / val | Final step |
+| --- | ---: | ---: | ---: | ---: |
+| Stage 36 T256 | 1.1062 / 1.4854 | 15,000 | 1.0923 / 1.4903 | 18,000 |
+
+Its checkpoint SHA-256 is
+`e8961efa7d8a39ee1eb79a0959bc3653ecadd8ca6a5eb53df279a7ff0116374c`.
+The earlier Stage 35 T256 treatment is useful sensitivity context rather than
+an averaged control: it selected `1.1009 / 1.4582` at step 13,500 and ended at
+`1.0784 / 1.4633`. The difference between those two historical T256 runs is a
+warning against over-interpreting one initialization and training stream.
+
+Native validation losses across TinyShakespeare and Complete Shakespeare are
+descriptive, not a paired causal delta. The supplied corpora change the
+vocabulary (uniform-loss baselines `ln(65)` versus `ln(98)`), held-out text
+distribution, output-layer size, and sampled text stream. Stage 37 therefore
+does not print a cross-corpus delta, confidence interval, or winner. Its
+primary readouts are the Complete Shakespeare learning curve, selected-best
+step, final generalization gap, and validation reversal under the shared
+36.864-million-target budget. This tests the supplied complete-corpus
+treatment, not corpus size in perfect isolation.
+
+Checkpoint selection uses strict improvement in overall loss on a fixed
+train/validation panel at seed 1,339. The established schedule remains
+`1e-3` over `[0,10000)`, `3e-4` over `[10000,13000)`, and `1e-4` over
+`[13000,18000)`. Generated text is produced from the selected-best checkpoint,
+while the report retains final-step losses so post-best overfitting remains
+visible.
+
+Run the one canonical treatment from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\37_data_scaling.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_37_training.log
+```
+
+It creates only fresh Stage 37 artifacts:
+
+```text
+my-gpt/checkpoints/stage_37_complete_shakespeare_best_checkpoint.pt
+my-gpt/checkpoints/stage_37_training.log
+```
+
+Run the focused corpus, topology, sampler, initialization, budget, and
+checkpoint tests with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_data_scaling_stage_37.py" -v
+```
+
+The material above predeclared the experiment before the canonical run; its
+outcome follows.
+
+### Canonical outcome
+
+The one requested Complete Shakespeare treatment completed all 18,000 XPU
+updates without a non-finite metric or checkpoint error. No TinyShakespeare
+branch was loaded or retrained. The full fixed-panel curve was:
+
+| Step | LR | Train loss | Validation loss | Gap |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | `1e-3` | 4.7287 | 4.7237 | -0.0049 |
+| 500 | `1e-3` | 2.1711 | 2.2218 | 0.0507 |
+| 1,000 | `1e-3` | 1.9381 | 1.9932 | 0.0551 |
+| 1,500 | `1e-3` | 1.7813 | 1.8607 | 0.0794 |
+| 2,000 | `1e-3` | 1.6768 | 1.7789 | 0.1022 |
+| 2,500 | `1e-3` | 1.5963 | 1.7145 | 0.1182 |
+| 3,000 | `1e-3` | 1.5501 | 1.6900 | 0.1398 |
+| 3,500 | `1e-3` | 1.5087 | 1.6426 | 0.1339 |
+| 4,000 | `1e-3` | 1.4726 | 1.6222 | 0.1496 |
+| 4,500 | `1e-3` | 1.4487 | 1.6054 | 0.1567 |
+| 5,000 | `1e-3` | 1.4295 | 1.5889 | 0.1594 |
+| 5,500 | `1e-3` | 1.4092 | 1.5749 | 0.1657 |
+| 6,000 | `1e-3` | 1.3963 | 1.5680 | 0.1717 |
+| 6,500 | `1e-3` | 1.3765 | 1.5522 | 0.1756 |
+| 7,000 | `1e-3` | 1.3645 | 1.5410 | 0.1765 |
+| 7,500 | `1e-3` | 1.3504 | 1.5324 | 0.1820 |
+| 8,000 | `1e-3` | 1.3474 | 1.5348 | 0.1874 |
+| 8,500 | `1e-3` | 1.3331 | 1.5178 | 0.1847 |
+| 9,000 | `1e-3` | 1.3250 | 1.5155 | 0.1905 |
+| 9,500 | `1e-3` | 1.3143 | 1.5036 | 0.1892 |
+| 10,000 | `1e-3` | 1.3085 | 1.4993 | 0.1908 |
+| 10,500 | `3e-4` | 1.2712 | 1.4684 | 0.1972 |
+| 11,000 | `3e-4` | 1.2648 | 1.4652 | 0.2004 |
+| 11,500 | `3e-4` | 1.2574 | 1.4602 | 0.2028 |
+| 12,000 | `3e-4` | 1.2541 | 1.4573 | 0.2032 |
+| 12,500 | `3e-4` | 1.2496 | 1.4551 | 0.2056 |
+| 13,000 | `3e-4` | 1.2481 | 1.4533 | 0.2052 |
+| 13,500 | `1e-4` | 1.2361 | 1.4434 | 0.2074 |
+| 14,000 | `1e-4` | 1.2336 | 1.4417 | 0.2081 |
+| 14,500 | `1e-4` | 1.2309 | 1.4397 | 0.2088 |
+| 15,000 | `1e-4` | 1.2294 | 1.4388 | 0.2094 |
+| 15,500 | `1e-4` | 1.2279 | 1.4380 | 0.2101 |
+| 16,000 | `1e-4` | 1.2262 | 1.4364 | 0.2103 |
+| 16,500 | `1e-4` | 1.2251 | 1.4372 | 0.2122 |
+| 17,000 | `1e-4` | 1.2236 | 1.4354 | 0.2118 |
+| 17,500 | `1e-4` | **1.2216** | **1.4340** | 0.2124 |
+| 18,000 | `1e-4` | 1.2212 | 1.4352 | 0.2140 |
+
+The strict checkpoint rule selected step 17,500 at train/validation loss
+`1.2216 / 1.4340`. Step 18,000 lowered training loss to `1.2212` while
+validation rose slightly to `1.4352`, a post-best reversal of only `+0.0012`.
+There were two isolated validation increases at steps 8,000 and 16,500, but
+both were followed by new lows. The run therefore ended near, rather than
+clearly past, its validation optimum.
+
+Descriptively, the Complete Shakespeare treatment selected 2,500 updates
+later than the Stage 36 Tiny control (17,500 versus 15,000), had a much smaller
+post-best reversal (`+0.0012` versus approximately `+0.0049`), and ended with
+a smaller within-run generalization gap (`0.2140` versus `0.3980`). This is the
+predicted delayed-overfitting pattern: spreading the same 36.864 million
+target presentations over 4.7909 times as much training text kept validation
+improving almost to the compute boundary.
+
+Those comparisons remain evidence about the supplied data treatment, not a
+clean corpus-size-only causal estimate. Vocabulary size, output-head size,
+held-out text distribution, initialization shape, and sampled characters also
+changed. In particular, the lower native Complete Shakespeare validation loss
+must not be read as a paired `-0.0514` improvement over TinyShakespeare; Stage
+37 intentionally does not report that delta or a winner.
+
+The authenticated Stage 37 artifacts are:
+
+```text
+Complete Shakespeare best checkpoint, step 17,500:
+3abbea5e0c5fbaf31bfe8696fba7813fe9f8684a60f5deba57c930e7590906d7
+
+training log:
+a75fbdcd1c9fa97a888bd909f866a1d56e1faf92659da0b19314fe6c421c341c
+```
