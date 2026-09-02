@@ -6274,3 +6274,159 @@ final checkpoint, step 25,000:
 training log:
 43f944ca6a6519ca125bc798c697d3aafa9c84dcbfa975fec65d3982af148601
 ```
+
+## Stage 39: Complete Shakespeare compute extension
+
+`39_extended_training.py` tests whether Stage 38's `3e-5` phase has actually
+saturated. It changes only the amount of optimization:
+
+```text
+B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+topology shorthand: L L L L G G
+corpus: Complete Shakespeare, unchanged 90%/10% sequential split
+[25000,32000)  lr=3e-5
+```
+
+There is deliberately no learning-rate boundary at step 25,000. Stage 39
+keeps the `3e-5` value used immediately before the boundary and continues it
+through zero-based update index 31,999. The sampler still draws four
+contiguous T512 source panels and reshapes them into eight T256 rows, so each
+update presents 2,048 targets. Evaluation remains on the fixed seed-1,339
+train/validation panel with 100 batches per split at every absolute multiple
+of 500 updates.
+
+### Exact step-25,000 restore
+
+The authenticated source is Stage 38's unconditional terminal artifact:
+
+```text
+my-gpt/checkpoints/stage_38_complete_shakespeare_step_25000_final_checkpoint.pt
+SHA-256: 8393cf786920ebd5e7e89b1b121f7d2492381825b656fbd2ed98d022432561ac
+```
+
+It is a `final` checkpoint at step 25,000 and also records the strict selected
+minimum at that same step. It contains the model, all 138 AdamW moment states
+at optimizer step 25,000 and learning rate `3e-5`, the dedicated training-
+batch generator state, and the Torch CPU/XPU random-number-generator states.
+Stage 39 authenticates the complete Stage 38 payload and requires the same
+PyTorch, backend, and device runtime. It constructs the model and performs all
+source diagnostics before restoring the saved global Torch RNG state last, so
+the first resumed dropout draw follows the saved stream.
+
+Before any new update, the restored model is evaluated at step 25,000 on the
+unchanged fixed panel. Its train and validation losses must reproduce Stage
+38's `1.2115 / 1.4270` endpoint at four decimals. This is a restore audit, not
+a reconstruction: the exact terminal state exists and is loaded directly.
+
+Strict fixed-panel validation improvement selects the best checkpoint across
+the inherited step-25,000 result and every new evaluation. The step-32,000
+endpoint is saved separately even if validation has already reversed. Stage
+39 therefore creates:
+
+```text
+my-gpt/checkpoints/stage_39_complete_shakespeare_extended_best_checkpoint.pt
+my-gpt/checkpoints/stage_39_complete_shakespeare_step_32000_final_checkpoint.pt
+my-gpt/checkpoints/stage_39_training.log
+```
+
+At the target, the complete trajectory has presented 65.536 million target
+characters, approximately 13.627 equivalents of the 4,809,389-character
+training split. Stage 39 adds 14.336 million presentations, approximately
+2.981 training-split equivalents, after Stage 38.
+
+Run the focused source-contract, constant-LR boundary, artifact-path, and
+checkpoint round-trip tests from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_extended_training_stage_39.py" -v
+```
+
+Run the one predeclared XPU continuation with:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\39_extended_training.py --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_39_training.log
+```
+
+The experiment asks whether validation now plateaus or reverses while the
+training loss continues downward. If the strict validation minimum still
+occurs near step 32,000, a later stage can test a final `1e-5` refinement.
+Changing width or another capacity dimension remains deferred until this
+fixed C128 compute curve has a measured bottom.
+
+The material above predeclared Stage 39 before training. Its canonical outcome
+follows.
+
+### Canonical outcome
+
+The canonical XPU run restored the authenticated step-25,000 terminal state
+and completed all 7,000 new updates without a non-finite metric, source-audit
+failure, optimizer restart, or checkpoint error. Before the first new update,
+the restored model reproduced Stage 38's fixed-panel endpoint at `1.2115 /
+1.4270`. The full-precision source values were
+`1.2115179455280305 / 1.4270337796211243`.
+
+| Step | LR | Train loss | Validation loss | Gap |
+| ---: | ---: | ---: | ---: | ---: |
+| 25,000 | `3e-5` | 1.2115 | 1.4270 | 0.2155 |
+| 25,500 | `3e-5` | 1.2112 | 1.4266 | 0.2153 |
+| 26,000 | `3e-5` | 1.2109 | 1.4272 | 0.2163 |
+| 26,500 | `3e-5` | 1.2102 | 1.4253 | 0.2151 |
+| 27,000 | `3e-5` | 1.2101 | 1.4259 | 0.2158 |
+| 27,500 | `3e-5` | 1.2096 | 1.4249 | 0.2153 |
+| 28,000 | `3e-5` | 1.2093 | 1.4250 | 0.2157 |
+| 28,500 | `3e-5` | 1.2085 | 1.4243 | 0.2158 |
+| 29,000 | `3e-5` | 1.2087 | 1.4254 | 0.2167 |
+| 29,500 | `3e-5` | 1.2081 | 1.4247 | 0.2165 |
+| 30,000 | `3e-5` | 1.2078 | 1.4242 | 0.2164 |
+| 30,500 | `3e-5` | 1.2078 | 1.4250 | 0.2172 |
+| 31,000 | `3e-5` | 1.2072 | 1.4236 | 0.2164 |
+| 31,500 | `3e-5` | 1.2069 | 1.4242 | 0.2174 |
+| 32,000 | `3e-5` | **1.2065** | **1.4235** | **0.2170** |
+
+The continuation produced seven strict new validation lows: steps 25,500,
+26,500, 27,500, 28,500, 30,000, 31,000, and 32,000. The setbacks at steps
+26,000, 27,000, 28,000, 29,000-29,500, 30,500, and 31,500 were each followed
+by a lower validation result. There is no sustained reversal in the observed
+curve, and the selected checkpoint is again the terminal state. Its
+full-precision train/validation losses are
+`1.2065401589870453 / 1.4235185253620148`.
+
+Relative to step 25,000, Stage 39 reduced training loss by `0.0049777865` and
+validation loss by `0.0035152543`. The fixed-panel generalization gap grew
+from `0.2155158341` to `0.2169783664`, an increase of only `0.0014625323`,
+while both losses improved. The validation gain is smaller than Stage 38's
+approximately `0.0081436694` gain over its preceding 7,000 updates, showing
+diminishing returns, but it is not a measured plateau.
+
+At step 32,000, the trajectory has presented 65.536 million targets, or
+approximately 13.627 equivalents of the Complete Shakespeare training split.
+Stage 39's 14.336 million added targets account for approximately 2.981 of
+those equivalents.
+
+Stage 39 therefore answers its predeclared question: `3e-5` had not saturated
+by step 25,000 and still has no observed validation bottom by step 32,000.
+Because progress has slowed and the latest strict minimum is at the endpoint,
+a controlled Stage 40 change from `3e-5` to `1e-5` is now justified as a final
+refinement test. Width or another capacity increase should still wait until
+the C128 baseline has a measured compute or refinement endpoint.
+
+This remains one stochastic training stream evaluated repeatedly on one fixed
+panel. The endpoint minimum is strong within-trajectory evidence that more
+optimization helped this model, but it supplies neither a training-seed
+uncertainty estimate nor an independent held-out-panel comparison.
+
+The authenticated Stage 39 artifacts are:
+
+```text
+best checkpoint, step 32,000:
+6e6bc9f49b85483c3e7d092b8d2b9719f7cf270fefb0f0a76b3ade43458bc2f8
+
+final checkpoint, step 32,000:
+d34a368bd8a91622ff500c3f64d12d1bb211e782cb1e6909d05d8b8ba2c83cc4
+
+training log:
+b57e034cbc958ad188e7b117faca3a33c35ce836b484fbded50ad25b395dd20b
+```
