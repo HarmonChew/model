@@ -6430,3 +6430,308 @@ d34a368bd8a91622ff500c3f64d12d1bb211e782cb1e6909d05d8b8ba2c83cc4
 training log:
 b57e034cbc958ad188e7b117faca3a33c35ce836b484fbded50ad25b395dd20b
 ```
+
+## Stage 40: controlled late learning-rate refinement
+
+`40_late_learning_rate_refinement.py` forks the exact Stage 39 terminal state
+and changes only the post-fork learning rate. Both branches use the same
+architecture, corpus and split, update count, training batches, fixed
+train/validation panels, AdamW state, and Torch CPU/XPU dropout stream:
+
+```text
+B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+topology shorthand: L L L L G G
+corpus: Complete Shakespeare, unchanged 90%/10% sequential split
+
+common fork: step 32,000
+A: [32000,38000)  lr=3e-5
+B: [32000,38000)  lr=1e-5
+```
+
+The explicit step-32,000 boundary is retained in both schedule records even
+though A continues the preceding `3e-5` rate. This makes the treatment
+variable and matched 6,000-update comparison unambiguous.
+
+### Exact full-state fork
+
+Both branches independently reload this unconditional Stage 39 artifact:
+
+```text
+my-gpt/checkpoints/stage_39_complete_shakespeare_step_32000_final_checkpoint.pt
+SHA-256: d34a368bd8a91622ff500c3f64d12d1bb211e782cb1e6909d05d8b8ba2c83cc4
+```
+
+It is a `final` checkpoint at step 32,000 and records the selected minimum at
+that same step, with full-precision train/validation losses
+`1.2065401589870453 / 1.4235185253620148`. It contains all 138 AdamW moment
+states at optimizer step 32,000, the dedicated training-batch generator, and
+the Torch CPU/XPU RNG states. Stage 40 authenticates the complete payload,
+requires the recorded PyTorch/backend/device runtime, constructs each branch
+independently, restores the global Torch RNG last, and only then changes the
+optimizer parameter-group LR. AdamW is never restarted.
+
+Each branch records hashes of its model, complete pre-treatment optimizer
+state, training generator, and Torch RNG immediately after restore. After
+training, Stage 40 requires the two batch-generator states and two Torch RNG
+states to be byte-identical. The former verifies matched sampled starts; the
+latter verifies that the equal-shape dropout calls consumed the same random
+stream. Fixed evaluation recreates seed 1,339 with dropout disabled and does
+not advance either training stream.
+
+Strict fixed-panel validation improvement selects a best artifact separately
+within each branch. An unconditional step-38,000 terminal artifact is also
+saved for each branch so final-step and selected-best comparisons cannot be
+conflated:
+
+```text
+my-gpt/checkpoints/stage_40_control_3e_5_best_checkpoint.pt
+my-gpt/checkpoints/stage_40_control_3e_5_step_38000_final_checkpoint.pt
+my-gpt/checkpoints/stage_40_treatment_1e_5_best_checkpoint.pt
+my-gpt/checkpoints/stage_40_treatment_1e_5_step_38000_final_checkpoint.pt
+my-gpt/checkpoints/stage_40_training.log
+```
+
+At step 38,000, each branch has presented 77.824 million target characters,
+approximately 16.182 equivalents of the 4,809,389-character training split.
+Each branch adds 12.288 million targets, approximately 2.555 training-split
+equivalents, after Stage 39. The complete two-branch experiment therefore
+executes 24.576 million new target presentations.
+
+### Fresh paired 25k vs 32k validation
+
+Before either new update, Stage 40 also authenticates Stage 38's unconditional
+step-25,000 artifact and compares it with Stage 39 at step 32,000 on 500 newly
+sampled Complete-Shakespeare validation batches from seed 1,354. Each batch
+is generated once with the established four-contiguous-T512-panels sampler
+and passed to both eval-mode models, so the reported `32k - 25k` delta is
+paired. A negative delta favors the 32k checkpoint.
+
+The report includes the paired mean delta, standard error, and a two-sided
+Student-t 95% panel-sampling interval. That interval measures Monte Carlo
+variation across this sampled panel conditional on the two checkpoints. It
+is not training-seed uncertainty or a corpus-level IID confidence interval;
+Shakespeare blocks may overlap and the text is autocorrelated.
+
+Run the focused protocol, stream-pairing, fresh-validation, and checkpoint
+tests from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_late_learning_rate_refinement_stage_40.py" -v
+```
+
+Run the one predeclared XPU experiment with:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\40_late_learning_rate_refinement.py `
+    --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_40_training.log
+```
+
+The primary matched-budget contrast is the signed final validation delta
+`1e-5 - 3e-5`; the selected-best delta is reported as a secondary diagnostic.
+If `1e-5` wins, it becomes the refinement rate for finishing convergence. If
+`3e-5` wins, the drop was premature. If the trajectories are practically
+indistinguishable, the C128 model is likely close to its compute floor and a
+later stage can revisit capacity on Complete Shakespeare. Stage 40 itself
+stops both branches at the matched step 38,000 boundary; it does not spend
+additional unequal compute on the winner.
+
+The material above predeclared Stage 40 before training. Its canonical outcome
+follows.
+
+### Canonical outcome
+
+The canonical XPU run completed both matched 6,000-update branches. Each
+branch independently reproduced the Stage 39 fixed-panel endpoint at `1.2065
+/ 1.4235`, retained all 138 AdamW moment states and step counters, and reached
+optimizer step 38,000 without a restart or non-finite metric. The pre-LR fork
+hashes were identical. The terminal training-generator and Torch CPU/XPU RNG
+states were also byte-identical, confirming that the two branches used the
+same sampled starts and consumed the same dropout stream.
+
+| Step | A train, `3e-5` | A val, `3e-5` | B train, `1e-5` | B val, `1e-5` |
+| ---: | ---: | ---: | ---: | ---: |
+| 32,000 | 1.2065 | 1.4235 | 1.2065 | 1.4235 |
+| 32,500 | 1.2062 | 1.4225 | 1.2060 | 1.4226 |
+| 33,000 | 1.2056 | 1.4235 | 1.2057 | 1.4231 |
+| 33,500 | 1.2055 | 1.4223 | 1.2055 | 1.4224 |
+| 34,000 | 1.2051 | 1.4221 | 1.2053 | 1.4223 |
+| 34,500 | 1.2050 | 1.4224 | 1.2053 | 1.4226 |
+| 35,000 | 1.2043 | 1.4234 | 1.2049 | 1.4229 |
+| 35,500 | 1.2039 | 1.4223 | 1.2047 | 1.4224 |
+| 36,000 | 1.2037 | 1.4224 | 1.2046 | 1.4223 |
+| 36,500 | 1.2034 | 1.4215 | 1.2044 | 1.4221 |
+| 37,000 | 1.2032 | 1.4217 | 1.2044 | 1.4222 |
+| 37,500 | **1.2028** | **1.4205** | **1.2042** | **1.4214** |
+| 38,000 | 1.2024 | 1.4210 | 1.2041 | 1.4216 |
+
+Both branches selected step 37,500 and then showed a small final-panel
+reversal. The full-precision selected and terminal results were:
+
+| Branch | Selected step | Selected train / val | Step-38k train / val | Final reversal |
+| --- | ---: | ---: | ---: | ---: |
+| A, `3e-5` | 37,500 | `1.2028024125 / 1.4204677260` | `1.2023926413 / 1.4210039330` | `+0.0005362070` |
+| B, `1e-5` | 37,500 | `1.2042385828 / 1.4214192367` | `1.2040605831 / 1.4215887165` | `+0.0001694798` |
+
+At the matched step-38,000 endpoint, the signed validation delta `B - A` was
+`+0.0005847836`; at the two selected minima it was `+0.0009515107`. Both are
+positive, so both the primary final-step comparison and the secondary
+selected-best comparison favor continuing `3e-5`. Relative to the common
+source, A improved selected validation by `0.0030507994`, while B improved it
+by `0.0020992887`.
+
+The controlled answer is therefore that lowering to `1e-5` at step 32,000 was
+premature. The lower rate did make progress and occasionally won individual
+intermediate snapshots, but it did not match the continued-rate trajectory
+at equal compute. Stage 40 resolves the LR question in favor of `3e-5`; it
+does not by itself prove that the C128 compute curve has reached its final
+minimum, because A found its newest strict low only 500 updates before the
+endpoint.
+
+The fresh held-out check independently confirmed that Stage 39's small
+fixed-panel improvement generalized beyond the selection panel:
+
+| Checkpoint | Fresh mean validation loss | SE |
+| --- | ---: | ---: |
+| Stage 38, step 25,000 | 1.4248346357 | 0.0033301158 |
+| Stage 39, step 32,000 | 1.4214845574 | 0.0033339647 |
+
+The paired `32k - 25k` mean was `-0.0033500783`, with paired SE
+`0.0001086487` and a two-sided 95% panel-sampling interval of
+`[-0.0035635436, -0.0031366131]`. This interval excludes zero by a wide
+margin. As predeclared, it quantifies panel-sampling variation conditional on
+these checkpoints, not training-seed uncertainty.
+
+The authenticated Stage 40 artifacts are:
+
+```text
+control best, step 37,500:
+72ed5b3facbabbc32aa76b7d0cff48a342a0624ed2890cd7bd8b9d7a0bd3cbda
+
+control final, step 38,000:
+494125b6df4a2eec7f15918e203df9ddbe5326c0a3cf145489a181a664ad56c1
+
+treatment best, step 37,500:
+9ac2d565c9185376f037d9bf761e532abeda22f412ef9ae1883753589364700e
+
+treatment final, step 38,000:
+41caaa12eb522d196e51a544318eea9ebead936f5c5abefaf121718f3cd4d004
+
+training log:
+064f27b43313ce98bb0ba86758d2be5c2d229e291bcefd577378664011bd3b75
+```
+
+## Stage 41: final compute extension at `3e-5`
+
+`41_final_compute_extension.py` continues only the winning Stage 40 branch.
+It restores the unconditional Stage 40 A-final checkpoint at step 38,000 and
+runs the predeclared interval `[38000,44000)` without changing the model,
+corpus, split, sampler, optimizer, learning rate, training-batch stream, or
+Torch CPU/XPU dropout stream:
+
+```text
+B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention by layer: W23, W23, W23, W23, Full, Full
+source step: 38,000
+target step: 44,000
+continuation LR: 3e-5
+```
+
+The authenticated source is:
+
+```text
+my-gpt/checkpoints/stage_40_control_3e_5_step_38000_final_checkpoint.pt
+SHA-256: 494125b6df4a2eec7f15918e203df9ddbe5326c0a3cf145489a181a664ad56c1
+```
+
+Stage 41 checks the complete source-file hash and independently locks hashes
+for the model, all 138 AdamW states, the training generator, and the Torch
+CPU/XPU RNG state. All AdamW step counters must be exactly 38,000 and the
+optimizer LR must already be `3e-5`. The restore order is model, AdamW,
+training generator, then global Torch RNG last. No optimizer restart or
+weights-only fallback is permitted.
+
+The Stage 40 source is terminal state at step 38,000, while the selected best
+entering the extension is the separate Stage 40 A checkpoint at step 37,500.
+Stage 41 preserves that distinction: if no new validation low occurs, it
+continues to reference the authentic inherited checkpoint rather than
+relabeling step-38,000 weights as step 37,500.
+
+Run the focused tests from the repository root with:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_final_compute_extension_stage_41.py" -v
+```
+
+Run the canonical XPU continuation with:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\41_final_compute_extension.py `
+    --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_41_training.log
+```
+
+### Canonical outcome
+
+The canonical run reproduced the Stage 40 endpoint before its first new
+update and then completed all 6,000 updates through step 44,000. The optimizer
+finished with 138/138 AdamW states at step 44,000 and LR `3e-5`. The selected
+best and unconditional final checkpoints contain byte-identical model,
+optimizer, training-generator, and Torch RNG states because the terminal
+evaluation established the newest strict validation minimum.
+
+| Step | LR | Train loss | Validation loss | Gap |
+| ---: | ---: | ---: | ---: | ---: |
+| 38,000 | `3e-5` | 1.2024 | 1.4210 | 0.2186 |
+| 38,500 | `3e-5` | 1.2021 | 1.4199 | 0.2178 |
+| 39,000 | `3e-5` | 1.2019 | 1.4205 | 0.2186 |
+| 39,500 | `3e-5` | 1.2015 | 1.4211 | 0.2196 |
+| 40,000 | `3e-5` | 1.2013 | 1.4198 | 0.2185 |
+| 40,500 | `3e-5` | 1.2008 | 1.4197 | 0.2189 |
+| 41,000 | `3e-5` | 1.2004 | 1.4198 | 0.2194 |
+| 41,500 | `3e-5` | 1.2005 | 1.4195 | 0.2189 |
+| 42,000 | `3e-5` | 1.1999 | 1.4196 | 0.2197 |
+| 42,500 | `3e-5` | 1.1996 | 1.4185 | 0.2189 |
+| 43,000 | `3e-5` | 1.1995 | 1.4190 | 0.2195 |
+| 43,500 | `3e-5` | 1.1989 | 1.4188 | 0.2199 |
+| 44,000 | `3e-5` | **1.1990** | **1.4180** | **0.2191** |
+
+The full-precision terminal train/validation losses are
+`1.1989565205574035 / 1.4180302500724793`. Relative to the step-38,000
+terminal state, training improved by `0.0034361207` and validation improved by
+`0.0029736829`. The endpoint also beat the inherited step-37,500 validation
+minimum by `0.0024374759`. The fixed-panel generalization gap increased only
+`0.0004624379`, from `0.2186112916` to `0.2190737295`, while both losses fell.
+
+The temporary reversals at 39,000-39,500, 41,000, 42,000, and
+43,000-43,500 did not persist. They were followed by strict new lows at
+40,000, 40,500, 41,500, 42,500, and finally 44,000. Stage 41 therefore does
+not show a sustained validation reversal or a measured compute optimum. The
+predeclared answer is that `3e-5` still has useful life; reducing to `1e-5`
+or declaring this C128 baseline converged is not yet supported by this run.
+
+At step 44,000, the trajectory has presented 90.112 million target
+characters, approximately 18.737 equivalents of the Complete Shakespeare
+training split. Stage 41 added 12.288 million targets, approximately 2.555
+training-split equivalents.
+
+The authenticated Stage 41 artifacts are:
+
+```text
+best checkpoint, step 44,000:
+6a80d02be053a70b298e6d3ead7c88c820c55fe367b1ee4dfec54bdfcfe2c4c6
+
+final checkpoint, step 44,000:
+c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5
+
+training log:
+97da1f79fc1ca2bd4bb1c8b29f4d9977fbf5df7fd71753bb004aed889add350a
+```
+
+As in the preceding stages, this is one stochastic training trajectory
+evaluated repeatedly on one fixed panel. The repeated new lows are strong
+within-trajectory evidence against convergence, but they are not a
+training-seed uncertainty estimate or an independent held-out-panel test.
