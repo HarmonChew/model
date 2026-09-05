@@ -6735,3 +6735,226 @@ As in the preceding stages, this is one stochastic training trajectory
 evaluated repeatedly on one fixed panel. The repeated new lows are strong
 within-trajectory evidence against convergence, but they are not a
 training-seed uncertainty estimate or an independent held-out-panel test.
+
+## Stage 42: exact final learning-rate fork at 44k
+
+`42_final_learning_rate_fork.py` implements the next experiment after the
+completed Stage 41. It independently reloads the authenticated Stage 41
+**final** checkpoint for each branch:
+
+```text
+common source: step 44,000
+train / val: 1.1989565205574035 / 1.4180302500724793
+SHA-256: c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5
+
+A: [44000,50000)  lr=3e-5
+B: [44000,50000)  lr=1e-5
+
+B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
+attention: W23, W23, W23, W23, Full, Full
+data: Complete Shakespeare; unchanged sequential 90%/10% split
+```
+
+Both branches restore the same model, all 138 AdamW moment states and step
+counters, training-batch generator, and Torch CPU/XPU dropout RNG. Restoration
+loads the global RNG last. Only then does the treatment change every
+optimizer parameter group's LR. The runner verifies that all non-LR
+optimizer state remains identical. It preserves every inherited schedule
+boundary, then adds an explicit 44k boundary for both branches.
+
+The restored source must reproduce the fixed-panel losses before either
+branch trains. Evaluation continues every 500 updates on the inherited
+100-batch fixed train/validation panels, with dropout disabled. The runner
+checks identical pre-LR fork hashes, matching evaluation steps, and identical
+terminal batch-generator and Torch RNG states across branches. Each branch
+adds exactly 6,000 updates and 12.288 million target presentations. Each full
+trajectory reaches 102.4 million targets at 50k.
+
+Strict fixed-panel improvement selects each branch's best checkpoint. If no
+new minimum occurs, its best artifact contains the actual 44k source weights
+and moments with that branch's LR. An unconditional final checkpoint records
+50k regardless of where the selected minimum occurred. All four artifacts
+retain the full resumable optimizer and random state:
+
+```text
+my-gpt/checkpoints/stage_42_control_3e_5_best_checkpoint.pt
+my-gpt/checkpoints/stage_42_control_3e_5_step_50000_final_checkpoint.pt
+my-gpt/checkpoints/stage_42_treatment_1e_5_best_checkpoint.pt
+my-gpt/checkpoints/stage_42_treatment_1e_5_step_50000_final_checkpoint.pt
+my-gpt/checkpoints/stage_42_report.json
+```
+
+Stage 42 also runs two fresh paired validation comparisons. Each uses 500
+shared batches drawn with the established four-contiguous-T512-panels
+sampler. Every batch is passed to both eval-mode models:
+
+| Comparison | Fresh seed | Signed delta |
+| --- | ---: | --- |
+| Stage 40 A-final at 38k vs Stage 41-final at 44k | 1,355 | `44k - 38k` |
+| A-final vs B-final at the matched 50k endpoint | 1,356 | `B - A` |
+
+These seeds differ from both the selection panel and Stage 40's fresh panel.
+The JSON report includes checkpoint hashes, individual batch losses, means,
+paired standard errors, and two-sided Student-t 95% panel-sampling intervals.
+The historical comparison is also embedded in the branch checkpoints.
+Fresh evaluation preserves the caller's Torch RNG, and the endpoint
+comparison does not change checkpoint selection.
+
+A negative endpoint interval entirely below zero supports `1e-5`; a positive
+interval entirely above zero supports `3e-5`. An interval crossing zero is
+reported as unresolved within panel uncertainty, rather than proof of
+equivalence. The fixed-panel final and selected-best deltas are reported
+separately. These intervals quantify sampled-panel variation conditional on
+the checkpoints, not training-seed uncertainty or a corpus-IID estimate;
+blocks can overlap and Shakespeare text is autocorrelated.
+
+Run the focused tests:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_final_learning_rate_fork_stage_42.py" -v
+```
+
+Authenticate the sources, corpus, and recorded runtime without training:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\42_final_learning_rate_fork.py `
+    --device xpu --validate-only
+```
+
+Run the full predeclared two-branch experiment:
+
+```powershell
+.\ai\Scripts\python.exe -u .\my-gpt\42_final_learning_rate_fork.py `
+    --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_42_training.log
+```
+
+The runner refuses to overwrite existing checkpoints or reports. Use
+`--output-dir` to choose a separate destination for an intentional repeat.
+`--fresh-validation-only` runs only the historical comparison and writes
+`stage_42_fresh_38k_vs_44k.json`, leaving the full-run outputs available.
+Architecture, LR choices, batch size, seeds, evaluation settings, and the
+50k target are locked in the CLI.
+
+### Fresh historical validation result
+
+The 500-batch historical comparison was executed on the authenticated XPU
+runtime during implementation:
+
+| Checkpoint | Fresh mean validation loss |
+| --- | ---: |
+| Stage 40 A-final, 38k | 1.4114283 |
+| Stage 41-final, 44k | 1.4086905 |
+
+The paired `44k - 38k` delta was **-0.0027378**, with paired SE `0.0001022`
+and 95% panel-sampling interval **[-0.0029386, -0.0025370]**. This fresh panel
+supports Stage 41's improvement beyond the fixed selection panel. Absolute
+means from different panels should not be compared directly.
+
+### Canonical outcome
+
+The canonical XPU run completed both 6,000-update branches on September 5,
+2026. **Continuing `3e-5` won at the matched 50k endpoint, at the selected
+fixed-panel minima, and on the fresh paired endpoint panel.** Lowering to
+`1e-5` at 44k did not produce a better final refinement phase over this
+budget.
+
+Both branches independently reproduced the source's `1.1990 / 1.4180`
+fixed-panel losses before their first update. Their pre-LR model, optimizer,
+batch-generator, and Torch RNG hashes were identical. Both final checkpoints
+contain all 138 AdamW moment states at optimizer step 50,000. The terminal
+training-generator and Torch CPU/XPU RNG states match byte for byte, and the
+authenticated 44k source file remained unchanged.
+
+| Step | A train, `3e-5` | A val, `3e-5` | B train, `1e-5` | B val, `1e-5` |
+| ---: | ---: | ---: | ---: | ---: |
+| 44,000 | 1.1990 | 1.4180 | 1.1990 | 1.4180 |
+| 44,500 | 1.1985 | 1.4183 | 1.1983 | 1.4179 |
+| 45,000 | 1.1982 | 1.4183 | 1.1980 | 1.4178 |
+| 45,500 | 1.1979 | 1.4173 | 1.1977 | 1.4171 |
+| 46,000 | 1.1977 | 1.4177 | 1.1977 | 1.4174 |
+| 46,500 | 1.1974 | 1.4183 | 1.1975 | 1.4178 |
+| 47,000 | 1.1972 | 1.4187 | 1.1974 | 1.4180 |
+| 47,500 | 1.1967 | 1.4176 | 1.1972 | 1.4175 |
+| 48,000 | 1.1963 | 1.4174 | 1.1970 | 1.4174 |
+| 48,500 | 1.1962 | 1.4165 | 1.1969 | 1.4169 |
+| 49,000 | 1.1960 | 1.4179 | 1.1968 | 1.4175 |
+| 49,500 | 1.1957 | 1.4160 | **1.1967** | **1.4166** |
+| 50,000 | **1.1957** | **1.4159** | 1.1966 | 1.4169 |
+
+![Stage 42 fixed-panel validation trajectories and fresh paired endpoint interval](figures/stage_42_learning_rate_fork.png)
+
+B led several early matched snapshots, but A found lower validation losses
+over the final 1,500 updates. A selected its endpoint; B selected step 49,500
+and then reversed by `0.0002656865` on the fixed panel.
+
+| Branch | Selected step | Selected train / val | Final train / val at 50k |
+| --- | ---: | ---: | ---: |
+| A, `3e-5` | 50,000 | `1.1956539690 / 1.4158585346` | `1.1956539690 / 1.4158585346` |
+| B, `1e-5` | 49,500 | `1.1966524369 / 1.4166213858` | `1.1966472149 / 1.4168870723` |
+
+The fixed-panel final delta `B - A` was **+0.0010285378**. The secondary
+selected-best delta was **+0.0007628512**, also favoring A. Relative to the
+common 44k source, A improved final validation by `0.0021717155`; B improved
+it by `0.0011431777`. Their final generalization gaps were nearly identical:
+`0.2202045655` for A and `0.2202398574` for B.
+
+The fresh comparison evaluated the two unconditional 50k artifacts on 500
+shared validation batches from seed 1,356:
+
+| Checkpoint | Fresh mean validation loss |
+| --- | ---: |
+| A, `3e-5`, 50k | 1.4077634227 |
+| B, `1e-5`, 50k | 1.4087699583 |
+
+The paired `B - A` mean was **+0.0010065355**, with paired SE
+`0.0000522814` and a two-sided 95% panel-sampling interval of
+**[+0.0009038167, +0.0011092544]**. The entire interval favors A, and its
+magnitude closely matches the fixed-panel endpoint difference. The 38k vs
+44k check also reproduced the historical result above on the same seed
+1,355 panel; that repetition is a reproducibility check, not additional
+independent validation evidence.
+
+This is the predeclared A outcome: `3e-5` remains the better late-training
+rate for this trajectory over 44k-to-50k. Stage 40 rejected the drop at 32k;
+Stage 42 now rejects it at 44k under the later optimization state. Both
+branches stopped at 50k, completing 12,000 new updates and 24.576 million
+new target presentations across the experiment.
+
+The result supports ending this C128 compute-extension experiment at 50k
+and moving to the proposed Complete-Shakespeare C128-to-C192 capacity
+comparison. It does not establish a validation plateau: A's newest strict
+minimum is still the endpoint. Stage 42 therefore resolves the tested
+late-LR choice without claiming that the model has mathematically or
+empirically converged. The fresh interval remains conditional on these two
+checkpoints and this sampled panel; it is not training-seed uncertainty.
+
+The full run exited successfully. Post-run verification checked the four
+checkpoint hashes, all optimizer step counters and branch LRs, matching
+evaluation steps and random streams, and the unchanged source hash. Both
+paired standard errors and confidence intervals were independently
+recomputed from the 500 stored batch-loss pairs. The implementation had also
+passed 21 Stage 40-42 tests, lint, and an XPU fork/checkpoint smoke check.
+
+The authenticated Stage 42 artifacts are:
+
+```text
+control best, step 50,000:
+183be907a891dd84fc31430c66c8313e70d38c87a278098cebe219c9904a49a6
+
+control final, step 50,000:
+7bfc120595760b538b9c4063e3580525b48762bcc779265cb09ba09e571a1441
+
+treatment best, step 49,500:
+d8dda6fc5067f798d13aa55848b0d7ed752d5cdacaed7cf39499b71873079c48
+
+treatment final, step 50,000:
+9e85fbcca5777606808dd8d2b937c0f0ba396dececb8db973b4f83caf8d32527
+
+training log:
+0452ab94ad069de43602dbecdca48ed63d5e99b32149611328a7432e66078486
+
+JSON report:
+5ce0e61569e834ef2e440474a9a535fd14a9eabefad49eb00d25093e076fc11d
+```
