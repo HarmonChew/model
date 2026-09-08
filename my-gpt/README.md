@@ -6958,3 +6958,132 @@ training log:
 JSON report:
 5ce0e61569e834ef2e440474a9a535fd14a9eabefad49eb00d25093e076fc11d
 ```
+
+## Stage 43: fresh Complete Shakespeare width scaling
+
+`43_capacity_scaling.py` tests whether a moderately wider model improves
+Complete Shakespeare validation at the same training-token budget. It trains
+the current `C=128` control and a `C=192` treatment from architecture-native
+initialization. Width is the only capacity dimension changed:
+
+| Setting | C128 control | C192 treatment |
+| --- | ---: | ---: |
+| Batch size / sequence length | 8 / 256 | 8 / 256 |
+| Targets per update | 2,048 | 2,048 |
+| Residual width | 128 | 192 |
+| Attention heads / channels per head | 4 / 32 | 4 / 48 |
+| FFN hidden width | 512 | 768 |
+| Transformer blocks | 6 | 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Attention by layer | W23, W23, W23, W23, Full, Full | W23, W23, W23, W23, Full, Full |
+| Vocabulary | 98 | 98 |
+| Learned parameters | 1,245,538 | 2,752,994 |
+| Updates per branch | 50,000 | 50,000 |
+| Target presentations per branch | 102,400,000 | 102,400,000 |
+
+The width step is `1.5x`; the exact parameter increase is approximately
+`2.21x`. Head size and FFN size follow the existing fixed-head-count and
+`FF=4C` architecture rules. Equal updates and target presentations do not
+imply equal FLOPs or wall time for the larger model.
+
+Each architecture recreates its native initialization from seed 1,337 and
+receives a fresh AdamW optimizer. **The models use architecture-native
+initializations recreated from the same seed; their tensors are not claimed
+byte-identical.** Separate initialization hashes record the two states.
+Stage 43 starts both branches at update zero, with no checkpoint loading,
+weight expansion, inherited optimizer moments, or continuation from 50k.
+
+The authenticated Stage 41 44k ancestor remains
+`c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5`.
+The empirical best checkpoint of the completed optimization lineage is
+Stage 42's `3e-5` control at 50k: selected-best artifact
+`183be907a891dd84fc31430c66c8313e70d38c87a278098cebe219c9904a49a6`,
+and unconditional final artifact
+`7bfc120595760b538b9c4063e3580525b48762bcc779265cb09ba09e571a1441`.
+Those identities remain historical provenance; neither supplies Stage 43
+training state. Stage 42 resolved its late-LR comparison without establishing
+that the current architecture had converged.
+
+Both fresh branches use the full established winning learning-rate schedule:
+
+```text
+update indices [0,10000):      1e-3
+update indices [10000,13000):  3e-4
+update indices [13000,18000):  1e-4
+update indices [18000,50000):  3e-5
+```
+
+AdamW retains `betas=(0.9,0.999)`, `eps=1e-8`, and `weight_decay=0.01`.
+The 50k endpoint gives each architecture the complete optimization budget
+reached by Stage 42. An early validation snapshot cannot determine the
+experiment's outcome, and neither branch receives an adaptive LR change or
+extra updates after seeing the comparison.
+
+The corpus remains `data/full-shakespreare.txt`, with the same sequential
+90%/10% split and tokenized data fingerprint
+`c6cbdd246799ad495f7813e5d20afa52c03e6c339fe7dbe15912fd81a45d2b48`.
+Each branch recreates the explicit training generator from seed 1,338. Every
+update samples four contiguous T512 source panels and reshapes them into
+eight T256 rows, preserving the established batch stream exactly. The model
+and dropout RNG resets to seed 1,340 before the first update of each branch.
+The seed policy is shared wherever the architectures permit; different
+tensor shapes prevent a claim of identical dropout masks or matching
+terminal model RNG states. The training batch-generator states must match.
+
+Evaluation recreates seed 1,339 for the same 100-batch train and validation
+panels at step zero and every 500 updates, with dropout and gradients
+disabled. Strict fixed-panel validation improvement selects each branch's
+best checkpoint. Each branch also saves an unconditional 50k final
+checkpoint, so the matched endpoint comparison remains distinct from
+selected-best performance. Checkpoints retain architecture, initialization,
+corpus, schedule, optimizer, batch-generator, and random-state provenance.
+
+After training, fresh paired evaluation reloads the two unconditional 50k
+checkpoints and passes the same 500 validation batches to both models. Seed
+1,357 is fresh relative to the selection panel and previous stage panels.
+The primary statistic is the per-batch `C192 - C128` validation-loss delta,
+with its mean, paired standard error, and two-sided Student-t 95% interval.
+An interval entirely below zero supports the wider model at this budget; an
+interval entirely above zero supports the control. An interval crossing zero
+leaves the comparison unresolved within panel uncertainty. This interval
+measures sampled-panel variation conditional on these checkpoints, not
+variation across training seeds or a corpus-IID confidence interval;
+sampled blocks can overlap and the text is autocorrelated. Fresh evaluation
+does not alter checkpoint selection.
+
+Run the focused tests from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_capacity_scaling_stage_43.py" -v
+```
+
+Validate the corpus, native architectures, and protocol without training:
+
+```powershell
+.\ai\Scripts\python.exe .\my-gpt\43_capacity_scaling.py `
+    --device xpu --validate-only
+```
+
+Run the canonical paired experiment:
+
+```powershell
+.\ai\Scripts\python.exe -u .\my-gpt\43_capacity_scaling.py `
+    --device xpu 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\stage_43_training.log
+```
+
+The runner writes branch best/final checkpoints and `stage_43_report.json`
+under `my-gpt/checkpoints` by default and refuses to overwrite existing
+outputs. Use `--output-dir` for an intentional repeat. Architecture, update
+budget, learning-rate schedule, seeds, and evaluation settings are locked in
+the CLI. The protocol above was declared before training.
+
+### Canonical execution
+
+The canonical XPU run started on 6 September 2026 at 00:31 Singapore time
+(5 September, 16:31 UTC). Training is in progress; no endpoint outcome is
+available yet. The live log is `checkpoints/stage_43_training.log`, and
+`checkpoints/stage_43_run_status.json` records the launch command, process,
+start time, and completion status. The runner source SHA-256 at launch was
+`0421e60d9f69b44a5b1d67f9ea8619f7f9ce652b61bf6eb86649cdf6c8dbfb40`.
