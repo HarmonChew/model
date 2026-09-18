@@ -7328,3 +7328,41 @@ f7da53c34498249bdada00fd5e5123a841914fd806def2ef1eed4f8ee8474ea8
 - Machine-readable measurements: `checkpoints/stage_45_report.json`
 - Figure: [`figures/stage_45_width_scaling.png`](figures/stage_45_width_scaling.png)
 - Raw run record: `checkpoints/logs/45_45_width_scaling.log`
+
+## Stage 46: C320 regularization rescue at dropout 0.10 versus 0.15
+
+Stage 45 left the width ladder at a reversal: `C=320` fit the training stream
+better than `C=256` while validating worse, which is a capacity/regularization
+mismatch rather than an optimization failure. Stage 46 tests whether that
+deficit is removable by the regularizer that was fixed at `p=0.10` in every
+width stage. Both branches are `C=320` (`H=4`, `D=80`, `FF=1280`, `L=6`,
+`T=256`, `LLLLGG`), trained fresh from architecture-native initialization for
+50,000 updates / 102.4 million target presentations; residual dropout is the
+only variable. Because dropout adds no parameters and consumes no initialization
+RNG, the branches start from byte-identical weights and parameter counts.
+
+Run the canonical experiment and the cross-stage frontier readout:
+
+```powershell
+python .\my-gpt\46_regularization_rescue.py --device cuda
+python .\my-gpt\46_regularization_rescue.py --device cuda --frontier-comparison-only
+```
+
+Validate the corpus, architecture, and paired initialization without training:
+
+```powershell
+python .\my-gpt\46_regularization_rescue.py --device cpu --validate-only
+```
+
+Result: `p=0.15` improves `C=320` by `-0.0050533` on the fresh paired panel
+(`[-0.0062791, -0.0038274]`) and cuts its generalization gap by `0.025`, but
+still loses to `C=256` by `+0.0052762` on the shared panel — it recovers only
+49% of the deficit. `C=256` remains the best-supported width. The full argument
+is in the interpretation.
+
+- Interpretation and caveats: [`docs/interpretations/stage_46.md`](docs/interpretations/stage_46.md)
+- Verbatim script output: [`reports/stage_46.md`](reports/stage_46.md)
+- Machine-readable measurements: `checkpoints/stage_46_report.json`
+- Cross-stage C256 comparison: `checkpoints/stage_46_c256_comparison.json`
+- Figure: [`figures/stage_46_regularization_rescue.png`](figures/stage_46_regularization_rescue.png)
+- Raw run record: `checkpoints/logs/46_46_regularization_rescue.log`
