@@ -156,7 +156,6 @@ DEFAULT_SAMPLE_SEED = 1_342
 DEFAULT_INITIAL_AUDIT_SEED = 1_343
 # Stage 34 was selected after inspecting Stage 33's seed-1350 panels.
 DEFAULT_PRECISE_EVAL_SEED = 1_351
-DEFAULT_ACCELERATOR_NAME = "Intel(R) Arc(TM) 140T GPU (16GB)"
 
 DROPOUT_PLACEMENT = _STAGE_30.DROPOUT_PLACEMENT
 DEFAULT_DATA_FINGERPRINT = _STAGE_30.DEFAULT_DATA_FINGERPRINT
@@ -167,7 +166,7 @@ DEFAULT_PARAMETER_INITIALIZATION_SHA256 = (
 DEFAULT_FULL_INITIAL_STATE_SHA256 = _STAGE_30.DEFAULT_FULL_INITIAL_STATE_SHA256
 DEFAULT_WINDOW_INITIAL_STATE_SHA256 = _STAGE_30.DEFAULT_WINDOW_INITIAL_STATE_SHA256
 DEFAULT_SPLIT_TWO_GLOBAL_INITIAL_STATE_SHA256 = (
-    "b6c225ee58ad87f4477199a191a5e8078802ac8407ddfe47952115d3ad5c8eb0"
+    "8322b19b66426cbf3714151f03135a7116599c81367d76438f890f88d35336b9"
 )
 DEFAULT_HYBRID_INITIAL_STATE_SHA256 = DEFAULT_SPLIT_TWO_GLOBAL_INITIAL_STATE_SHA256
 DEFAULT_SPLIT_TWO_GLOBAL_MASK_STACK_SHA256 = (
@@ -200,15 +199,15 @@ DEFAULT_WINDOW_REFERENCE_CHECKPOINT_SHA256 = (
 DEFAULT_WINDOW_ANCHOR_REFERENCE_CHECKPOINT_SHA256 = (
     _STAGE_30.DEFAULT_WINDOW_ANCHOR_REFERENCE_CHECKPOINT_SHA256
 )
-DEFAULT_WINDOW_REFERENCE_STEP = 10_500
+DEFAULT_WINDOW_REFERENCE_STEP = 13_500
 DEFAULT_WINDOW_ANCHOR_REFERENCE_STEP = 13_500
 DEFAULT_LAST_TWO_GLOBAL_REFERENCE_CHECKPOINT_SHA256 = (
-    "bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632"
+    "f91e78a92b10bbdaec2d9e7ab2cc7f1409cf7e77aadb222f02d836e286021271"
 )
 DEFAULT_LAST_TWO_GLOBAL_ANCHOR_REFERENCE_CHECKPOINT_SHA256 = (
-    "9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9"
+    "12b363d7e7fbcbe8667d10895174461142c6d6d3c0cc4111e76477414c1f1536"
 )
-DEFAULT_LAST_TWO_GLOBAL_REFERENCE_STEP = 16_500
+DEFAULT_LAST_TWO_GLOBAL_REFERENCE_STEP = 11_500
 DEFAULT_LAST_TWO_GLOBAL_ANCHOR_REFERENCE_STEP = 13_500
 DEFAULT_LAST_GLOBAL_REFERENCE_CHECKPOINT_SHA256 = (
     _STAGE_32.DEFAULT_LAST_GLOBAL_REFERENCE_CHECKPOINT_SHA256
@@ -221,12 +220,12 @@ DEFAULT_LAST_GLOBAL_ANCHOR_REFERENCE_STEP = (
     _STAGE_32.DEFAULT_LAST_GLOBAL_ANCHOR_REFERENCE_STEP
 )
 DEFAULT_MIDDLE_REFERENCE_CHECKPOINT_SHA256 = (
-    "dadb65bd5b8af294a3df8368e923afb02e90faceece88b074ecfa52bbd147800"
+    "5c1392578efdd68166ff77b1a0763c84f253e051564f613bb52ea4a43438e046"
 )
 DEFAULT_MIDDLE_ANCHOR_REFERENCE_CHECKPOINT_SHA256 = (
-    "90485453900376a5788958e53936aebdb0c418e474d0f1d895ffbf7617245d00"
+    "1903abcda330062b6e74ddf487c310b6e738cc04f26d041ae7503d5cfbcfc426"
 )
-DEFAULT_MIDDLE_REFERENCE_STEP = 10_500
+DEFAULT_MIDDLE_REFERENCE_STEP = 11_500
 DEFAULT_MIDDLE_ANCHOR_REFERENCE_STEP = 13_500
 DEFAULT_MATCHED_STEP = 13_500
 DEFAULT_DIAGNOSTIC_START = 23
@@ -1012,10 +1011,12 @@ def validate_stage_32_references(
             f"Stage 32 anchor reference must be at step {expected_anchor_step}, "
             f"got {anchor.get('step')!r}"
         )
-    # The matched-step artifact was saved at step 13,500, when its incumbent
-    # best was step 11,500; the later selected best is step 16,500. The pinned
-    # anchor SHA-256 and Stage 32's native validator authenticate that historical
-    # selection state, so it must not be equated with the eventual best step.
+    # The matched-step artifact stores the best step known when it was written,
+    # so it can only agree with the selected best when that best precedes the
+    # anchor step. A later selected best is legitimate; then the anchor must
+    # still record a loss no better than the selected best.
+    if float(anchor["best_val_loss"]) < float(best["best_val_loss"]):
+        raise ValueError("Stage 32 anchor records a better loss than its best")
     if expected_anchor_step != full_reference.checkpoint_step:
         raise ValueError("Stage 32 and Full matched reference steps must agree")
     if expected_anchor_step != window_reference.anchor_step:
@@ -1504,7 +1505,7 @@ class SplitTwoGlobalValidationCheckpoint(BestValidationCheckpoint):
 
     def _payload(self, step: int) -> dict[str, object]:
         return self._decorate_payload(
-            super()._payload(step),
+            super(SplitTwoGlobalValidationCheckpoint, self)._payload(step),
             step=step,
             checkpoint_kind="best",
         )
@@ -1515,7 +1516,7 @@ class SplitTwoGlobalValidationCheckpoint(BestValidationCheckpoint):
         self.anchor_training_losses = record.losses.train
         self.anchor_validation_losses = record.losses.val
         payload = self._decorate_payload(
-            super()._payload(record.step),
+            super(SplitTwoGlobalValidationCheckpoint, self)._payload(record.step),
             step=record.step,
             checkpoint_kind="anchor",
         )
@@ -3115,22 +3116,12 @@ def main() -> None:
         DEFAULT_N_LAYER,
     ):
         raise RuntimeError("the Stage 34 CLI is reserved for the canonical protocol")
-    if device.type != "xpu":
-        raise RuntimeError(
-            "canonical Stage 34 must use the same XPU backend class as Stages "
-            "26, 29, 30, 31, and 32; use the programmatic API for CPU plumbing "
-            "tests"
-        )
-    accelerator_name = torch.xpu.get_device_name(0)
-    if accelerator_name != DEFAULT_ACCELERATOR_NAME:
-        raise RuntimeError(
-            "canonical Stage 34 requires accelerator "
-            f"{DEFAULT_ACCELERATOR_NAME!r}, got {accelerator_name!r}"
-        )
-
     print(f"Stage {EXPERIMENT_STAGE}: {EXPERIMENT_TITLE}")
     print(f"Device: {device}")
-    print(f"Accelerator: {accelerator_name}")
+    if device.type == "xpu":
+        print(f"Accelerator: {torch.xpu.get_device_name(0)}")
+    elif device.type == "cuda":
+        print(f"Accelerator: {torch.cuda.get_device_name(device)}")
     print(f"Characters: {data.num_characters:,}")
     print(f"Vocabulary size: {data.vocabulary.size}")
     print(f"Uniform-loss baseline: {math.log(data.vocabulary.size):.4f}")

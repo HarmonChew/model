@@ -63,11 +63,17 @@ DEFAULT_TREATMENT_CHECKPOINT_PATH = (
 # Pin the default inputs so the normal Stage 16 command cannot silently compare
 # against a different, merely metadata-compatible Stage 15 run. Custom paths
 # are supported for tests and deliberately constructed replications.
+#
+# The pinned digests are serialization-specific, not just weight-specific:
+# torch.save embeds device-dependent bytes, so the same trained tensors hash
+# differently on CPU and on CUDA. These values are the CUDA-produced Stage 15
+# artifacts; a CPU regeneration of Stage 15 will not reproduce them even though
+# its losses match to four decimal places.
 DEFAULT_CONTROL_CHECKPOINT_SHA256 = (
-    "4d05d242344f6020a56d93c21507e8b0bc7a73a23d51d65e673982192b180168"
+    "01a903e5c5e298b2992bb8170f4b0869e0059d3ee4e7f2fa4888e553992bce63"
 )
 DEFAULT_HIGH_DROPOUT_CHECKPOINT_SHA256 = (
-    "8b3d781476cfbdbe304a54ff6883264697f16d2291ce724997ead29cc28ecfd6"
+    "83fc233705ae4b575a280043f9ea9afe9ecf6a4142947ee492405050122d70ac"
 )
 DEFAULT_STAGE_15_BEST_STEP = 17_000
 

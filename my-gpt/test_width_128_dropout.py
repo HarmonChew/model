@@ -167,7 +167,7 @@ class Stage21DefaultsAndInitializationTests(unittest.TestCase):
         )
         self.assertEqual(
             checkpoint_hash,
-            "fc42fd0b58d3e197db3cb4d687e841b9db3f8c38a4208f9b9db2cf329ab1d3e9",
+            "645f7dc1971bd7e790b6583564731acd7f8501e26ecea457d21f8f7cec8c03f2",
         )
         self.assertEqual(checkpoint_step, 10_500)
 

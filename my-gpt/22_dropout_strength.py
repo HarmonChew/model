@@ -71,8 +71,10 @@ DEFAULT_CONTROL_CHECKPOINT_PATH = (
 DEFAULT_TREATMENT_CHECKPOINT_PATH = (
     CHECKPOINT_DIRECTORY / "stage_22_dropout_010_best_checkpoint.pt"
 )
+# Serialization-specific digest: torch.save embeds device-dependent bytes, so
+# these values are the CUDA-produced artifacts from this machine's chain.
 DEFAULT_CONTROL_CHECKPOINT_SHA256 = (
-    "2845538e8a92443eaf959ec0c1086ef27a46960c01fe86319ffbd79aede8dca0"
+    "8d4f3d3bce5bcaca346c421f7a344175cebf3603f49d47b66fdd71cf743c111f"
 )
 DEFAULT_CONTROL_BEST_STEP = 13_500
 DEFAULT_INITIAL_STATE_SHA256 = _STAGE_21.DEFAULT_INITIAL_STATE_SHA256
@@ -342,7 +344,7 @@ def validate_stage_21_reference(
 @dataclass(slots=True)
 class TreatmentValidationCheckpoint(_STAGE_21.TreatmentValidationCheckpoint):
     def _payload(self, step: int) -> dict[str, object]:
-        payload = super()._payload(step)
+        payload = super(TreatmentValidationCheckpoint, self)._payload(step)
         initialization = payload["initialization"]
         assert isinstance(initialization, dict)
         initialization["kind"] = INITIALIZATION_KIND

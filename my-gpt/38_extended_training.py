@@ -96,18 +96,21 @@ DEFAULT_TRAINING_RNG_SEED = _STAGE_37.DEFAULT_TRAINING_RNG_SEED
 DEFAULT_SAMPLE_SEED = _STAGE_37.DEFAULT_SAMPLE_SEED
 DEFAULT_TRAIN_FRACTION = _STAGE_37.DEFAULT_TRAIN_FRACTION
 
-DEFAULT_SOURCE_STEP = 17_500
-DEFAULT_SOURCE_BEST_TRAIN_LOSS = 1.2216
-DEFAULT_SOURCE_BEST_VAL_LOSS = 1.4340
-DEFAULT_STAGE_37_FINAL_TRAIN_LOSS = 1.2212
+# The Stage 37 CUDA reproduction selected its best at the final evaluation,
+# so its saved best checkpoint already sits on the reconstruction boundary.
+# No updates are replayed; the boundary audit re-evaluates that exact state.
+DEFAULT_SOURCE_STEP = 18_000
+DEFAULT_SOURCE_BEST_TRAIN_LOSS = 1.2188
+DEFAULT_SOURCE_BEST_VAL_LOSS = 1.4352
+DEFAULT_STAGE_37_FINAL_TRAIN_LOSS = 1.2188
 DEFAULT_STAGE_37_FINAL_VAL_LOSS = 1.4352
 DEFAULT_STAGE_37_REPORTED_DECIMALS = 4
 DEFAULT_SOURCE_CHECKPOINT_SHA256 = (
-    "3abbea5e0c5fbaf31bfe8696fba7813fe9f8684a60f5deba57c930e7590906d7"
+    "b163476632ef4d5954f0fe28dbf3f2c2c67ca4eb922f62762b29b989214b4168"
 )
-DEFAULT_SOURCE_TORCH_VERSION = "2.13.0+xpu"
+DEFAULT_SOURCE_TORCH_VERSION = "2.14.0+cu130"
 DEFAULT_SOURCE_GENERATOR_SHA256 = (
-    "1732e75fb5bf5e78e7307f38e28afb16f048ddb956563d248b3cf24afdce3384"
+    "5accd4ace34596d50183f50f83eaa846436e240bb691ad7f1ae06de63ab7401d"
 )
 DEFAULT_REPLAY_GENERATOR_SHA256 = (
     "5accd4ace34596d50183f50f83eaa846436e240bb691ad7f1ae06de63ab7401d"
@@ -752,9 +755,10 @@ def validate_and_load_stage_37_source(
     best_step = _require_int(checkpoint.get("best_step"), name="best_step")
     if step != best_step:
         raise ValueError("Stage 37 source must store its selected-best state")
-    if step >= schedule.extension_start_step:
+    if step > schedule.extension_start_step:
         raise ValueError(
-            "Stage 37 source step must precede the 18,000 reconstruction boundary"
+            "Stage 37 source step must not exceed the 18,000 reconstruction "
+            "boundary"
         )
     if step % config.eval_interval:
         raise ValueError("Stage 37 source step must align with fixed evaluations")
@@ -1215,9 +1219,9 @@ def train_extended(
     fixed_panel_seed: int,
     on_evaluation: Callable[[EvaluationRecord], None],
 ) -> TrainingResult:
-    if start_step < 0 or start_step >= schedule.extension_start_step:
+    if start_step < 0 or start_step > schedule.extension_start_step:
         raise ValueError(
-            "start_step must precede the reconstruction boundary, got "
+            "start_step must not exceed the reconstruction boundary, got "
             f"{start_step}"
         )
     if start_step % config.eval_interval:

@@ -1213,10 +1213,10 @@ dropout checkpoint: my-gpt/checkpoints/stage_15_dropout_best_checkpoint.pt
 complete console record: my-gpt/checkpoints/stage_15_training.log
 
 control checkpoint SHA-256:
-4d05d242344f6020a56d93c21507e8b0bc7a73a23d51d65e673982192b180168
+01a903e5c5e298b2992bb8170f4b0869e0059d3ee4e7f2fa4888e553992bce63
 
 dropout checkpoint SHA-256:
-8b3d781476cfbdbe304a54ff6883264697f16d2291ce724997ead29cc28ecfd6
+83fc233705ae4b575a280043f9ea9afe9ecf6a4142947ee492405050122d70ac
 ```
 
 ## Stage 16: residual-dropout strength
@@ -1354,7 +1354,7 @@ reused p=.10 checkpoint: my-gpt/checkpoints/stage_15_dropout_best_checkpoint.pt
 complete console record: my-gpt/checkpoints/stage_16_training.log
 
 p=.05 checkpoint SHA-256:
-94035435b62b84cc930d4b97759ca99ed98bb71b7c9d32695b3c94795814cca9
+2c3faf67cdd051e1c015ab31a465b7a51876b80c26765085163d7fb513e2ff75
 
 console record SHA-256:
 e68ef8da30e7f2efc343f8a34ed1e3d3e50ef24a9f5322f6215586638355d424
@@ -1594,13 +1594,13 @@ control checkpoint:
 my-gpt/checkpoints/stage_17_control_best_checkpoint.pt
 
 control checkpoint SHA-256:
-e7b3823dbf13a75a7c06b87bd55f86a13b07dfa877ceaa3a478a3334471253c9
+cdb1e76c24a290257ee27b670630b016ca10f6416fe8b639aeb01ebd9cd0e00f
 
 treatment checkpoint:
 my-gpt/checkpoints/stage_17_context_128_best_checkpoint.pt
 
 treatment checkpoint SHA-256:
-26a0bfb8d056f7371eb5eb1eb16d29b91e4fb1552d8784aabaac39e00447c22b
+3488d073f7a67b3f59c268e103176c2833eac4c0b1c61bf9c6bb0b7c0b16f7b8
 
 canonical console transcript:
 my-gpt/checkpoints/stage_17_training.log
@@ -1866,13 +1866,13 @@ local checkpoint:
 my-gpt/checkpoints/stage_18_local_64_best_checkpoint.pt
 
 local checkpoint SHA-256:
-ae8c3e7652eaacd40242ce508d6b98fadb99bb95d699a1e67fe2ced1e319c827
+8c76a8aa0dbca383c10da3a5199c91ef2836cc2021889492fb02a51b413ce8f0
 
 full checkpoint:
 my-gpt/checkpoints/stage_18_full_128_best_checkpoint.pt
 
 full checkpoint SHA-256:
-93db6fed4f96ef9ba6a362eca676635c7e4b344a9f61e29f042c9c5b8f03c6c9
+03ba54b044b54207182f98b88804c9e8127b367f41a35e88b551c47317b2acd8
 ```
 
 The complete canonical console output supplied after the run is archived in
@@ -2097,13 +2097,13 @@ local checkpoint:
 my-gpt/checkpoints/stage_19_local_17_best_checkpoint.pt
 
 local checkpoint SHA-256:
-7e670e63cd63f5f745febfffc0a2e2e4b235f4cc4c8d3e5f6fb630b60a587ba7
+deae96ed1c62525f7c6ccc6847f65cb489f3bda619e41862c16b7f9a6836c09c
 
 full checkpoint:
 my-gpt/checkpoints/stage_19_full_128_best_checkpoint.pt
 
 full checkpoint SHA-256:
-a767130bae617ceef518d2c0020995319d52a659fa1fa97fb13c528526ec9e20
+24585bc937b0f956d1f757eb199873782fc8e6b9fc0bf8b45044c2c358a89960
 
 canonical console transcript:
 my-gpt/checkpoints/stage_19_training.log
@@ -2328,13 +2328,13 @@ C=64 checkpoint:
 my-gpt/checkpoints/stage_20_width_64_best_checkpoint.pt
 
 C=64 checkpoint SHA-256:
-a68fcbd716226b311bfe0651b7d4a689b9143ba331d8f78630d4fe8aae6724fb
+c8927671ef7fbdb479fa0f87faaa072bd7b4755f06a5286a9b71e68ee475a162
 
 C=128 checkpoint:
 my-gpt/checkpoints/stage_20_width_128_best_checkpoint.pt
 
 C=128 checkpoint SHA-256:
-fc42fd0b58d3e197db3cb4d687e841b9db3f8c38a4208f9b9db2cf329ab1d3e9
+645f7dc1971bd7e790b6583564731acd7f8501e26ecea457d21f8f7cec8c03f2
 
 canonical console transcript:
 my-gpt/checkpoints/stage_20_training.log
@@ -2428,52 +2428,52 @@ fixed-panel trajectories are:
 
 | Step | `p=0` train | `p=0` val | `p=0.05` train | `p=0.05` val |
 | ---: | ---: | ---: | ---: | ---: |
-| 8,500 | 1.2559 | 1.5683 | 1.2839 | **1.5383** |
-| 10,000 | 1.2269 | 1.5559 | 1.2617 | **1.5347** |
-| 10,500 | 1.1695 | 1.5462 | 1.2196 | **1.5110** |
-| 13,000 | 1.1254 | 1.5835 | 1.1902 | **1.5109** |
-| 13,500 | 1.1076 | 1.5800 | 1.1784 | **1.5052** |
-| 15,000 | 1.0952 | 1.5980 | 1.1706 | **1.5077** |
-| 18,000 | 1.0789 | 1.6230 | 1.1604 | **1.5134** |
+| 8,500 | 1.2559 | 1.5683 | 1.2830 | **1.5451** |
+| 10,000 | 1.2268 | 1.5559 | 1.2605 | **1.5311** |
+| 10,500 | 1.1695 | 1.5461 | 1.2207 | **1.5095** |
+| 13,000 | 1.1254 | 1.5836 | 1.1911 | **1.5141** |
+| 13,500 | 1.1076 | 1.5800 | 1.1790 | **1.5056** |
+| 15,000 | 1.0952 | 1.5981 | 1.1718 | **1.5076** |
+| 18,000 | 1.0788 | 1.6232 | 1.1611 | **1.5133** |
 
 The best-checkpoint and final treatment diagnostics were:
 
 | Metric | Reused `p=0` | New `p=0.05` |
 | --- | ---: | ---: |
 | Best checkpoint step | 10,500 | 13,500 |
-| Train loss at best | 1.169517 | 1.178411 |
-| Best fixed validation loss | 1.546158 | **1.505233** |
-| Gap at best | 0.376641 | **0.326822** |
-| Final train loss | 1.0789 | 1.1604 |
-| Final validation loss | 1.6230 | **1.5134** |
-| Final gap | 0.5441 | **0.3529** |
+| Train loss at best | 1.1695 | 1.1790 |
+| Best fixed validation loss | 1.5461 | **1.5056** |
+| Gap at best | 0.3766 | **0.3266** |
+| Final train loss | 1.0788 | 1.1611 |
+| Final validation loss | 1.6232 | **1.5133** |
+| Final gap | 0.5443 | **0.3521** |
 
 The new optimum arrives 3,000 updates later and improves the fixed selection
-panel by `-0.040925`. Dropout does not eliminate overfitting: after step
+panel by `-0.040541`. Dropout does not eliminate overfitting: after step
 13,500, training loss continues down while validation eventually rises. It
 does make the late deterioration far shallower. The treatment worsens only
-from `1.5052` to `1.5134` by step 18,000, while the Stage 20 control worsened
-from `1.5462` to `1.6230` over its post-best interval.
+from `1.5056` to `1.5133` by step 18,000, while the Stage 20 control worsened
+from `1.5461` to `1.6232` over its post-best interval.
 
 After checkpoint selection, both best models were reloaded and evaluated on
 the same 500 fresh validation batches from Stage 20's seed 1,344:
 
 | Best checkpoint | Overall | First half | Second half |
 | --- | ---: | ---: | ---: |
-| `p=0` at step 10,500 | 1.535457 | 1.572447 | 1.498467 |
-| `p=0.05` at step 13,500 | **1.495556** | **1.538885** | **1.452227** |
+| `p=0` at step 10,500 | 1.535398 | 1.572350 | 1.498446 |
+| `p=0.05` at step 13,500 | **1.496772** | **1.540253** | **1.453291** |
 
 Paired `p=0.05 - p=0` inference gave:
 
 | Scope | Mean delta | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | -0.039901 | 0.000728 | [-0.041332, -0.038470] |
-| First half | -0.033562 | 0.000992 | [-0.035511, -0.031612] |
-| Second half | -0.046240 | 0.001129 | [-0.048458, -0.044023] |
-| Positions 0-15 | -0.030751 | 0.001346 | [-0.033396, -0.028106] |
-| Positions 16-31 | -0.036373 | 0.001499 | [-0.039319, -0.033427] |
-| Positions 32-47 | -0.044216 | 0.001597 | [-0.047354, -0.041078] |
-| Positions 48-63 | -0.048265 | 0.001592 | [-0.051392, -0.045137] |
+| Overall | -0.038625 | 0.000752 | [-0.040104, -0.037147] |
+| First half | -0.032096 | 0.000993 | [-0.034047, -0.030145] |
+| Second half | -0.045154 | 0.001139 | [-0.047392, -0.042917] |
+| Positions 0-15 | -0.029112 | 0.001257 | [-0.031582, -0.026641] |
+| Positions 16-31 | -0.035081 | 0.001604 | [-0.038234, -0.031929] |
+| Positions 32-47 | -0.042350 | 0.001588 | [-0.045471, -0.039229] |
+| Positions 48-63 | -0.047959 | 0.001644 | [-0.051188, -0.044729] |
 
 The primary interval is wholly below zero, and every exploratory positional
 band favors dropout. The benefit grows later in the context rather than being
@@ -2484,7 +2484,7 @@ This is outcome A with an additional element of outcome C: `p=0.05` improves
 the optimum substantially and delays overfitting. It also demonstrates the
 capacity interaction motivating the experiment. At `C=64`, the Stage 16 fresh
 paired delta for the same dose was `+0.008240`, reliably worse than no dropout;
-at `C=128`, it is `-0.039901`, reliably better under this protocol. Regularizer
+at `C=128`, it is `-0.038625`, reliably better under this protocol. Regularizer
 strength is not an intrinsic dataset setting independent of model capacity.
 
 The result remains conditional on one initialization/training seed and one
@@ -2503,7 +2503,7 @@ new p=0.05 checkpoint:
 my-gpt/checkpoints/stage_21_dropout_005_best_checkpoint.pt
 
 p=0.05 checkpoint SHA-256:
-2845538e8a92443eaf959ec0c1086ef27a46960c01fe86319ffbd79aede8dca0
+8d4f3d3bce5bcaca346c421f7a344175cebf3603f49d47b66fdd71cf743c111f
 
 canonical console transcript:
 my-gpt/checkpoints/stage_21_training.log
@@ -2513,10 +2513,7 @@ afe9792676c56637bf0a13ab6d29cbe65e71525f9d288e376cfc0121f165447f
 ```
 
 The checkpoint passed the current strict validator, including exact causal
-masks and optimizer state. Its best fixed panel was independently replayed
-from the saved tensors (`train=1.1784111536`, `val=1.5052327192`), and the full
-500-batch fresh panel was independently replayed with an exact nine-decimal
-match to the transcript.
+masks and optimizer state.
 
 ## Stage 22: increase residual dropout from 0.05 to 0.10
 
@@ -2542,7 +2539,7 @@ attention-weight dropout. Because dropout modules have no state, both models
 share the exact learned initialization with SHA-256:
 
 ```text
-ea5ac1a1b7fc912a1f5535e6bbabc43216b48aafbd86869dffd5372e7fc0bfad
+7c3ef103b2b6ae2d6cc0fb0e1c065743c0e692f32ae3ff32940bbaee88b73568
 ```
 
 The treatment starts from that recreated state with a fresh AdamW optimizer.
@@ -2553,7 +2550,7 @@ The run is deliberately not stopped early if its early validation is worse;
 the complete curve distinguishes slower learning from harmful regularization.
 
 The Stage 21 source is pinned to best step 13,500 and checkpoint SHA-256
-`2845538e8a92443eaf959ec0c1086ef27a46960c01fe86319ffbd79aede8dca0`.
+`8d4f3d3bce5bcaca346c421f7a344175cebf3603f49d47b66fdd71cf743c111f`.
 Stage 22 validates all Stage 21 provenance, checks the treatment batch-generator
 state against the source at step 13,500, and hashes the source before and after
 training and evaluation. Its own checkpoint records Stage 22, `p=0.05` as the
@@ -2582,35 +2579,35 @@ training fit. Selected points from the matched fixed-panel trajectories are:
 
 | Step | `p=0.05` train | `p=0.05` val | `p=0.10` train | `p=0.10` val |
 | ---: | ---: | ---: | ---: | ---: |
-| 5,000 | **1.3454** | **1.5707** | 1.3637 | 1.5788 |
-| 8,500 | **1.2839** | **1.5383** | 1.3045 | 1.5436 |
-| 10,000 | **1.2617** | 1.5347 | 1.2847 | **1.5343** |
-| 10,500 | **1.2196** | 1.5110 | 1.2508 | **1.5094** |
-| 11,000 | **1.2108** | 1.5112 | 1.2430 | **1.5049** |
-| 13,000 | **1.1902** | 1.5109 | 1.2255 | **1.5064** |
-| 13,500 | **1.1784** | 1.5052 | 1.2161 | **1.4960** |
-| 15,000 | **1.1706** | 1.5077 | 1.2099 | **1.4984** |
-| 18,000 | **1.1604** | 1.5134 | 1.2016 | **1.5008** |
+| 5,000 | **1.3452** | **1.5664** | 1.3621 | 1.5766 |
+| 8,500 | **1.2830** | **1.5451** | 1.3022 | 1.5399 |
+| 10,000 | **1.2605** | 1.5311 | 1.2844 | **1.5339** |
+| 10,500 | **1.2207** | 1.5095 | 1.2491 | **1.5143** |
+| 11,000 | **1.2107** | 1.5070 | 1.2421 | **1.5099** |
+| 13,000 | **1.1911** | 1.5141 | 1.2247 | **1.5112** |
+| 13,500 | **1.1790** | 1.5056 | 1.2150 | **1.5031** |
+| 15,000 | **1.1718** | 1.5076 | 1.2087 | **1.5017** |
+| 18,000 | **1.1611** | 1.5133 | 1.1999 | **1.5030** |
 
 The best-checkpoint and final diagnostics were:
 
 | Metric | Reused `p=0.05` | New `p=0.10` |
 | --- | ---: | ---: |
-| Best checkpoint step | 13,500 | 13,500 |
-| Train loss at best | **1.178411** | 1.216079 |
-| Best fixed validation loss | 1.505233 | **1.495999** |
-| Gap at best | 0.326822 | **0.279920** |
-| Final train loss | **1.1604** | 1.2016 |
-| Final validation loss | 1.5134 | **1.5008** |
-| Final gap | 0.3529 | **0.2992** |
+| Best checkpoint step | 13,500 | 15,500 |
+| Train loss at best | **1.1790** | 1.2072 |
+| Best fixed validation loss | 1.5056 | **1.4999** |
+| Gap at best | 0.3266 | **0.2927** |
+| Final train loss | **1.1611** | 1.1999 |
+| Final validation loss | 1.5133 | **1.5030** |
+| Final gap | 0.3521 | **0.3030** |
 
-The fixed selection panel improves by `-0.009234`. At the shared optimum,
-`p=0.10` raises training loss by `+0.037668` but lowers validation loss, which
-is the clean regularization outcome this stage was designed to test. Both
-branches select step 13,500, so the hypothesis that stronger dropout might
-move the optimum later is not supported here. Stronger dropout still makes
-the late deterioration shallower: its validation loss rises only from
-`1.4960` to `1.5008` by step 18,000, compared with `1.5052` to `1.5134` for
+The fixed selection panel improves by `-0.005675`. At the shared optimum,
+`p=0.10` raises training loss but lowers validation loss, which is the clean
+regularization outcome this stage was designed to test. The `p=0.10` branch
+selects 2,000 updates later than `p=0.05`, so the hypothesis that stronger
+dropout might move the optimum later is supported here. Stronger dropout also
+makes the late deterioration shallower: its validation loss rises only from
+`1.4999` to `1.5030` by step 18,000, compared with `1.5056` to `1.5133` for
 `p=0.05`.
 
 After checkpoint selection, both best models were reloaded and evaluated on
@@ -2618,25 +2615,26 @@ the same 500 fresh validation batches from seed 1,344:
 
 | Best checkpoint | Overall | First half | Second half |
 | --- | ---: | ---: | ---: |
-| `p=0.05` at step 13,500 | 1.495556 | 1.538885 | 1.452227 |
-| `p=0.10` at step 13,500 | **1.487083** | **1.531501** | **1.442665** |
+| `p=0.05` at step 13,500 | 1.496772 | 1.540253 | 1.453291 |
+| `p=0.10` at step 15,500 | **1.489799** | **1.534534** | **1.445064** |
 
 Paired `p=0.10 - p=0.05` inference gave:
 
 | Scope | Mean delta | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | -0.008473 | 0.000614 | [-0.009679, -0.007266] |
-| First half | -0.007384 | 0.000816 | [-0.008986, -0.005781] |
-| Second half | -0.009562 | 0.000902 | [-0.011333, -0.007790] |
-| Positions 0-15 | -0.004531 | 0.001040 | [-0.006574, -0.002488] |
-| Positions 16-31 | -0.010237 | 0.001295 | [-0.012780, -0.007693] |
-| Positions 32-47 | -0.011095 | 0.001277 | [-0.013604, -0.008587] |
-| Positions 48-63 | -0.008028 | 0.001236 | [-0.010455, -0.005600] |
+| Overall | -0.006973 | 0.000594 | [-0.008140, -0.005806] |
+| First half | -0.005719 | 0.000846 | [-0.007380, -0.004057] |
+| Second half | -0.008227 | 0.000865 | [-0.009927, -0.006528] |
+| Positions 0-15 | -0.001752 | 0.001152 | [-0.004015, +0.000510] |
+| Positions 16-31 | -0.009685 | 0.001314 | [-0.012266, -0.007104] |
+| Positions 32-47 | -0.009286 | 0.001278 | [-0.011797, -0.006775] |
+| Positions 48-63 | -0.007169 | 0.001319 | [-0.009761, -0.004577] |
 
-The primary interval is wholly below zero, and every exploratory position
-band favors `p=0.10`. The largest improvements occur in the two middle-late
-bands rather than growing monotonically with position. As before, the band
-intervals are exploratory and not multiplicity-adjusted.
+The primary interval is wholly below zero. Six of the seven positional bands
+favor `p=0.10`, but the earliest band's interval crosses zero, so the benefit
+is not uniform across positions. The largest improvements occur in the two
+middle bands rather than growing monotonically with position. As before, the
+band intervals are exploratory and not multiplicity-adjusted.
 
 This is the first outcome posed for Stage 22: the `C=128` model continues to
 benefit from stronger residual regularization at `p=0.10`. The improvement is
@@ -2657,7 +2655,7 @@ new p=0.10 checkpoint:
 my-gpt/checkpoints/stage_22_dropout_010_best_checkpoint.pt
 
 p=0.10 checkpoint SHA-256:
-dabb5b9d235460b9c3ab4b7b1a43d70c0ecd3403d48b447bf7f5d45f68823fc9
+8811ba1c355c69b880c6df26b2be0b6daf205f95466a2604860ce53b56b20284
 
 canonical console transcript:
 my-gpt/checkpoints/stage_22_training.log
@@ -2673,7 +2671,7 @@ run on identically sampled validation batches for both checkpoints.
 One measurement detail is now explicit: the fixed-panel `train` values in
 Stages 20-22 were already produced by `model.eval()` under `torch.no_grad()`.
 Dropout was therefore disabled for both the fixed training and validation
-panels. In particular, Stage 22's `1.216079` training-panel loss measures the
+panels. In particular, Stage 22's `1.2072` training-panel loss measures the
 fit of the learned weights with dropout off; it is not mechanically inflated
 by active dropout noise. What is not reported by those curves is the noisy
 single-batch loss seen by an individual optimizer update.
@@ -2696,7 +2694,7 @@ Stage 22 best checkpoint as a read-only `p=0.10` control:
 | Updates | 18,000 | 18,000 |
 
 The Stage 22 control is pinned to best step 13,500 and SHA-256
-`dabb5b9d235460b9c3ab4b7b1a43d70c0ecd3403d48b447bf7f5d45f68823fc9`.
+`8811ba1c355c69b880c6df26b2be0b6daf205f95466a2604860ce53b56b20284`.
 Stage 23 validates its full provenance and hashes it before and after training,
 checkpoint replay, and fresh validation. The treatment starts from the same
 byte-identical initialization, uses a fresh AdamW optimizer, and preserves the
@@ -2756,18 +2754,33 @@ remains the champion:
 
 | Metric | `p=0.10` | `p=0.15` | `p=.15 - p=.10` |
 | --- | ---: | ---: | ---: |
-| Best fixed validation | **1.4960** | 1.4986 | +0.0026 |
-| Fresh validation | **1.487083** | 1.488836 | **+0.001753** |
-| Eval-train at best | **1.2161** | 1.2371 | +0.0210 |
-| Eval gap at best | 0.2799 | **0.2615** | -0.0184 |
-| Best step | 13,500 | 15,500 | +2,000 |
+| Best fixed validation | **1.4999** | 1.5003 | +0.0004 |
+| Fresh validation | **1.489799** | 1.492145 | **+0.002346** |
+| Eval-train at best | **1.2072** | 1.2335 | +0.0263 |
+| Eval gap at best | 0.2927 | **0.2669** | -0.0258 |
+| Best step | 15,500 | 17,000 | +1,500 |
 
-The fresh paired delta was `+0.001753 +/- 0.000512 SE`, with a two-sided 95%
-interval of `[+0.000746,+0.002759]`. Positive favors `p=0.10`, so the paired
+The fresh paired delta was `+0.002346 +/- 0.000568 SE`, with a two-sided 95%
+interval of `[+0.001230,+0.003462]`. Positive favors `p=0.10`, so the paired
 panel resolves the small regression conditional on these checkpoints. The
-result also demonstrates why validation loss, rather than the smallest
-train/validation gap, remains the objective: `p=0.15` reduced the gap by
-weakening training fit but did not improve validation.
+fixed-panel point estimates differ by only `+0.0004` here, so the fresh paired
+panel is what separates the two doses. The result also demonstrates why
+validation loss, rather than the smallest train/validation gap, remains the
+objective: `p=0.15` reduced the gap by weakening training fit but did not
+improve validation.
+
+The exploratory 16-position bands were `-0.000921`, `+0.004200`, `+0.002339`,
+and `+0.003767` from earliest to latest. The earliest band's interval crosses
+zero; the other three favor `p=0.10`, though the third band's interval only
+just excludes zero at its upper edge.
+
+The selected `p=0.15` checkpoint is pinned at step 17,000 with SHA-256:
+
+```text
+42eb0434ef2f88ce85a6b4f2a840338bec11971b352f40e1c0ab726673a6ac44
+```
+
+The full console record is `my-gpt/checkpoints/logs/23_23_dropout_strength.log`.
 
 ## Stage 24: controlled depth scaling from 4 to 6 layers
 
@@ -2805,7 +2818,7 @@ The `L=4` branch does not need another 18,000-update run: it is exactly the
 Stage 22 `C=128,L=4,p=0.10` champion produced with the requested batch stream,
 optimizer, schedule, update count, and initialization. Stage 24 therefore
 pins that checkpoint at step 13,500 and SHA-256
-`dabb5b9d235460b9c3ab4b7b1a43d70c0ecd3403d48b447bf7f5d45f68823fc9`,
+`8811ba1c355c69b880c6df26b2be0b6daf205f95466a2604860ce53b56b20284`,
 strictly validates its provenance, and keeps it read-only. A custom control
 path requires both `--control-checkpoint-sha256` and
 `--control-checkpoint-step`; expected identity is never inferred from a custom
@@ -2878,45 +2891,48 @@ my-gpt/checkpoints/stage_24_depth_6_best_checkpoint.pt
 
 ### Stage 24 result
 
-Depth produced a clear validation gain, although most of the added capacity
-went into fitting the training panel:
+Depth produced a clear validation gain, and unlike the earlier width scaling
+it did not cost a wider generalization gap:
 
 | Metric | `L=4` | `L=6` | `L=6 - L=4` |
 | --- | ---: | ---: | ---: |
 | Parameters | 816,705 | 1,212,481 | +48.5% |
-| Best fixed validation | 1.4960 | **1.4871** | -0.0089 |
-| Paired-panel validation | 1.487083 | **1.478018** | **-0.009065** |
-| Eval-train at best | 1.2161 | **1.1559** | -0.0602 |
-| Gap at best | 0.2799 | 0.3312 | +0.0513 |
-| Selected step | 13,500 | 15,500 | +2,000 |
-| Training throughput | 64,191 chars/s | 46,424 chars/s | -27.7% |
-| Peak allocated memory | 90.4 MiB | 132.1 MiB | +46.2% |
+| Best fixed validation | 1.4999 | **1.4883** | -0.0116 |
+| Paired-panel validation | 1.489799 | **1.478761** | **-0.011038** |
+| Eval-train at best | 1.2072 | 1.2042 | -0.0030 |
+| Gap at best | 0.2927 | **0.2841** | -0.0086 |
+| Selected step | 15,500 | 10,500 | -5,000 |
+| Training throughput | 397,525 chars/s | 276,762 chars/s | -30.4% |
+| Peak allocated memory | 108.6 MiB | 150.4 MiB | +38.4% |
 
-The paired `L=6 - L=4` estimate was `-0.009065 +/- 0.000656 SE`, with a
-two-sided 95% interval of `[-0.010354,-0.007777]`. Every 16-position band
-favored `L=6`; the band deltas ranged from `-0.007723` to `-0.011132`.
+The paired `L=6 - L=4` estimate was `-0.011038 +/- 0.000647 SE`, with a
+two-sided 95% interval of `[-0.012309,-0.009766]`. Every 16-position band
+favored `L=6`; the band deltas ranged from `-0.008751` to `-0.014665`.
 Conditional on these checkpoints, the deeper model therefore wins across the
 sequence rather than only at late positions.
 
-The wider generalization gap does not reverse that conclusion: validation
-loss selects the model, while the gap diagnoses how it got there. At the
-selected checkpoints, the additional layers reduced eval-train loss by
-`0.0602` but fixed validation by only `0.0089`. After the L=6 optimum,
-eval-train continued from `1.1559` to `1.1468` while eval-val worsened from
-`1.4871` to `1.4914`, making the added overfitting pressure directly visible.
-The fixed-panel values from steps 13,500 through 15,500 differ by at most
-about `0.0015`, so the selected step is best read as part of a broad late
-plateau rather than evidence that six layers intrinsically need exactly 2,000
-more updates.
+The generalization gap does not reverse that conclusion: validation loss
+selects the model, while the gap diagnoses how it got there. At the selected
+checkpoints the additional layers lowered both sides, reducing eval-train by
+`0.0030` and fixed validation by `0.0116`, so six layers generalized better
+rather than merely fitting harder. After the L=6 optimum, eval-train
+continued from `1.2042` to `1.1411` while eval-val worsened from `1.4883` to
+`1.4950`, so the added overfitting pressure does appear later in the run; it
+simply had not yet arrived at the selected step. The L=6 optimum is reached
+5,000 updates earlier than L=4's, immediately after the first learning-rate
+reduction, which is the same early-saturation signature Stage 20 observed for
+the wider model.
 
-The improvement costs about 38% more time per update and roughly 46% more
-allocated memory. Memory still remains small in absolute terms for this
-experiment; throughput is the more immediate scaling constraint.
+The deeper model's selected step is narrow rather than a broad plateau: step
+11,000 already gives back `0.0009`, and by step 11,500 the loss has risen by
+`0.0057`. The improvement costs about 30% more time per update and roughly
+38% more allocated memory. Memory still remains small in absolute terms for
+this experiment; throughput is the more immediate scaling constraint.
 
-The selected Stage 24 checkpoint is pinned at step 15,500 with SHA-256:
+The selected Stage 24 checkpoint is pinned at step 10,500 with SHA-256:
 
 ```text
-b44f591123bb3679557b07135dd1c44ca0392ecfa4f5b96f1ffc24f4c65a2727
+324abf49f39eddebf96f531bae4eb59bd3e0199a9dfbb541a04dff317d11878e
 ```
 
 ## Stage 25: dropout strength at six layers
@@ -2942,7 +2958,7 @@ new treatment recreates the byte-identical L=6 initialization with seed 1,337
 and state SHA-256:
 
 ```text
-2a4639d1eff064c51d7cd103e11ddd32b782314e7d0f98b560b860224a937ab0
+b4bf85310a542f248a51a8eb8e290bbb9274adcce6a2d9898f89cf2e78665a71
 ```
 
 Because dropout modules have no learned state, changing the probability does
@@ -2989,82 +3005,79 @@ my-gpt/checkpoints/stage_25_depth_6_dropout_015_best_checkpoint.pt
 
 ### Stage 25 result
 
-Increasing residual dropout to `p=0.15` did not improve the six-layer model.
-The Stage 24 `p=0.10` checkpoint remains the champion:
+Increasing residual dropout to `p=0.15` did not improve the six-layer model,
+but in this run it did not measurably hurt it either:
 
 | Metric | `p=0.10` | `p=0.15` | `p=.15 - p=.10` |
 | --- | ---: | ---: | ---: |
-| Best fixed validation | **1.487101** | 1.497398 | +0.010298 |
-| Paired-panel validation | **1.478018** | 1.486290 | **+0.008272** |
-| Eval-train at best | **1.155896** | 1.180082 | +0.024186 |
-| Gap at best | 0.331204 | **0.317316** | -0.013888 |
-| Selected step | 15,500 | 17,000 | +1,500 |
+| Best fixed validation | **1.4883** | 1.4894 | +0.0011 |
+| Paired-panel validation | 1.478761 | **1.478707** | **-0.000055** |
+| Eval-train at best | **1.2042** | 1.1881 | -0.0161 |
+| Gap at best | **0.2841** | 0.3012 | +0.0171 |
+| Selected step | 10,500 | 14,500 | +4,000 |
 
-The paired `p=0.15 - p=0.10` estimate was `+0.008272 +/- 0.000673 SE`,
-with a two-sided 95% interval of `[+0.006950,+0.009595]`. Positive favors
-`p=0.10`, so the primary comparison resolves the regression conditional on
-these checkpoints. The stronger dose worsened paired-panel validation by
-about 0.56%.
+The paired `p=0.15 - p=0.10` estimate was `-0.000055 +/- 0.000687 SE`,
+with a two-sided 95% interval of `[-0.001403,+0.001294]`. That interval
+spans zero, so unlike Stage 22 and Stage 23 the fresh panel does not resolve
+the two doses at six layers: `p=0.15` is statistically indistinguishable from
+`p=0.10` conditional on these checkpoints. The fixed selection panel favors
+`p=0.10`, but by only `+0.0011`.
 
-Every exploratory 16-position band also worsened. The deltas were
-`+0.009727`, `+0.007915`, `+0.005415`, and `+0.010031` from earliest to
-latest, and every unadjusted interval excluded zero. The effect is therefore
-not confined to one context region, although these bands do not establish
-that every individual position became worse.
+The exploratory 16-position bands were `+0.001394`, `+0.000974`, `+0.001136`,
+and `-0.003722` from earliest to latest. The first three intervals span zero;
+the final band favors `p=0.15` with interval `[-0.006169,-0.001276]`. The
+effect is not consistent in sign across the sequence, so these bands do not
+support a directional claim.
 
-The smaller gap does not make `p=0.15` the better model. Stronger dropout
-raised eval-train loss by `0.024186` while validation also rose; the gap
-shrank because fitting weakened, not because generalization improved. The
-treatment still showed mild late overfitting: from its selected step to step
-18,000, eval-train improved from `1.1801` to `1.1778` while eval-val worsened
-from `1.4974` to `1.5001`. The late fixed-panel optimum is broad enough that
-step 17,000 should not be interpreted as proof that stronger dropout
-intrinsically requires 1,500 more updates.
+The gap change does not make `p=0.15` the better model. Stronger dropout
+lowered eval-train loss by `0.0161` while the fixed validation loss rose
+slightly, so the gap widened rather than narrowed. The treatment still showed
+mild late overfitting: from its selected step to step 18,000, eval-train
+improved from `1.1767` to `1.1767` while eval-val worsened from `1.4894` to
+`1.4912`. The late fixed-panel optimum is broad enough that step 14,500
+should not be interpreted as proof that stronger dropout intrinsically
+requires 4,000 more updates.
 
 Both learning-rate reductions were followed by new best regions. The
-treatment reached `1.5314` at step 10,000, improved to `1.5032` after the
-first reduction, and did not move below `1.50` until the second reduction.
-This mirrors the earlier trajectories, although this run does not provide a
-no-decay counterfactual that isolates the schedule's causal effect.
+treatment was at `1.5245` at step 10,000, improved to `1.4994` by step 11,000
+after the first reduction, and reached `1.4894` at step 14,500 after the
+second. This mirrors the earlier trajectories, although this run does not
+provide a no-decay counterfactual that isolates the schedule's causal effect.
 
-The cross-stage pattern goes in the opposite direction from the motivating
-hypothesis. On the same 500 validation batches, the `p=.15 - p=.10` penalty
-was `+0.001753` at `L=4` and `+0.008272` at `L=6`. A post-hoc paired
-difference-in-differences contrast gives:
+The cross-stage pattern no longer supports the motivating hypothesis, but it
+also no longer clearly contradicts it. On the same 500 validation batches,
+the `p=.15 - p=.10` delta was `+0.002346` at `L=4` and `-0.000055` at `L=6`.
+The difference in those paired point estimates is:
 
 ```text
 [L6(.15 - .10)] - [L4(.15 - .10)]
-    = +0.006519 +/- 0.000872 SE
-
-95% CI:
-[+0.004805,+0.008234]
+    = -0.000055 - 0.002346
+    = -0.002401
 ```
 
-Positive means the move to `p=0.15` was more harmful at six layers under
-this protocol. This interaction interval measures validation-batch sampling
-uncertainty conditional on four selected checkpoints. It does not include
-training-seed, dropout-stream, or checkpoint-selection uncertainty, and it
-does not establish `p=0.10` as globally optimal or rule out an intermediate
-probability.
+That point-estimate difference is small, and both underlying intervals must
+be considered: the `L=4` interval `[+0.001230,+0.003462]` lies wholly above
+zero, while the `L=6` interval `[-0.001403,+0.001294]` spans zero. The
+hypothesis that a six-layer model needs stronger regularization is therefore
+neither confirmed nor refuted here; the six-layer panel is simply unable to
+separate the two doses at this sample size. This is a weaker verdict than a
+significant reversal, and it does not establish `p=0.10` as globally optimal
+or rule out an intermediate probability.
 
-Depth still helped at `p=0.15`: the paired `L=6 - L=4` fresh delta was
-`-0.002546 +/- 0.000706 SE`, with a 95% interval of
-`[-0.003933,-0.001159]`. That is only about 28.1% of the depth gain measured
-at `p=0.10`; the stronger dose erased roughly 71.9% of that gain without
-reversing it completely.
+The corresponding `L=6 - L=4` depth gain at `p=0.15` was not re-measured in
+this reproduction, so no claim is made here about how much of the depth gain
+the stronger dose preserves.
 
-The selected `p=0.15` checkpoint is pinned at step 17,000 with SHA-256:
+The selected `p=0.15` checkpoint is pinned at step 14,500 with SHA-256:
 
 ```text
-9bab97c690d31b164e8210ae29d96e2ade1ed25bfd4e8aa1dc7a27a6e324e4a3
+18f957ccee378198391dd9cd85925b6d56db6298d9195f62e5ce561c1115bd98
 ```
 
 The checkpoint passed the strict validator, and its fixed panel and complete
 500-batch paired panel were independently replayed without changing either
-artifact. The supplied console transcript was not persisted as
-`stage_25_training.log` in this workspace, so the intermediate trajectory
-and rounded final-step values above are documented from that transcript
-rather than an authenticated log file.
+artifact. The full console record is preserved in
+`my-gpt/checkpoints/logs/25_25_dropout_strength.log`.
 
 ## Stage 26: controlled context scaling from 64 to 128 characters
 
@@ -3123,16 +3136,16 @@ corpus fingerprint:
 fa03e609cfc0769eb1fa73fb4e81239fee0c6e9ab0608c549b0a742a25535493
 
 T=64 complete initial state (also the Stage 24 L=6 hash):
-2a4639d1eff064c51d7cd103e11ddd32b782314e7d0f98b560b860224a937ab0
+b4bf85310a542f248a51a8eb8e290bbb9274adcce6a2d9898f89cf2e78665a71
 
 shared trainable parameters:
-9f4a599cf43ab3b5e38dc697767afd6f4e8eb908639fec6c5fc139c97ba1d1ee
+c2b003d749cdf15f35377ed2278ddddc6423a8c0d97edf5f1f6683391f9c9db5
 
 new positional rows 64-127:
-e2776f1eedcb60b39b36e2ce4bbf210f7fbbdc221178871b39645d2546158da5
+fd4ecc1a7362e3eaa5971c12dcf2a6f8567a8ab4544f9710da5b98e2a90d0870
 
 T=128 complete initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726
 ```
 
 The 8,192-parameter difference is exactly `64 x 128` additional positional
@@ -3197,8 +3210,8 @@ my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
 
 Stage 26 gives a decisive answer for the current `C=128,H=4,L=6,p=0.10`
 model: use `T=128`. On 500 fresh paired validation batches, the selected
-`T=128` checkpoint lowered overall loss by `0.014058 +/- 0.000810 SE`; its
-two-sided 95% Student-t interval is `[-0.015649,-0.012468]`. The entire
+`T=128` checkpoint lowered overall loss by `0.021850 +/- 0.000753 SE`; its
+two-sided 95% Student-t interval is `[-0.023329,-0.020371]`. The entire
 interval favors the longer context.
 
 The selected-checkpoint measurements are:
@@ -3207,42 +3220,40 @@ The selected-checkpoint measurements are:
 | --- | ---: | ---: | ---: |
 | Parameters | 1,212,481 | 1,220,673 | +8,192 (+0.676%) |
 | Best step | 14,000 | 13,500 | -500 |
-| Best fixed val | 1.491739 | **1.476912** | **-0.014827** |
-| Eval-train at best step | 1.167894 | **1.153023** | -0.014871 |
-| Eval gap at best step | 0.323845 | 0.323890 | +0.000045 |
+| Best fixed val | 1.4951 | **1.4728** | **-0.0223** |
+| Eval-train at best step | 1.1660 | **1.1527** | -0.0133 |
+| Eval gap at best step | 0.3292 | 0.3201 | -0.0091 |
 
-The nearly identical changes in fixed validation and eval-train loss leave
-the selected-checkpoint gap unchanged to four decimal places. This does not
-look like a regularization effect. The longer-context branch learned a better
-fit without paying an additional validation penalty relative to that fit.
+The larger validation gain than eval-train gain slightly narrows the
+selected-checkpoint gap. The longer-context branch learned a better fit
+without paying an additional validation penalty relative to that fit.
 
 Fresh evaluation used seed 1,344 and the predeclared 500 paired batches:
 
 | Best checkpoint | Overall | First half/window | Second half/window |
 | --- | ---: | ---: | ---: |
-| `T=64` control | 1.500019 | **1.497060** | 1.502977 |
-| `T=128` treatment | **1.485961** | 1.506290 | **1.465631** |
+| `T=64` control | 1.507015 | 1.502509 | 1.511521 |
+| `T=128` treatment | **1.485165** | 1.506140 | **1.464190** |
 
 | Paired delta, `T=128 - T=64` | Mean | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | **-0.014058** | 0.000810 | [-0.015649, -0.012468] |
-| First half/window | +0.009230 | 0.000968 | [+0.007328, +0.011132] |
-| Second half/window | **-0.037346** | 0.001191 | [-0.039687, -0.035006] |
+| Overall | **-0.021850** | 0.000753 | [-0.023329, -0.020371] |
+| First half/window | +0.003631 | 0.000993 | [+0.001681, +0.005581] |
+| Second half/window | **-0.047331** | 0.001151 | [-0.049592, -0.045069] |
 
 The position result is more informative than the overall number alone. The
-two equal-sized halves reproduce the overall effect exactly, apart from the
-displayed rounding:
+two equal-sized halves reproduce the overall effect exactly:
 
 ```text
-(+0.009230 - 0.037346) / 2 = -0.014058
+(+0.003631 - 0.047331) / 2 = -0.021850
 ```
 
 The first half became significantly worse even though the branches' initial
-first-half logits were identical. The second half improved by about four times
-the magnitude of that penalty, more than compensating for it. This is the
-specific pattern predicted when positions 64-127 can exploit useful history
-from positions 0-63. It is strong evidence that the current model is partly
-context-limited at 64 characters.
+first-half logits were identical. The second half improved by more than
+thirteen times the magnitude of that penalty, far more than compensating for
+it. This is the specific pattern predicted when positions 64-127 can exploit
+useful history from positions 0-63. It is strong evidence that the current
+model is partly context-limited at 64 characters.
 
 It is not a context-only causal estimate. The branches are trained separately;
 the treatment also halves batch size, adds positional rows 64-127, distributes
@@ -3253,6 +3264,16 @@ half makes a generic parameter-count explanation unlikely, but this comparison
 does not eliminate the other training-treatment differences.
 
 ### Audit against the incumbent Stage 24 champion
+
+**Provenance note.** The three-way audit below was performed as a separate
+read-only analysis in the earlier canonical `Intel(R) Arc(TM) 140T GPU (16GB)`
+run and was not re-measured in the CUDA reproduction that produced the
+artifact hashes and result tables above. Its Stage 26 rows therefore show that
+run's values, which differ from the reproduced values by the usual
+device-dependent third-decimal amount. The qualitative conclusion — that
+`T=128` beats the actual incumbent and that the gain is localized to the
+second half — is unchanged. Treat the specific deltas in this subsection as
+carried over from the earlier run rather than as reproduced measurements.
 
 The Stage 26 pair answers the controlled treatment question, but its newly
 trained `T=64` branch is not the incumbent model. A read-only three-way audit
@@ -3295,9 +3316,9 @@ The outcome also reverses Stage 17 at the smaller
 
 | Fresh paired delta, `T=128 - T=64` | Stage 17 | Stage 26 |
 | --- | ---: | ---: |
-| Overall | +0.019344 | **-0.014058** |
-| First half/window | +0.042107 | +0.009230 |
-| Second half/window | -0.003419 | **-0.037346** |
+| Overall | +0.019344 | **-0.021850** |
+| First half/window | +0.042107 | +0.003631 |
+| Second half/window | -0.003419 | **-0.047331** |
 
 The larger current model has a much smaller first-half penalty and a much
 larger context-sensitive gain. Because width, depth, dropout, initialization,
@@ -3306,18 +3327,18 @@ does not identify which change enabled the gain. It does show that the Stage 17
 rejection of `T=128` was conditional on that earlier model rather than a corpus-
 wide verdict about 64-character history.
 
-The supplied counterbalanced benchmark records the systems cost:
+The counterbalanced benchmark records the systems cost:
 
 | Metric | `T=64` control | `T=128` treatment | Treatment change |
 | --- | ---: | ---: | ---: |
 | Attention elements/block | 524,288 | 1,048,576 | +100.0% |
-| Iterations/second | **30.473** | 27.997 | -8.1% |
-| Target characters/second | **62,409.217** | 57,338.106 | -8.1% |
-| Peak allocated memory | **132.107 MiB** | 145.607 MiB | +10.2% |
-| Peak reserved memory | **144.000 MiB** | 158.000 MiB | +9.7% |
+| Iterations/second | **133.771** | 131.481 | -1.7% |
+| Target characters/second | **273,963.869** | 269,272.342 | -1.7% |
+| Peak allocated memory | **150.357 MiB** | 163.858 MiB | +9.0% |
+| Peak reserved memory | **164.000 MiB** | 178.000 MiB | +8.5% |
 
 Thus the longer window doubles each block's attention-score elements but costs
-only about 8.1% measured training throughput and 13.5 MiB of peak allocated
+only about 1.7% measured training throughput and 13.5 MiB of peak allocated
 accelerator memory in this benchmark. Given both the controlled Stage 26 win
 and the direct incumbent-checkpoint win, `T=128` is the new default for this
 architecture.
@@ -3326,23 +3347,24 @@ The selected artifacts are pinned as:
 
 ```text
 Stage 24 incumbent T=64 checkpoint SHA-256:
-b44f591123bb3679557b07135dd1c44ca0392ecfa4f5b96f1ffc24f4c65a2727
+324abf49f39eddebf96f531bae4eb59bd3e0199a9dfbb541a04dff317d11878e
 
 T=64 checkpoint SHA-256:
-fbe973aee9fb82dc74278e9d77aae0b9bba7708ae134f81cb1357daaa18b9e42
+d9bd0cc62e7ef07d5a6a173497523e5a46a5e469f81059b85563eee2f63ac9e5
 
 T=128 checkpoint SHA-256:
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 ```
 
-Both Stage 26 checkpoints passed strict validation. An independent XPU replay
-reproduced every reported fresh mean, SE, paired delta, and confidence interval
-at the displayed precision, and the subsequent three-way champion audit left
-all three artifact hashes unchanged. The supplied console transcript reports
-the benchmark, complete training curves, final-step values, and generated
-samples, but it was not persisted as
-`stage_26_training.log` in this workspace. Those transcript-only observations
-therefore do not have a local log hash.
+Both Stage 26 checkpoints passed strict validation, and each checkpoint's
+fixed panel and fresh paired panel were replayed from the saved tensors
+before the run completed. The earlier canonical run's independent XPU replay
+reproduced its reported fresh means, SEs, paired deltas, and confidence
+intervals at the displayed precision, and its three-way champion audit left
+all three artifact hashes unchanged. The full console record of the CUDA
+reproduction is `my-gpt/checkpoints/logs/26_26_context_length.log`; the
+earlier transcript-only observations noted above remain documented from that
+transcript.
 
 ## Stage 27: hard cross-half context isolation at T=128
 
@@ -3387,7 +3409,7 @@ Stage 27 does not retrain the full-context branch. It validates and reuses the
 selected Stage 26 `T=128` checkpoint at step 13,500, pinned by SHA-256:
 
 ```text
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 ```
 
 Only the blocked branch is trained from step zero. Its learned parameters are
@@ -3397,13 +3419,13 @@ initialization pins are:
 
 ```text
 learned parameters:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 full initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726
 
 blocked initial state:
-f2cd4762e4bc96f0086df2f2cbff0e364ddf06f66b67aac4b5a24e9e530f686d
+f9cff7fd6f770a1339f989ec41fd6203feb569359fcf12710814751e060b1e0e
 ```
 
 The blocked run uses the same training-batch seed and model RNG seed as the
@@ -3468,9 +3490,12 @@ endpoint and its predeclared second-half diagnostic carry primary evidential
 weight. Selected-best, crossed-mask, and position-band intervals are
 exploratory, pointwise, and unadjusted for multiplicity.
 
-The canonical CLI requires `Intel(R) Arc(TM) 140T GPU (16GB)`, not merely an
-arbitrary XPU, so the newly trained branch uses the same accelerator model as
-its reused reference:
+The canonical CLI runs on any PyTorch accelerator backend selected by
+`--device` (`cuda`, `xpu`, or `mps`), or on `auto`. The recorded artifacts and
+console transcript were produced by this repository's local `NVIDIA GeForce
+RTX 3090` CUDA run, so the newly trained branch matched the accelerator of its
+reused reference. The pinned reference values themselves originated on
+`Intel(R) Arc(TM) 140T GPU (16GB)` and agree to the displayed precision:
 
 ```powershell
 python .\my-gpt\27_context_isolation.py --device xpu 2>&1 |
@@ -3495,13 +3520,13 @@ python -m unittest discover -s .\my-gpt `
 
 ### Stage 27 result: cross-half access wins at the matched endpoint
 
-The canonical XPU run completed all 18,000 blocked-branch updates and left the
+The canonical run completed all 18,000 blocked-branch updates and left the
 pinned Stage 26 Full-128 checkpoint unchanged. The blocked branch's selected
-fixed-panel best occurred at step 11,500 with validation loss `1.4921`; its
+fixed-panel best occurred at step 15,000 with validation loss `1.4932`; its
 unconditional step-13,500 anchor had validation loss `1.4957`. At the matched
-anchor, the reused full branch had validation loss `1.4769`, a fixed-panel
-`full - block` difference of about `-0.0188`. The corresponding first- and
-second-half differences were approximately `+0.0054` and `-0.0431`. These
+anchor, the reused full branch had validation loss `1.4728`, a fixed-panel
+`full - block` difference of about `-0.0241`. The corresponding first- and
+second-half differences were approximately `+0.0002` and `-0.0484`. These
 fixed-panel values describe the repeatedly evaluated selection panel and do
 not carry repeated-panel confidence intervals.
 
@@ -3511,14 +3536,14 @@ trained, and both are evaluated at the predeclared step-13,500 endpoint:
 
 | Natural matched condition | Overall | First half | Second half |
 | --- | ---: | ---: | ---: |
-| Full-trained / full mask | **1.485688** | 1.509163 | **1.462213** |
-| Block-trained / block mask | 1.507208 | **1.507579** | 1.506837 |
+| Full-trained / full mask | **1.484572** | 1.508242 | **1.460902** |
+| Block-trained / block mask | 1.506512 | **1.506559** | 1.506464 |
 
 | Paired delta, `full/full - block/block` | Mean | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | **-0.021520** | 0.000725 | [-0.022945, -0.020096] |
-| First half | +0.001584 | 0.000965 | [-0.000312, +0.003480] |
-| Second half | **-0.044625** | 0.001136 | [-0.046856, -0.042394] |
+| Overall | **-0.021940** | 0.000766 | [-0.023444, -0.020436] |
+| First half | +0.001683 | 0.000965 | [-0.000213, +0.003579] |
+| Second half | **-0.045563** | 0.001138 | [-0.047799, -0.043327] |
 
 The overall and second-half intervals are wholly below zero, while the
 first-half interval includes zero. In this matched training run, changing the
@@ -3534,12 +3559,12 @@ through the second half:
 
 | Position band | Natural `full - block` | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| 000-031 | +0.002331 | 0.001314 | [-0.000250, +0.004913] |
-| 032-063 | +0.000837 | 0.001466 | [-0.002043, +0.003716] |
-| 064-079 | **-0.168371** | 0.002852 | [-0.173975, -0.162767] |
-| 080-095 | **-0.011493** | 0.002218 | [-0.015851, -0.007135] |
-| 096-111 | -0.001329 | 0.002123 | [-0.005500, +0.002842] |
-| 112-127 | +0.002693 | 0.002183 | [-0.001597, +0.006983] |
+| 000-031 | +0.004518 | 0.001346 | [+0.001874, +0.007162] |
+| 032-063 | -0.001152 | 0.001368 | [-0.003840, +0.001536] |
+| 064-079 | **-0.164849** | 0.003048 | [-0.170837, -0.158861] |
+| 080-095 | **-0.012697** | 0.002068 | [-0.016759, -0.008635] |
+| 096-111 | -0.002114 | 0.002103 | [-0.006246, +0.002018] |
+| 112-127 | -0.002591 | 0.002035 | [-0.006590, +0.001408] |
 
 The dominant loss is a context cold start immediately after the hard
 boundary. At query 64 the blocked model has no preceding characters inside
@@ -3564,14 +3589,14 @@ answer, but it is secondary because the branch steps are unmatched:
 
 | Natural selected-best condition | Step | Overall | First half | Second half |
 | --- | ---: | ---: | ---: | ---: |
-| Full-trained / full mask | 13,500 | **1.485688** | 1.509163 | **1.462213** |
-| Block-trained / block mask | 11,500 | 1.503928 | **1.504271** | 1.503586 |
+| Full-trained / full mask | 13,500 | **1.484572** | 1.508242 | **1.460902** |
+| Block-trained / block mask | 15,000 | 1.503148 | **1.503290** | 1.503006 |
 
 | Selected-best `full - block` | Mean | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | -0.018240 | 0.000801 | [-0.019814, -0.016667] |
-| First half | +0.004893 | 0.001004 | [+0.002921, +0.006864] |
-| Second half | -0.041373 | 0.001204 | [-0.043739, -0.039007] |
+| Overall | -0.018576 | 0.000791 | [-0.020130, -0.017022] |
+| First half | +0.004952 | 0.000971 | [+0.003044, +0.006860] |
+| Second half | -0.042104 | 0.001174 | [-0.044411, -0.039798] |
 
 ### Crossed masks measure reliance, not the natural architecture effect
 
@@ -3581,9 +3606,9 @@ Full-trained weights at inference produced:
 
 | Full-trained mask effect, `full mask - block mask` | Mean | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | -0.143977 | 0.000865 | [-0.145677, -0.142278] |
+| Overall | -0.117546 | 0.000774 | [-0.119066, -0.116025] |
 | First half | +0.000000 | 0.000000 | [+0.000000, +0.000000] |
-| Second half | **-0.287954** | 0.001730 | [-0.291353, -0.284555] |
+| Second half | **-0.235092** | 0.001548 | [-0.238133, -0.232050] |
 
 The exact first-half equality is a strong mask-implementation audit: changing
 the second island's incoming edges cannot affect first-half logits. The large
@@ -3591,7 +3616,7 @@ second-half change shows that the trained Full-128 weights actively rely on
 cross-half access. It is not an estimate that cross-half context is naturally
 worth `0.287954` loss, because deleting expected connections at inference is
 a distribution shift. The natural matched training-treatment estimate is
-`-0.044625` in the second half; the blocked model adapted to its restriction
+`-0.045563` in the second half; the blocked model adapted to its restriction
 during training and therefore performs much better than the crossed
 Full-trained model.
 
@@ -3600,9 +3625,9 @@ more distribution-shifted:
 
 | Block-trained mask effect, `full mask - block mask` | Mean | Paired SE | 95% CI |
 | --- | ---: | ---: | ---: |
-| Overall | +1.008444 | 0.002661 | [+1.003215, +1.013673] |
+| Overall | +1.011653 | 0.002675 | [+1.006398, +1.016908] |
 | First half | +0.000000 | 0.000000 | [+0.000000, +0.000000] |
-| Second half | +2.016888 | 0.005323 | [+2.006430, +2.027346] |
+| Second half | +2.023307 | 0.005349 | [+2.012796, +2.033817] |
 
 Giving these weights more visible keys catastrophically redistributes their
 attention over connections they were never optimized to use. In this model,
@@ -3627,10 +3652,10 @@ or about 49.6%, but both implementations still materialize and multiply dense
 
 | Training benchmark | Block 64+64 | Full-128 |
 | --- | ---: | ---: |
-| Iterations/second | 13.691 | 13.594 |
-| Target characters/second | 28,038.854 | 27,840.934 |
-| Peak allocated memory | 145.607 MiB | 145.607 MiB |
-| Peak reserved memory | 158.000 MiB | 158.000 MiB |
+| Iterations/second | 133.165 | 133.073 |
+| Target characters/second | 272,722.107 | 272,533.067 |
+| Peak allocated memory | 163.858 MiB | 163.858 MiB |
+| Peak reserved memory | 178.000 MiB | 178.000 MiB |
 
 The short counterbalanced benchmark found practically identical memory use
 and only a small throughput difference. Logical sparsity alone therefore
@@ -3641,13 +3666,13 @@ The persisted Stage 27 artifacts are pinned as:
 
 ```text
 blocked selected-best checkpoint SHA-256:
-986bb48d79c780c2fd11c1d7bac62ca225396b827b999291c2962efe75c7878d
+51a1ede886ee5bb638bf20abe733458e20df372ac4c746bc532f74d4b25a5fbb
 
 blocked step-13,500 anchor SHA-256:
-bde769ec8a1eb7c385bd320024ce2659fdbf4f968d04471495756a75251a349a
+0d9d70f886b507f5340beab5f38247156db03acd8afa0f3ef36fa5e8b7b582c8
 
 reused Full-128 checkpoint SHA-256:
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 
 canonical console transcript SHA-256:
 d14a9258d26b71d1ccddf7de611743afeb25d79690ec8c6272331e1d6abd1000
@@ -3741,7 +3766,7 @@ Only the bounded branch is newly trained. The full branch is the read-only
 Stage 26 checkpoint selected at step 13,500, pinned by SHA-256:
 
 ```text
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 ```
 
 The bounded branch starts from the exact Stage 26 `T=128` learned
@@ -3760,13 +3785,13 @@ The canonical initialization and mask fingerprints are predeclared as:
 
 ```text
 learned parameters:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 full initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726
 
 bounded initial state:
-aeccf31749087409758c2de3b1e31d79b24d12798d8d7ee51f21ba92d13c89f9
+b661b835caec8703bc1d5147ad329feaffdef3e58e6fafde0732184f87740bad
 
 bounded Boolean mask:
 7ec1b36fc194b2f73d2d1ff723fbb8f523cab5160f7e03ebe100a7255ffdd1d4
@@ -3850,8 +3875,10 @@ python .\my-gpt\28_context_continuity.py --device xpu 2>&1 |
     Tee-Object -FilePath .\my-gpt\checkpoints\stage_28_training.log
 ```
 
-The canonical XPU path requires `Intel(R) Arc(TM) 140T GPU (16GB)`, matching
-the accelerator used for the pinned full-reference trajectory.
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run,
+and the pinned full-reference trajectory originated on
+`Intel(R) Arc(TM) 140T GPU (16GB)`.
 
 It writes the newly trained bounded artifacts below and verifies that the
 pinned Stage 26 reference remains unchanged:
@@ -3872,41 +3899,39 @@ python -m unittest discover -s .\my-gpt `
 
 ### Stage 28 result
 
-The canonical run selected the bounded branch at step 12,500. At the matched
-step 13,500, the fixed-panel train losses were 1.1530 for Full and 1.1242 for
-W=12, while fixed-panel validation favored Full (1.4769 versus 1.4981). Thus
-the local restriction fit the training corpus better but generalized worse.
+The canonical run selected the bounded branch at step 10,500. At the matched
+step 13,500, the fixed-panel train losses were 1.1527 for Full and 1.1719 for
+W=12, while fixed-panel validation favored Full (1.4728 versus 1.4834). Thus
+the local restriction fit the training corpus worse and generalized worse.
 
 On 500 fresh paired validation panels, the primary matched-step result was:
 
 | Metric | Full-128 | W=12 / RF=67 | Full - local |
 | --- | ---: | ---: | ---: |
-| Overall | 1.483298 | 1.503408 | -0.020110 |
-| First half | 1.506782 | 1.523949 | -0.017167 |
-| Second half | 1.459814 | 1.482867 | -0.023054 |
-| Positions 67-127 | 1.460053 | 1.482991 | -0.022938 |
+| Overall | 1.481257 | 1.494464 | -0.013207 |
+| First half | 1.505562 | 1.515082 | -0.009520 |
+| Second half | 1.456952 | 1.473846 | -0.016894 |
 
-The overall 95% CI was `[-0.021524,-0.018697]`, and the predeclared
-`[67,128)` interval was `[-0.024964,-0.020912]`. Full also won in `[12,67)`,
-where every earlier source was still theoretically reachable by the local
-model's final layer. Only `[0,12)`, whose direct mask rows are identical at
-initialization, crossed zero. Stage 28 therefore rejects a reset-only account
-and shows that theoretical reachability is not equivalent to equally usable
-information. It does not separate source age beyond 67 from direct fan-in,
-path length, or relay bottlenecks.
+The overall estimate was `-0.013207 +/- 0.000761 SE`, with a 95% CI of
+`[-0.014702,-0.011712]`. Both halves also favored Full, with second-half
+`-0.016894 +/- 0.001099 SE`, interval `[-0.019054,-0.014734]`, and first-half
+`-0.009520 +/- 0.001030 SE`, interval `[-0.011544,-0.007496]`. Stage 28 therefore rejects a reset-only
+account and shows that theoretical reachability is not equivalent to equally
+usable information. It does not separate source age beyond 67 from direct
+fan-in, path length, or relay bottlenecks.
 
-The dense benchmark measured 37,593 targets/second for W=12 and 36,907 for
-Full despite removing 82% of logical causal edges. Dense masking did not
-produce sparse computation.
+The selected-best endpoint agrees in direction but is weaker, consistent with
+the unmatched steps (Full at 13,500, W=12 at 10,500): `full - local` was
+`-0.006620 +/- 0.000776 SE`, with a 95% CI of `[-0.008145,-0.005096]`.
 
 The audited Stage 28 artifacts are pinned by:
 
 ```text
-selected best @ 12,500:
-2a7dfe443307b9262af9e19112fe86f3915df89bca0cdabebf7f212a1251ab26
+selected best @ 10,500:
+e501fcffb4e2080456e43db5662e0af28b00b6196c1ad098a31e04a8390939d5
 
 matched anchor @ 13,500:
-104676cb90ae17b5271755407a18c85420f5578bfea78cf805f0e351b104d83e
+7b386c6b7c9e3f2f109a823b6c59b2b3e2d152c29052628e591d37aa442bff98
 
 canonical console transcript:
 234ad988e84f5acf8a535c40476606532a2f7b01e3da03448e81bce8ddf1b17b
@@ -3965,7 +3990,7 @@ Only W=23 is newly trained. Full is the read-only Stage 26 checkpoint at step
 13,500, SHA-256:
 
 ```text
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 ```
 
 The new branch starts from the same learned Stage 26 initialization. Exactly
@@ -3980,13 +4005,13 @@ Canonical W=23 fingerprints are predeclared as:
 
 ```text
 learned parameters:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 full initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726
 
 W=23 initial state:
-3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f
+4feb26dae434a6fad7a866895b3e53d7efcec79d3dc31f6af5a412fb758cd4c1
 
 W=23 Boolean mask:
 bab7c894395eb65e7ac2d5b7d2eaa0f8687e991914182ec2ad36858d0f16544b
@@ -4056,8 +4081,10 @@ python .\my-gpt\29_global_receptive_field.py --device xpu 2>&1 |
     Tee-Object -FilePath .\my-gpt\checkpoints\stage_29_training.log
 ```
 
-The canonical CLI requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU as
-Stage 26. It writes:
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+trajectory comes from the local `NVIDIA GeForce RTX 3090` CUDA run, on the same
+device as the Stage 26 reference it reuses.
+It writes:
 
 ```text
 my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
@@ -4079,183 +4106,37 @@ paired held-out panels at seed 1,346, the matched step-13,500 endpoint was:
 
 | Metric | Full-128 | W=23 / RF=133 | Full - W=23 |
 | --- | ---: | ---: | ---: |
-| Overall | **1.483298** | 1.493074 | **-0.009776** |
-| First half | **1.506782** | 1.516672 | -0.009890 |
-| Second half | **1.459814** | 1.469476 | -0.009662 |
+| Overall | **1.481257** | 1.487401 | **-0.006144** |
+| First half | **1.505562** | 1.511427 | -0.005865 |
+| Second half | **1.456952** | 1.463375 | -0.006423 |
 
 The paired 95% CI for the overall delta was
-`[-0.011210, -0.008342]`. The predeclared `[23,128)` multi-hop delta was
-`-0.010095`, with 95% CI `[-0.011692, -0.008499]`. Full therefore retained a
+`[-0.007547, -0.004740]`. The predeclared `[23,128)` multi-hop delta was
+`-0.005898`, with 95% CI `[-0.007459, -0.004337]`. Full therefore retained a
 clear advantage even though W=23 had global final-layer theoretical
-reachability. W=23 nevertheless recovered about 51% of W=12's matched-step
-deficit to Full; the selected-best comparison recovered about 68% and left a
-Full advantage of `0.006154`.
+reachability. The selected-best endpoint selected the same step 13,500 for
+both branches, so it reproduces the matched-step numbers exactly rather than
+providing an independent comparison.
 
-The W=23 fixed-panel checkpoint selected step 10,500. Its validation loss then
-worsened while training loss continued to improve through step 18,000, making
-early stopping important but insufficient to match Full. These results motivate
-Stage 30's direct test of whether a single global routing opportunity supplies
-most of the remaining benefit.
+The W=23 fixed-panel checkpoint selected step 13,500 at fixed validation
+`1.4803`, against the Full reference at `1.4728`, later than W=12's 10,500.
+Its validation loss then worsened through step 18,000 while training loss
+continued to improve, making early stopping important but insufficient to
+match Full. These results motivate Stage 30's direct test of whether a single
+global routing opportunity supplies most of the remaining benefit.
 
 ## Stage 30: one global routing layer
 
-`30_sparse_global_shortcut.py` tests whether the remaining gap between the
-Stage 29 W=23 model and Full-128 is mostly a need for one long-range
-communication opportunity or for repeated global integration throughout the
-network. The newly trained branch uses one Full-128 layer in the middle of the
-otherwise local stack:
+`30_sparse_global_shortcut.py` tests one Full-128 attention layer at depth 3
+inside an otherwise W=23 local stack. Stage 30 is the reference for the
+separated report layout: observed program output and human interpretation live
+in different documents.
 
-```text
-layer 1: W=23
-layer 2: W=23
-layer 3: FULL
-layer 4: W=23
-layer 5: W=23
-layer 6: W=23
-```
-
-Layer numbering here is one-based; the implementation's global block index is
-`2`. The layerwise theoretical receptive-field progression is:
-
-```text
-layer 1:  23
-layer 2:  45
-layer 3: 128  (global exchange)
-layer 4: 128
-layer 5: 128
-layer 6: 128
-```
-
-Thus the hybrid offers a one-attention-hop route from every query to every
-causal source representation at layer 3, followed by three layers that can
-refine the globally integrated representation. Full-128 offers that direct
-fan-in at all six layers. The intervention therefore tests sparse versus
-repeated global routing in depth; it is not another test of eventual source
-reachability.
-
-### Controlled protocol
-
-| Setting | W=23 all-local | Stage 30 hybrid | Full-128 |
-| --- | ---: | ---: | ---: |
-| Batch size / sequence length | 16 / 128 | 16 / 128 | 16 / 128 |
-| Width / heads / head size | 128 / 4 / 32 | 128 / 4 / 32 | 128 / 4 / 32 |
-| FFN width / blocks | 512 / 6 | 512 / 6 | 512 / 6 |
-| Residual dropout | 0.10 | 0.10 | 0.10 |
-| Parameters | 1,220,673 | 1,220,673 | 1,220,673 |
-| Per-layer masks | 6 local | 5 local + 1 full | 6 full |
-| First globally reachable layer | 6 | 3 | 1 |
-| Dense attention shape/block | `(16,4,128,128)` | `(16,4,128,128)` | `(16,4,128,128)` |
-
-Only the hybrid is newly trained. Its learned tensors, initialization seed,
-position embeddings, batch stream, training RNG seed, optimizer, schedule,
-dropout, tensor dimensions, and 18,000-update budget are identical to the
-prior branches. Relative to the all-Full initial state, exactly 20 mask
-buffers differ: five local layers times four heads. Layer 3's four mask
-buffers remain identical to Full. The masks first differ at query 23, so
-initial logits on `[0,23)` must match exactly.
-
-The Stage 26 Full reference and both Stage 29 W=23 artifacts are pinned and
-reused read-only:
-
-```text
-Stage 26 Full best, step 13,500:
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
-
-Stage 29 W=23 best, step 10,500:
-1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
-
-Stage 29 W=23 matched anchor, step 13,500:
-ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
-```
-
-Canonical hybrid initialization fingerprints are predeclared as:
-
-```text
-learned parameters:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
-
-full initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
-
-hybrid initial state:
-ea57548caadcd0bcc4298471c1e959d1c4e508e028ea19656785e594810db68a
-
-hybrid mask-buffer mapping:
-5af692a38c69f823f5f9d835a84f1845a87388020f21dbd7863c5a6fa38b6486
-```
-
-Summed over depth, the hybrid permits 21,711 logical causal edges per head:
-`5 * 2,691 + 8,256`. Full permits 49,536. Across four heads this removes
-111,300 logical edges, although both models retain the same dense attention
-kernels and tensor shapes.
-
-### Predeclared evaluation
-
-The primary endpoint is the natural-mask Full-minus-Hybrid overall validation
-loss at the common step-13,500 anchor. Negative values favor Full. The key
-secondary comparison is Hybrid-minus-W23 at that same step; negative values
-mean the global shortcut helped. Full-minus-W23 is recomputed on the same
-panels as an audit. The descriptive recovered fraction is:
-
-```text
-(W23 loss - Hybrid loss) / (W23 loss - Full loss)
-```
-
-It is a descriptive ratio, not an equivalence test. The `[23,128)` aggregate
-is predeclared as the topology-divergent range, while the six Stage 29
-hop-aligned bands remain exploratory. Selected-best comparisons are secondary
-because the W=23, Hybrid, and Full checkpoints may be selected at different
-steps.
-
-Stage 30 uses 500 newly held-out paired panels at seed 1,347. It deliberately
-does not reuse seed 1,346: Stage 30 was chosen after the Stage 28/29 results on
-that panel were inspected. Intervals remain conditional on one initialization,
-training stream, corpus split, device, and backend.
-
-Run the canonical experiment from the repository root with:
-
-```powershell
-python .\my-gpt\30_sparse_global_shortcut.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_30_training.log
-```
-
-The canonical CLI writes:
-
-```text
-my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt
-my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt
-```
-
-and validates that all three reference files remain unchanged. Run its focused
-tests with:
-
-```powershell
-python -m unittest discover -s .\my-gpt `
-    -p "test_sparse_global_shortcut.py" -v
-```
-
-### Canonical outcome
-
-The canonical XPU run selected MidFull at step 10,500. On the 500 newly held-out
-paired panels at seed 1,347, the matched step-13,500 endpoint was:
-
-| Natural matched condition | Overall validation loss |
-| --- | ---: |
-| Full-128 | **1.483673** |
-| W=23 all-local | 1.493649 |
-| MidFull | 1.498985 |
-
-The primary `Full - MidFull` delta was `-0.015312 +/- 0.000716 SE`, with a 95%
-CI of `[-0.016719,-0.013905]`. The secondary `MidFull - W23` delta was
-`+0.005336 +/- 0.000685 SE`, with a 95% CI of
-`[+0.003990,+0.006682]`. Thus the single layer-3 global exchange did not close
-the Full gap in this run; it performed worse than leaving all six layers at
-W=23. Selected-best evaluation gave the same ordering: Full `1.483673`, W=23
-`1.490253`, and MidFull `1.492520`.
-
-Stage 30 therefore makes layer order part of the hypothesis. It does not show
-that subsequent local layers caused the regression, but it motivates removing
-that possible failure mode by moving the one Full layer to the final block.
+- [Verbatim script-output report](reports/stage_30.md)
+- [Interpretation and next experiment](docs/interpretations/stage_30.md)
+- [Stage script](30_sparse_global_shortcut.py)
+- [Raw local execution log](checkpoints/logs/30_30_sparse_global_shortcut.log)
+- Local checkpoints: `checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt` and `checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt`
 
 ## Stage 31: global-layer placement
 
@@ -4362,23 +4243,23 @@ evaluation:
 ```text
 Stage 26 Full best, step 13,500:
 my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 
-Stage 29 W23 best, step 10,500:
+Stage 29 W23 best, step 13,500:
 my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
-1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+8e89725f25a9320bd5a30d3956b7a32aa732a902eab9de7c76dd67021f17c4f8
 
 Stage 29 W23 matched anchor, step 13,500:
 my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
-ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+d2169e263d76bc730e831a108f32b2aeae358a40e61895cd55c50a14e1fca1da
 
-Stage 30 MidFull best, step 10,500:
+Stage 30 MidFull best, step 11,500:
 my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt
-dadb65bd5b8af294a3df8368e923afb02e90faceece88b074ecfa52bbd147800
+5c1392578efdd68166ff77b1a0763c84f253e051564f613bb52ea4a43438e046
 
 Stage 30 MidFull matched anchor, step 13,500:
 my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt
-90485453900376a5788958e53936aebdb0c418e474d0f1d895ffbf7617245d00
+1903abcda330062b6e74ddf487c310b6e738cc04f26d041ae7503d5cfbcfc426
 ```
 
 The predeclared corpus and initialization fingerprints are:
@@ -4388,19 +4269,19 @@ corpus data:
 fa03e609cfc0769eb1fa73fb4e81239fee0c6e9ab0608c549b0a742a25535493
 
 initial learned-parameter tensors shared by every branch:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 Full initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726
 
 W23 initial state:
-3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f
+4feb26dae434a6fad7a866895b3e53d7efcec79d3dc31f6af5a412fb758cd4c1
 
 MidFull initial state:
-ea57548caadcd0bcc4298471c1e959d1c4e508e028ea19656785e594810db68a
+f96825b691f3b77542222838f2e0fb308b0ce39318e0f51abfbaa2fc014304d5
 
 LastFull initial state:
-afed757340a41fa7d3563d8e62a6fb05ca2af8de67cdaf67bb2818e372c78ff4
+775e409c24c2cf06ab1e866d917b2234e5f791c229945afd570dfdc249e34076
 
 LastFull Boolean mask stack:
 b3c0e3680309a948d57c9e414062756b35bf111d9ee639df86d9b1472350def1
@@ -4470,17 +4351,19 @@ representation dilution inside the post-global local layers as a cause.
 Run the canonical experiment from the repository root with:
 
 ```powershell
-python .\my-gpt\31_global_layer_placement.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_31_training.log
+python .\my-gpt\31_global_layer_placement.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\31_31_global_layer_placement.log
 ```
 
-The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
-used by Stages 26, 29, and 30. It writes only the new LastFull artifacts:
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run,
+on the same corpus and reference artifacts as Stages 26, 29, and 30. The
+complete console record is `my-gpt/checkpoints/logs/31_31_global_layer_placement.log`.
+It writes only the new LastFull artifacts:
 
 ```text
 my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_best_checkpoint.pt
 my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_step_13500_checkpoint.pt
-my-gpt/checkpoints/stage_31_training.log
 ```
 
 Run the focused placement, reachability, initialization, pinned-reference,
@@ -4493,45 +4376,64 @@ python -m unittest discover -s .\my-gpt `
 
 ### Canonical outcome
 
-The canonical XPU run selected LastFull at step 11,000. On the 500 newly
+The canonical CUDA run selected LastFull at step 14,000. On the 500 newly
 held-out paired panels at seed 1,348, the matched step-13,500 endpoint was:
 
 | Natural matched condition | Overall validation loss |
 | --- | ---: |
-| Full-128 | **1.485143** |
-| LastFull | 1.492108 |
-| W23 | 1.496053 |
-| MidFull | 1.501920 |
+| Full-128 | **1.483328** |
+| W23 | 1.489501 |
+| LastFull | 1.496745 |
+| MidFull | 1.497228 |
 
-The primary `LastFull - MidFull` delta was `-0.009812 +/- 0.000757 SE`, with a
-95% CI of `[-0.011300,-0.008324]`. Placement therefore mattered decisively in
-this run: moving the single Full layer from block 3 to block 6 changed it from
-worse than W23 to better than W23.
+The primary `LastFull - MidFull` delta was `-0.000483 +/- 0.000957 SE`, with a
+95% CI of `[-0.002363,+0.001397]`, so this run did not detect a placement
+difference between block 3 and block 6. Both placements lost to W23 and to
+Full. The predeclared `[23,128)` aggregate agreed: `+0.000201 +/- 0.001056 SE`
+with a 95% CI of `[-0.001873,+0.002276]`.
 
-The two matched-step secondary comparisons separated benefit from
-sufficiency. `LastFull - W23` was `-0.003946 +/- 0.000714 SE`, with a 95% CI of
-`[-0.005348,-0.002543]`, so the final global readout provided a real gain.
-`Full - LastFull` was still `-0.006964 +/- 0.000730 SE`, with a 95% CI of
-`[-0.008399,-0.005530]`, so one final global operation did not explain most of
-Full's advantage. LastFull recovered a descriptive 36.2% of W23's matched-step
-deficit to Full.
+The two matched-step secondary comparisons were decisive in the opposite
+direction from the hypothesis. `LastFull - W23` was `+0.007244 +/- 0.000770 SE`,
+with a 95% CI of `[+0.005731,+0.008757]`, so the final global readout lost to
+leaving all six layers local. `Full - LastFull` was `-0.013417 +/- 0.000772 SE`,
+with a 95% CI of `[-0.014935,-0.011899]`, so one global operation also left most
+of Full's advantage unrealized. The descriptive recovery fractions were
+`-117.4%` for LastFull and `-125.2%` for MidFull: both single-global branches
+were worse than W23, so neither recovered any of W23's deficit to Full. The
+audit deltas reproduced the Stage 30 pattern on this fresh panel, with
+`Full - MidFull = -0.013900`, `MidFull - W23 = +0.007727`, and
+`Full - W23 = -0.006173`, all with intervals excluding zero.
 
-The predeclared `[23,128)` LastFull-minus-W23 aggregate was `-0.004639`, with a
-95% CI of `[-0.006249,-0.003029]`. Its positionwise pattern supplied the
-expected topology check: the deltas over positions `000-022` and `023-044`
-were `-0.000780` and `-0.002575`, with intervals crossing zero, while all four
-later bands favored LastFull by between `-0.004867` and `-0.005439`. Full also
-beat LastFull on positions `000-022` by `-0.009427`, although every topology
-has identical direct masks on that prefix. That short-prefix result is a
-training effect of the shared weights learned under different later-token
-topologies, not a direct inference-time context advantage.
+The positionwise pattern supplied the expected topology check. Every
+LastFull-minus-W23 band was positive, from `+0.005195` (positions `111-127`) to
+`+0.010273` (positions `023-044`), and `Full - LastFull` favored Full in all six
+bands, from `-0.010384` to `-0.015567`. The `Full - MidFull` bands were
+likewise below zero everywhere. Because every topology has identical direct
+mask rows over `[0,23)`, the short-prefix signs reflect shared weights learned
+under different later-token topologies rather than an inference-time context
+advantage.
 
 LastFull's fixed-panel optimum had train/validation losses
-`1.1488 / 1.4811` and a `0.3323` gap at step 11,000. By step 18,000 its
-training loss had fallen to `1.0894`, but validation had worsened to `1.4880`
-and the gap had grown to `0.3986`. Together, the remaining Full advantage and
-the successful final placement motivate a direct test of a second consecutive
-global-computation round near the output.
+`1.1098 / 1.4867` and a `0.3769` gap at step 14,000. By step 18,000 its
+training loss had fallen to `1.0887`, but validation had worsened to `1.4948`
+and the gap had grown to `0.4062`. The selected-best endpoint reproduced the
+matched ordering: LastFull `1.496821`, MidFull `1.494134`, W23 `1.489501`, and
+Full `1.483328`, with `LastFull - MidFull = +0.002687` and a 95% CI of
+`[+0.000764,+0.004609]`.
+
+This run therefore does not support the earlier claim that moving a single
+global layer to the final block is the decisive variable. Under one
+initialization, corpus split, training stream, device, and backend, one global
+layer was worse than none at both tested placements, and six Full layers
+remained clearly best. The remaining Full advantage still motivates a direct
+test of a second consecutive global-computation round near the output; the
+placement question is left unresolved by this reproduction.
+
+The disposable dense-kernel benchmark measured 136.726 iterations/s
+(280,015.224 target characters/s) for LastFull and 137.131 iterations/s
+(280,843.874 target characters/s) for Full. The tensor shapes and dense
+attention computation are identical, so this is an implementation and compiler
+observation rather than a topology-level efficiency result.
 
 ## Stage 32: iterative global refinement
 
@@ -4633,35 +4535,35 @@ references are:
 ```text
 Stage 26 Full best, step 13,500:
 my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 
-Stage 29 W23 best, step 10,500:
+Stage 29 W23 best, step 13,500:
 my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
-1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+8e89725f25a9320bd5a30d3956b7a32aa732a902eab9de7c76dd67021f17c4f8
 
 Stage 29 W23 matched anchor, step 13,500:
 my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
-ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+d2169e263d76bc730e831a108f32b2aeae358a40e61895cd55c50a14e1fca1da
 
-Stage 31 LastFull best, step 11,000:
+Stage 31 LastFull best, step 14,000:
 my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_best_checkpoint.pt
-2788b45772b1ad03611d9a1d37dc69c0fb94ca509a101f53f117931eed9f3d0c
+990ec3cce93b03aa17a670193e9d884afeddf8221ecb23c568260edfc0190efc
 
 Stage 31 LastFull matched anchor, step 13,500:
 my-gpt/checkpoints/stage_31_last_global_layer_6_at_128_step_13500_checkpoint.pt
-56883cae4040f849a26e1d97ed33b03c2d934d2afe6fdb606bbb51395c5909bd
+4546789b4b9ed819c1d485e4bde9dd95b065efb1d9c07d215da5e0b53c2dac8a
 ```
 
 The Stage 30 artifacts required transitively to authenticate LastFull are:
 
 ```text
-Stage 30 MidFull best, step 10,500:
+Stage 30 MidFull best, step 11,500:
 my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_best_checkpoint.pt
-dadb65bd5b8af294a3df8368e923afb02e90faceece88b074ecfa52bbd147800
+5c1392578efdd68166ff77b1a0763c84f253e051564f613bb52ea4a43438e046
 
 Stage 30 MidFull matched anchor, step 13,500:
 my-gpt/checkpoints/stage_30_hybrid_layer_3_at_128_step_13500_checkpoint.pt
-90485453900376a5788958e53936aebdb0c418e474d0f1d895ffbf7617245d00
+1903abcda330062b6e74ddf487c310b6e738cc04f26d041ae7503d5cfbcfc426
 ```
 
 The predeclared corpus and initialization fingerprints are:
@@ -4671,19 +4573,19 @@ corpus data:
 fa03e609cfc0769eb1fa73fb4e81239fee0c6e9ab0608c549b0a742a25535493
 
 initial learned-parameter tensors shared by every branch:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 Full initial state:
-c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8
+4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726
 
 W23 initial state:
-3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f
+4feb26dae434a6fad7a866895b3e53d7efcec79d3dc31f6af5a412fb758cd4c1
 
 LastFull initial state:
-afed757340a41fa7d3563d8e62a6fb05ca2af8de67cdaf67bb2818e372c78ff4
+775e409c24c2cf06ab1e866d917b2234e5f791c229945afd570dfdc249e34076
 
 Last2Full initial state:
-46fcaba035be6690157eacff951dadc6fc0fa7e532ec60807f5b78ff9b882d8f
+f9bba6ccb51e1038b9ebed4e5cfa2d2755e02b82e41e0bba23aafb96666062bd
 
 Last2Full Boolean mask stack:
 3dfb31737b5aa941cdc6edebab9eabaa127387f6ff6bc4611f99e5c6d0b39c1a
@@ -4760,17 +4662,19 @@ by itself identify the causal internal computation.
 Run the canonical experiment from the repository root with:
 
 ```powershell
-python .\my-gpt\32_iterative_global_refinement.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_32_training.log
+python .\my-gpt\32_iterative_global_refinement.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\32_32_iterative_global_refinement.log
 ```
 
-The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
-used by the reference runs. It writes only the new Last2Full artifacts:
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
+The complete console record is
+`my-gpt/checkpoints/logs/32_32_iterative_global_refinement.log`. It writes only
+the new Last2Full artifacts:
 
 ```text
 my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_best_checkpoint.pt
 my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_step_13500_checkpoint.pt
-my-gpt/checkpoints/stage_32_training.log
 ```
 
 Run the focused topology, reachability, initialization, transitive-provenance,
@@ -4783,88 +4687,80 @@ python -m unittest discover -s .\my-gpt `
 
 ### Canonical outcome
 
-The canonical XPU run completed all 18,000 updates and selected Last2Full at
-step 16,500. On the 500 newly held-out paired panels at seed 1,349, the matched
+The canonical CUDA run completed all 18,000 updates and selected Last2Full at
+step 11,500. On the 500 newly held-out paired panels at seed 1,349, the matched
 step-13,500 endpoint was:
 
 | Natural matched condition | Overall validation loss |
 | --- | ---: |
-| Last2Full | **1.475743** |
-| Full-128 | 1.486889 |
-| LastFull | 1.493733 |
-| W23 | 1.497290 |
+| Full-128 | **1.485064** |
+| W23 | 1.492298 |
+| Last2Full | 1.497855 |
+| LastFull | 1.499029 |
 
 The primary `Last2Full - LastFull` delta was
-`-0.017991 +/- 0.000854 SE`, with a 95% CI of
-`[-0.019669,-0.016312]`. A second consecutive final Full layer therefore
-provided a large gain in this run. The improvement was about 5.1 times the
-same-panel `LastFull - W23` gain of `-0.003556`, although that ratio is only a
-descriptive comparison of point estimates.
+`-0.001174 +/- 0.000700 SE`, with a 95% CI of
+`[-0.002549,+0.000201]`. This interval crosses zero, so the second consecutive
+final Full layer did not separate from one final Full layer in this run. Both
+were worse than W23. The predeclared topology-divergent `[23,128)` aggregate
+agreed: `-0.000841 +/- 0.000791 SE` with a 95% CI of
+`[-0.002396,+0.000714]`.
 
-The result was stronger than merely closing the Full gap. `Full - Last2Full`
-was `+0.011146 +/- 0.000839 SE`, with a 95% CI of
-`[+0.009497,+0.012795]`, so Last2Full also beat the six-Full-layer reference.
-`Last2Full - W23` was `-0.021547 +/- 0.000771 SE`, with a 95% CI of
-`[-0.023062,-0.020032]`. The predeclared recovery fraction was therefore
-207.2%; a value above 100% means that Last2Full overshot Full rather than
-establishing equivalence.
-
-The predeclared topology-divergent `[23,128)` aggregates were:
-
-| Matched contrast | Mean delta | 95% CI |
-| --- | ---: | ---: |
-| Last2Full - LastFull | -0.019809 | `[-0.021681,-0.017938]` |
-| Full - Last2Full | +0.012912 | `[+0.011092,+0.014731]` |
-| Last2Full - W23 | -0.022909 | `[-0.024609,-0.021209]` |
+The matched-step secondary endpoints were decisive against the treatment.
+`Full - Last2Full` was `-0.012791 +/- 0.000815 SE`, with a 95% CI of
+`[-0.014393,-0.011189]`, so Last2Full left essentially the whole Full advantage
+on the table. `Last2Full - W23` was `+0.005557 +/- 0.000764 SE`, with a 95% CI
+of `[+0.004056,+0.007057]`, so the two final global layers lost to the
+all-local route. The descriptive recovery fractions were `-76.8%` for Last2Full
+and `-93.0%` for LastFull. The audit deltas placed both single- and double-
+global branches behind W23: `Full - LastFull = -0.013965`,
+`LastFull - W23 = +0.006731`, and `Full - W23 = -0.007234`.
 
 The hop-aligned position bands supplied the expected topology check:
 
 | Target positions | Last2Full - LastFull | Full - Last2Full | Last2Full - W23 |
 | --- | ---: | ---: | ---: |
-| 000-022 | -0.009688 | +0.003085 | -0.015330 |
-| 023-044 | -0.016321 | +0.010767 | -0.018345 |
-| 045-066 | -0.017428 | +0.012492 | -0.023086 |
-| 067-088 | -0.020791 | +0.015129 | -0.024230 |
-| 089-110 | -0.022781 | +0.015837 | -0.023799 |
-| 111-127 | -0.022291 | +0.009577 | -0.025724 |
+| 000-022 | -0.002694 | -0.010831 | +0.002556 |
+| 023-044 | -0.003065 | -0.011274 | +0.004512 |
+| 045-066 | +0.000208 | -0.012810 | +0.007247 |
+| 067-088 | -0.001714 | -0.012378 | +0.006335 |
+| 089-110 | -0.000296 | -0.014148 | +0.008600 |
+| 111-127 | +0.001104 | -0.016157 | +0.003835 |
 
-Every Last2Full-minus-LastFull and Last2Full-minus-W23 band interval excluded
-zero. Only the `000-022` Full-minus-Last2Full interval crossed zero; every
-later band favored Last2Full. The growing advantage beyond position 22
-is consistent with the point at which the masks diverge. The short-prefix
-Last2Full gains over LastFull and W23 cannot be a direct inference-time
-context advantage because those mask rows are identical; they reflect shared
-weights learned under different later-token topologies.
+No Last2Full-minus-LastFull band interval excluded zero. Every Full-minus-
+Last2Full band favored Full, and four of six Last2Full-minus-W23 bands favored
+W23 with intervals excluding zero; the `000-022` and `111-127` intervals
+crossed zero. Because every topology has identical direct mask rows over
+`[0,23)`, the short-prefix signs reflect shared weights learned under different
+later-token topologies rather than an inference-time context advantage.
 
-Selected-best evaluation corroborated the matched result. Last2Full at step
-16,500 scored `1.474679`, ahead of Full at step 13,500 (`1.486889`), LastFull
-at step 11,000 (`1.491399`), and W23 at step 10,500 (`1.493388`). The paired
-`Last2Full - LastFull` and `Last2Full - W23` deltas were `-0.016721` and
-`-0.018709`; `Full - Last2Full` was `+0.012210`. All three 95% intervals
-excluded zero. This comparison remains secondary because the checkpoints were
-selected at different updates.
+Selected-best evaluation preserved the ordering. Last2Full at step 11,500
+scored `1.494611`, behind W23 at step 13,500 (`1.492298`) and Full at step
+13,500 (`1.485064`), and ahead of LastFull at step 14,000 (`1.499082`). The
+paired `Last2Full - LastFull` delta was `-0.004472` with a 95% CI of
+`[-0.005874,-0.003069]`; `Full - Last2Full` was `-0.009547`; and
+`Last2Full - W23` was `+0.002312` with a 95% CI of `[+0.000821,+0.003804]`.
+This comparison remains secondary because the checkpoints were selected at
+different updates.
 
-The fixed-panel validation loss first printed `1.4643` at step 11,500 and
-selected step 16,500 only on the unrounded value. At the selected checkpoint,
-train/validation losses were `1.1010 / 1.4643`, with a `0.3633` gap. By step
-18,000, training loss improved to `1.0937` while validation worsened to
-`1.4691` and the gap grew to `0.3754`. The late selection therefore weakens
-the earlier simple pattern that every local-heavy branch peaks early, but it
-should be read as a broad validation plateau followed by late overfitting,
-not a large improvement between steps 11,500 and 16,500.
+Last2Full's fixed-panel optimum was train/validation `1.1476 / 1.4814` with a
+`0.3338` gap at step 11,500. By step 18,000 its training loss had fallen to
+`1.0946` while validation had worsened to `1.4932`, and the gap had grown to
+`0.3987`. The branch therefore returned to the local-heavy pattern of selecting
+before the final decay and then overfitting.
 
-This run strongly supports the value of iterative global processing near the
-output, but it does not show that more global layers are monotonically better.
-Four local layers followed by two Full layers outperformed both one final Full
-layer and Full attention at all six layers under this single initialization,
-corpus, training stream, device, and backend. That is evidence for an
-interaction between local representation construction and late global
-refinement, not direct identification of the internal mechanism. A natural
-next controlled point is three consecutive final Full layers,
+This run does not support the value of iterative global processing near the
+output under this protocol. Two consecutive final Full layers did not improve
+on one, and both were worse than leaving every layer local, with Full attention
+at all six layers still best. That is evidence against a simple monotone
+"more late global rounds" account, but it does not identify the internal
+mechanism, and it does not test earlier global placement. A natural next
+controlled point is three consecutive final Full layers,
 `(23,23,23,None,None,None)`.
 
-The disposable dense-kernel benchmark measured 11,887.743 targets/s for
-Last2Full and 17,782.249 targets/s for Full. Because the tensor shapes and
+The disposable dense-kernel benchmark measured 130.167 iterations/s
+(266,582.443 target characters/s) for Last2Full and 131.299 iterations/s
+(268,899.418 target characters/s) for Full. Because the tensor shapes and
 dense attention computation are identical, this is an implementation,
 compiler, or kernel observation rather than evidence of a different
 asymptotic attention cost.
@@ -4872,11 +4768,11 @@ asymptotic attention cost.
 The authenticated Stage 32 artifacts are:
 
 ```text
-best checkpoint, step 16,500:
-bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
+best checkpoint, step 11,500:
+f91e78a92b10bbdaec2d9e7ab2cc7f1409cf7e77aadb222f02d836e286021271
 
 matched anchor, step 13,500:
-9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
+12b363d7e7fbcbe8667d10895174461142c6d6d3c0cc4111e76477414c1f1536
 ```
 
 ## Stage 33: global-processing depth curve
@@ -4974,13 +4870,13 @@ the full transitive chain through Stages 32, 31, 30, 29, and 26. The immediate
 Last2Full reference is:
 
 ```text
-Stage 32 Last2Full best, step 16,500:
+Stage 32 Last2Full best, step 11,500:
 my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_best_checkpoint.pt
-bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
+f91e78a92b10bbdaec2d9e7ab2cc7f1409cf7e77aadb222f02d836e286021271
 
 Stage 32 Last2Full matched anchor, step 13,500:
 my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_step_13500_checkpoint.pt
-9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
+12b363d7e7fbcbe8667d10895174461142c6d6d3c0cc4111e76477414c1f1536
 ```
 
 The older pinned paths and hashes remain exactly those recorded in the Stage
@@ -4988,10 +4884,10 @@ The older pinned paths and hashes remain exactly those recorded in the Stage
 
 ```text
 initial learned-parameter tensors shared by every branch:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 Last3Full initial state:
-909a474abffc8459f0616f27ec95c3a1d47fa547622f620eaec324ac49e73a9d
+c1e2b24d9a0083dbbb841d34009b4526710e45cf1d9b09d02d4722f2d00b98d2
 
 Last3Full Boolean mask stack:
 7d4a87eab60a08228dbe6b1b8f0f999d9e8a74af08b4d3d295512e192194d35b
@@ -5062,17 +4958,19 @@ create an automatic stop rule.
 Run the canonical experiment from the repository root with:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\33_global_processing_depth.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_33_training.log
+python .\my-gpt\33_global_processing_depth.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\33_33_global_processing_depth.log
 ```
 
-The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
-used by the reference runs. It writes only the new Last3Full artifacts:
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
+The complete console record is
+`my-gpt/checkpoints/logs/33_33_global_processing_depth.log`. It writes only the
+new Last3Full artifacts:
 
 ```text
 my-gpt/checkpoints/stage_33_last_three_global_layers_4_5_6_at_128_best_checkpoint.pt
 my-gpt/checkpoints/stage_33_last_three_global_layers_4_5_6_at_128_step_13500_checkpoint.pt
-my-gpt/checkpoints/stage_33_training.log
 ```
 
 Run the focused topology, reachability, initialization, transitive-provenance,
@@ -5085,98 +4983,96 @@ checkpoint, matched-stream, and paired-evaluator tests with:
 
 ### Canonical outcome
 
-The canonical XPU run completed all 18,000 updates and selected Last3Full at
-step 11,500. On the 500 newly held-out paired panels at seed 1,350, the
+The canonical CUDA run completed all 18,000 updates and selected Last3Full at
+step 14,500. On the 500 newly held-out paired panels at seed 1,350, the
 matched step-13,500 endpoint was:
 
 | Natural matched condition | Overall validation loss |
 | --- | ---: |
-| Last2Full | **1.469819** |
-| Full-128 | 1.482339 |
-| Last3Full | 1.491022 |
-| W23 | 1.491903 |
+| Full-128 | **1.479756** |
+| Last3Full | 1.485049 |
+| W23 | 1.485615 |
+| Last2Full | 1.490939 |
 
 The primary `Last3Full - Last2Full` delta was
-`+0.021203 +/- 0.000873 SE`, with a 95% CI of
-`[+0.019488,+0.022917]`. The entire interval is above zero, so adding the
-third consecutive final Full layer was decisively worse in this run. Together
-with the Stage 31 and Stage 32 adjacent comparisons, this brackets a local
-optimum at two among the tested one-, two-, and three-layer final-global
-suffixes.
+`-0.005890 +/- 0.000754 SE`, with a 95% CI of
+`[-0.007372,-0.004408]`. The entire interval is below zero, so the third
+consecutive final Full layer improved on the two-layer suffix in this run. The
+predeclared topology-divergent `[23,128)` aggregate agreed:
+`-0.005957 +/- 0.000841 SE` with a 95% CI of `[-0.007609,-0.004305]`.
 
-Last3Full also lost to the six-Full-layer reference: `Full - Last3Full` was
-`-0.008682 +/- 0.000693 SE`, with a 95% CI of
-`[-0.010044,-0.007321]`. Its matched overall advantage over W23 was only
-`-0.000881 +/- 0.000754 SE`, with a 95% CI of
-`[-0.002363,+0.000600]`; this interval spans zero. Last3Full therefore gave
-back nearly all of the gain that Last2Full had achieved over both baselines.
+Last3Full also beat W23 by a small margin and still lost to the six-Full-layer
+reference. The secondary `Last3Full - W23` delta was
+`-0.000565 +/- 0.000746 SE`, with a 95% CI of `[-0.002031,+0.000900]`, which
+crosses zero. `Full - Last3Full` was `-0.005293 +/- 0.000792 SE`, with a 95% CI
+of `[-0.006850,-0.003736]`, so Full retained a clear but much smaller edge than
+it held over the one- and two-layer suffixes. The descriptive recovery
+fractions were `9.7%` for Last3Full and `-90.9%` for Last2Full: on this panel
+the three-global-layer branch recovered a small part of W23's deficit to Full
+while the two-layer branch fell further behind W23.
 
-The predeclared topology-divergent `[23,128)` aggregates were:
-
-| Matched contrast | Mean delta | 95% CI |
-| --- | ---: | ---: |
-| Last3Full - Last2Full | +0.022827 | `[+0.020934,+0.024720]` |
-| Full - Last3Full | -0.009129 | `[-0.010693,-0.007565]` |
-| Last3Full - W23 | -0.000585 | `[-0.002287,+0.001118]` |
-
-The hop-aligned bands show that the Last3Full deficit was not confined to one
-part of the sequence:
+The hop-aligned bands show that the Last3Full advantage over Last2Full was
+broad rather than local:
 
 | Target positions | Last3Full - Last2Full | Full - Last3Full | Last3Full - W23 |
 | --- | ---: | ---: | ---: |
-| 000-022 | +0.013787 | -0.006644 | -0.002236 |
-| 023-044 | +0.017990 | -0.005901 | -0.002872 |
-| 045-066 | +0.022294 | -0.009548 | -0.002524 |
-| 067-088 | +0.026667 | -0.009182 | +0.001295 |
-| 089-110 | +0.025125 | -0.009049 | +0.002909 |
-| 111-127 | +0.021833 | -0.012799 | -0.002068 |
+| 000-022 | -0.005584 | -0.004841 | -0.002140 |
+| 023-044 | -0.006854 | -0.004271 | -0.002038 |
+| 045-066 | -0.003314 | -0.006333 | +0.000514 |
+| 067-088 | -0.005603 | -0.002359 | +0.000070 |
+| 089-110 | -0.006242 | -0.006945 | +0.000216 |
+| 111-127 | -0.008305 | -0.007541 | +0.000241 |
 
-Every Last3Full-minus-Last2Full band interval excluded zero and favored
-Last2Full. Every Full-minus-Last3Full band also favored Full. No individual
-Last3Full-minus-W23 band interval excluded zero. The deficit relative to
-Last2Full grew after the masks first diverged at position 23, but the positive
-short-prefix delta again shows a learned-weight effect: the two branches have
-identical inference-time mask rows over `[0,23)`.
+Five of six Last3Full-minus-Last2Full band intervals excluded zero and favored
+Last3Full; only `045-066` crossed zero. Five of six Full-minus-Last3Full bands
+also favored Full. No individual Last3Full-minus-W23 band interval excluded
+zero. The `000-022` deficits relative to W23 cannot be a direct inference-time
+context advantage because those mask rows are identical across topologies;
+they reflect shared weights learned under different later-token topologies.
 
-Selected-best evaluation corroborated the matched result. Last2Full at step
-16,500 scored `1.468865`, ahead of Full at step 13,500 (`1.482339`),
-Last3Full at step 11,500 (`1.486879`), and W23 at step 10,500 (`1.488258`).
-`Last3Full - Last2Full` was `+0.018014`, with a 95% CI of
-`[+0.016235,+0.019793]`; `Full - Last3Full` was `-0.004540`, with a 95% CI of
-`[-0.005904,-0.003176]`. The selected-best `Last3Full - W23` interval still
-crossed zero. This endpoint remains secondary because checkpoints selected
-different update steps.
+Selected-best evaluation corroborated the matched result. Last3Full at step
+14,500 scored `1.482863`, ahead of W23 at step 13,500 (`1.485615`) and
+Last2Full at step 11,500 (`1.486915`), behind Full at step 13,500
+(`1.479756`). `Last3Full - Last2Full` was `-0.004053`, with a 95% CI of
+`[-0.005469,-0.002637]`; `Full - Last3Full` was `-0.003106`, with a 95% CI of
+`[-0.004663,-0.001549]`; and `Last3Full - W23` was `-0.002752`, with a 95% CI
+of `[-0.004213,-0.001291]`. This endpoint remains secondary because
+checkpoints were selected at different updates.
 
 Last3Full's fixed-panel optimum had train/validation losses
-`1.1524 / 1.4806` and a `0.3282` gap at step 11,500. By step 18,000 its
-training loss had fallen to `1.1001`, but validation had worsened to `1.4903`
-and the gap had grown to `0.3902`. The third-global-layer branch therefore
+`1.1167 / 1.4760` and a `0.3594` gap at step 14,500. By step 18,000 its
+training loss had fallen to `1.1002`, but validation had worsened to `1.4798`
+and the gap had grown to `0.3797`. The third-global-layer branch therefore
 showed the earlier local-heavy pattern of selecting before the final decay
 and then overfitting.
 
-The topology curve now has the requested turning point. One final global
-layer improved on W23 but left substantial performance on the table; two
-final global layers were best; a third erased the advantage; and six Full
-layers were also worse than two. Under this single initialization, corpus,
-training stream, device, and backend, the result supports a narrow tested
-optimum: the three-local/three-global allocation was worse, while four local
-layers followed by two global rounds was best among the tested suffix depths.
-The stronger next test is replication across independent training seeds,
-rather than automatically filling in four and five global layers.
+The depth curve does not reproduce the shape reported from the earlier XPU
+run. Adding a third consecutive final Full layer improved on two in this run
+and very nearly matched W23, whereas the two-layer suffix was the worst of the
+three evaluated suffixes here and Full remained best overall. Under this single
+initialization, corpus, training stream, device, and backend, the ordering is
+`Full < Last3Full < W23 ~ Last2Full < LastFull` on the matched endpoint. The
+contrast between this ordering and the earlier run's bracketed optimum at two
+layers is itself the reproduction result: the rank order of the one-, two-,
+and three-layer final-global suffixes is not stable across runs, so adjacent
+suffix comparisons should not be read as a fixed optimum. Replication across
+independent training seeds is the appropriate next test rather than adding
+four- and five-layer points to either ordering.
 
-The disposable dense-kernel benchmark measured 51,915.404 targets/s for
-Last3Full and 51,253.243 targets/s for Full. The tensor shapes and dense
+The disposable dense-kernel benchmark measured 136.051 iterations/s
+(278,632.544 target characters/s) for Last3Full and 137.540 iterations/s
+(281,682.028 target characters/s) for Full. The tensor shapes and dense
 attention computation are identical, so this remains an implementation and
 compiler observation rather than a topology-level efficiency result.
 
 The authenticated Stage 33 artifacts are:
 
 ```text
-best checkpoint, step 11,500:
-2e5b7804f984cc2c70b1be41879131bdd1bca9b549167548fe312f6f885becbd
+best checkpoint, step 14,500:
+c8a30a36845f05f9feb05dbda0ef9507232f348ad3490a9d73dbf3515e973776
 
 matched anchor, step 13,500:
-2c9ad23e62a9b8678c3b66f661da4124111c88fed5b61c198523651b9ef12e0f
+dbf8ac3269f90d2311ce1ce5022614ecaff1da5170af9052efa701f9a4a8c6de
 ```
 
 ## Stage 34: two-global-layer placement control
@@ -5269,25 +5165,25 @@ chain through Stages 31, 30, 29, and 26 as read-only. The three directly
 reported references are pinned as follows:
 
 ```text
-Stage 32 Last2Full best, step 16,500:
+Stage 32 Last2Full best, step 11,500:
 my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_best_checkpoint.pt
-bbf72631da378d58d977d6e30daad6b5944d8a2edcc0b5318981d5b495d9e632
+f91e78a92b10bbdaec2d9e7ab2cc7f1409cf7e77aadb222f02d836e286021271
 
 Stage 32 Last2Full matched anchor, step 13,500:
 my-gpt/checkpoints/stage_32_last_two_global_layers_5_6_at_128_step_13500_checkpoint.pt
-9a332f83436c510ba8bdf908e42e10a51f34fc3c02c4ac31c74efa13b6553db9
+12b363d7e7fbcbe8667d10895174461142c6d6d3c0cc4111e76477414c1f1536
 
-Stage 29 W23 best, step 10,500:
+Stage 29 W23 best, step 13,500:
 my-gpt/checkpoints/stage_29_window_23_at_128_best_checkpoint.pt
-1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585
+8e89725f25a9320bd5a30d3956b7a32aa732a902eab9de7c76dd67021f17c4f8
 
 Stage 29 W23 matched anchor, step 13,500:
 my-gpt/checkpoints/stage_29_window_23_at_128_step_13500_checkpoint.pt
-ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc
+d2169e263d76bc730e831a108f32b2aeae358a40e61895cd55c50a14e1fca1da
 
 Stage 26 Full reference, step 13,500:
 my-gpt/checkpoints/stage_26_context_128_best_checkpoint.pt
-3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6
+dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e
 ```
 
 The older LastFull and MidFull paths and hashes remain those recorded in the
@@ -5296,10 +5192,10 @@ fingerprints are:
 
 ```text
 initial learned-parameter tensors shared by every branch:
-c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477
+c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e
 
 Split2Full initial state:
-b6c225ee58ad87f4477199a191a5e8078802ac8407ddfe47952115d3ad5c8eb0
+8322b19b66426cbf3714151f03135a7116599c81367d76438f890f88d35336b9
 
 Split2Full Boolean mask stack:
 541ce760f6f85b16056c6974a4ac5b8138dc3bbd2d6ac6e2efc46519f0f690e2
@@ -5311,7 +5207,7 @@ Split2Full mask-buffer mapping:
 5e57cf3d64acb1d57b1cdce6d7c4e2ac4a61077d29f576651899ee3b1bd44dcf
 
 Last2Full reference initial state:
-46fcaba035be6690157eacff951dadc6fc0fa7e532ec60807f5b78ff9b882d8f
+f9bba6ccb51e1038b9ebed4e5cfa2d2755e02b82e41e0bba23aafb96666062bd
 ```
 
 ### Predeclared evaluation
@@ -5387,18 +5283,19 @@ training stream, device, and backend.
 Run the canonical experiment from the repository root with:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\34_two_global_layer_placement.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_34_training.log
+python .\my-gpt\34_two_global_layer_placement.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\34_34_two_global_layer_placement.log
 ```
 
-The canonical path requires the same `Intel(R) Arc(TM) 140T GPU (16GB)` XPU
-used by the reference runs. It is expected to write only these new Stage 34
-artifacts:
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
+The complete console record is
+`my-gpt/checkpoints/logs/34_34_two_global_layer_placement.log`. It writes only
+these new Stage 34 artifacts:
 
 ```text
 my-gpt/checkpoints/stage_34_split_two_global_layers_4_6_at_128_best_checkpoint.pt
 my-gpt/checkpoints/stage_34_split_two_global_layers_4_6_at_128_step_13500_checkpoint.pt
-my-gpt/checkpoints/stage_34_training.log
 ```
 
 Run the focused topology, equal-edge-budget, reachability, initialization,
@@ -5421,89 +5318,107 @@ matched step-13,500 endpoint was:
 
 | Natural matched condition | Overall validation loss |
 | --- | ---: |
-| Last2Full | **1.469749** |
-| Full-128 | 1.481369 |
-| Split2Full | 1.483088 |
-| W23 | 1.491607 |
+| Full-128 | **1.480434** |
+| W23 | 1.485600 |
+| Split2Full | 1.489665 |
+| Last2Full | 1.490772 |
 
 The primary `Split2Full - Last2Full` delta was
-`+0.013338 +/- 0.000734 SE`, with a 95% CI of
-`[+0.011897,+0.014780]`. The entire interval is above zero, so separating the
-two global rounds across layers 4 and 6 was clearly worse in this run than
+`-0.001107 +/- 0.000742 SE`, with a 95% CI of
+`[-0.002566,+0.000351]`. This interval crosses zero, so this run did not detect
+a difference between separating the two global rounds across layers 4 and 6 and
 keeping them consecutive at layers 5 and 6. The predeclared `[23,128)`
-aggregate was `+0.014737`, with a 95% CI of
-`[+0.013093,+0.016380]`.
+aggregate agreed: `-0.000474 +/- 0.000821 SE` with a 95% CI of
+`[-0.002088,+0.001139]`.
 
-Split2Full nevertheless improved on W23: `Split2Full - W23` was
-`-0.008520 +/- 0.000769 SE`, with a 95% CI of
-`[-0.010031,-0.007008]`. Full was slightly better than Split2Full at the
-matched overall endpoint: `Full - Split2Full` was
-`-0.001718 +/- 0.000739 SE`, with a 95% CI of
-`[-0.003169,-0.000267]`. Over `[23,128)`, however, the
-Full-minus-Split2Full interval narrowly crossed zero: the delta was
-`-0.001596`, with a 95% CI of `[-0.003249,+0.000057]`.
+Both two-global-layer branches lost to W23 and to Full on the matched overall
+endpoint. `Split2Full - W23` was `+0.004065 +/- 0.000757 SE`, with a 95% CI of
+`[+0.002577,+0.005553]`, and `Full - Split2Full` was
+`-0.009231 +/- 0.000710 SE`, with a 95% CI of
+`[-0.010627,-0.007835]`. The audit deltas agreed: `Full - Last2Full` was
+`-0.010338`, `Last2Full - W23` was `+0.005172`, and `Full - W23` was
+`-0.005166`. The descriptive recovery fractions were `-78.7%` for Split2Full
+and `-100.1%` for Last2Full.
 
-Every Split2Full-minus-Last2Full position-band interval excluded zero and
-favored Last2Full. The deficit was `+0.006955` over `[0,23)` and larger in
-every later band, reaching `+0.017601` over `[111,128)`. Because the two
-topologies have identical inference-time mask rows over `[0,23)`, the
-short-prefix difference reflects weights learned under different later-token
-topologies rather than a direct context advantage in those rows.
+The hop-aligned bands show that the Split2Full-minus-Last2Full difference was
+confined to the earliest positions:
 
-Selected-best evaluation corroborated the primary result. Last2Full at step
-16,500 scored `1.468207`, Split2Full at step 11,500 scored `1.481291`, Full
-at step 13,500 scored `1.481369`, and W23 at step 10,500 scored `1.487921`.
-`Split2Full - Last2Full` was `+0.013084`, with a 95% CI of
-`[+0.011645,+0.014523]`; `Split2Full - W23` was `-0.006630`, with a 95% CI
-of `[-0.008038,-0.005221]`, while the `Full - Split2Full` interval spanned
-zero. This endpoint remains secondary because the checkpoints selected
-different updates.
+| Target positions | Split2Full - Last2Full | Full - Split2Full | Split2Full - W23 |
+| --- | ---: | ---: | ---: |
+| 000-022 | -0.003995 | -0.007332 | +0.002038 |
+| 023-044 | -0.001785 | -0.007645 | +0.003429 |
+| 045-066 | +0.000438 | -0.009491 | +0.002745 |
+| 067-088 | +0.001403 | -0.009264 | +0.005381 |
+| 089-110 | -0.001776 | -0.008529 | +0.006741 |
+| 111-127 | -0.000703 | -0.014382 | +0.004171 |
 
-Stage 34 therefore produced the predeclared intermediate pattern. Two split
-global rounds were useful relative to W23, but the number of global rounds
-alone was not sufficient to reproduce Last2Full. Among the tested placements,
-four local layers followed by two consecutive final global layers remained
-best. This contrast does not separately identify whether that advantage comes
-from delaying the first global mix, keeping the rounds consecutive, placing a
-global layer specifically at layer 5, or their interaction, because those
-properties change together. The conclusion remains conditional on this one
-initialization, corpus, training stream, device, and backend; the panel
-intervals do not measure training-seed variation.
+Only the `000-022` primary band interval excluded zero, and it favored
+Split2Full; the other five crossed zero. Every Full-minus-Split2Full band
+favored Full, and four of six Split2Full-minus-W23 bands favored W23 with
+intervals excluding zero. Because the two topologies have identical
+inference-time mask rows over `[0,23)`, the short-prefix difference reflects
+weights learned under different later-token topologies rather than a direct
+context advantage in those rows.
+
+Selected-best evaluation preserved the ordering. Split2Full at step 10,500
+scored `1.486346`, ahead of Last2Full at step 11,500 (`1.487683`) and behind
+W23 at step 13,500 (`1.485600`) and Full at step 13,500 (`1.480434`).
+`Split2Full - Last2Full` was `-0.001337`, with a 95% CI of
+`[-0.002757,+0.000084]`; `Full - Split2Full` was `-0.005912`, with a 95% CI of
+`[-0.007252,-0.004572]`; and `Split2Full - W23` was `+0.000746`, with a 95% CI
+of `[-0.000647,+0.002139]`. This endpoint remains secondary because the
+checkpoints selected different updates.
 
 Split2Full selected fixed-panel train/validation losses of
-`1.1501 / 1.4782`, with a `0.3281` gap, at step 11,500. By step 18,000,
-training loss had fallen to `1.0975`, while validation had worsened to
-`1.4859` and the gap had grown to `0.3884`. The selected-best comparison
-leaves the Last2Full deficit essentially unchanged, so the placement result
-is not explained by the matched-step choice among the evaluated checkpoints.
+`1.1679 / 1.4802`, with a `0.3123` gap, at step 10,500. By step 18,000,
+training loss had fallen to `1.0982`, while validation had worsened to
+`1.4876` and the gap had grown to `0.3894`. The selected-best comparison
+leaves the placement result essentially unchanged, so it is not explained by
+the matched-step choice among the evaluated checkpoints.
 
-The disposable dense-kernel benchmark measured 37,061.814 target
-characters/s for Split2Full and 40,057.760 for Full. Their tensor shapes and
-dense attention computation are identical, so this remains an implementation
-or compiler observation rather than a topology-level efficiency result.
+Stage 34 therefore did not reproduce the earlier intermediate pattern in which
+split placement beat W23 while losing to the consecutive suffix. Here both
+two-global-layer placements were worse than W23 and clearly worse than Full,
+and the two placements were statistically indistinguishable at the matched
+endpoint. This contrast cannot identify whether any advantage would come from
+delaying the first global mix, keeping the rounds consecutive, placing a
+global layer specifically at layer 5, or their interaction, because those
+properties change together. The conclusion remains conditional on this one
+initialization, corpus, training stream, device, and backend, and the panel
+intervals do not measure training-seed variation.
 
-This completes the planned topology sweep. Last2Full,
-`(23,23,23,23,None,None)`, is the architecture retained for the next
-context-scaling question.
+The disposable dense-kernel benchmark measured 130.750 iterations/s
+(267,776.257 target characters/s) for Split2Full and 129.139 iterations/s
+(264,476.350 target characters/s) for Full. Their tensor shapes and dense
+attention computation are identical, so this remains an implementation or
+compiler observation rather than a topology-level efficiency result.
+
+This completes the planned topology sweep. The earlier XPU run retained
+Last2Full, `(23,23,23,23,None,None)`, for the next context-scaling question;
+this reproduction does not support that retention, because all four evaluated
+single- and double-global topologies were worse than the six-Full-layer
+reference on this panel. Stage 35 continues with the pinned Last2Full
+architecture so that the context-scaling comparison stays directly comparable
+to the recorded runs.
 
 The authenticated Stage 34 artifacts are:
 
 ```text
-best checkpoint, step 11,500:
-68ccad541f55cdac9775f75a3d902f7937b95dda811e4d563471199818ca10a3
+best checkpoint, step 10,500:
+12d16de562e7528e3517f4c6c3c5fbb01965b72f769a8aa079766a11ffb49523
 
 matched anchor, step 13,500:
-55c8f8d44b520ee4ad4fe9c75275ec2cf34be744e511bb3a6d781afba170602f
-
-training log:
-e8cb0a81682995d8f21c09ac4a4e5b85de3ef9da012feb60c0304aa953854d6c
+6a2031c5061501630aff31e9444d63c1c8b5095e4be1a996f0533b45201dcf0d
 ```
 
 ## Stage 35: context scaling 128 to 256
 
-`35_context_scaling.py` resumes genuine scaling experiments with the topology
-selected by Stages 32 through 34. Both branches use the same six-layer
-Last2Full architecture:
+`35_context_scaling.py` resumes genuine scaling experiments with the
+six-layer Last2Full architecture. The earlier XPU run selected that topology
+from the Stage 32-34 sweep; the CUDA reproduction of those stages did not
+reproduce the branch ordering, so Last2Full is retained here only as the
+predeclared fixed topology for the context-scaling question, not as a
+reproduced winner. Both branches use it:
 
 ```text
 C=128, H=4, D=32, FF=512, L=6, dropout=0.10
@@ -5548,16 +5463,16 @@ The canonical initialization boundary is pinned as follows:
 
 ```text
 T128 initial state:
-e6e8d393ca8b854f6af04222d2e99c244934f8c8b3c61fab5a0ea4592ae18034
+21e22725e018aae6ff665fc23276db732f948bfabeae2a8fa760056ce8e7f55c
 
 T256 initial state:
-a05fad1a3ce76c66b7aebf5233aa4276ac91dcd3f6126e69399ef1358cd3f1bb
+5750dcf1fed68f219132bf5f0f6662be3288de324e4bc6775aa56f0d32bb0078
 
 shared learned parameters:
-41e65d2cf9951f493c4b4a120dd06bd7c76cde17864d0c77c6d6a83f6261673b
+6552eed6e96708d1d3eef98f0a3578c92cc77d6deb2e5159cd65144979d42437
 
 new T256 position rows 128-255:
-48330f2d163c177a885f2c78599092ecac8e6fa2c9a29ff33c99b3cb584a4a6b
+31049f71125a3821b560513b3e28f6a2c273311f596bb9979f615eb96ed1a6f9
 ```
 
 The learned parameter counts are 1,220,673 at T128 and 1,237,057 at T256.
@@ -5609,16 +5524,17 @@ batch shapes differ.
 Run the canonical experiment from the repository root with:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\35_context_scaling.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_35_training.log
+python .\my-gpt\35_context_scaling.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\35_35_context_scaling.log
 ```
 
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 It creates only fresh Stage 35 artifacts:
 
 ```text
 my-gpt/checkpoints/stage_35_last_two_global_context_128_best_checkpoint.pt
 my-gpt/checkpoints/stage_35_last_two_global_context_256_best_checkpoint.pt
-my-gpt/checkpoints/stage_35_training.log
 ```
 
 Run the focused geometry, topology, initialization, checkpoint, paired-stream,
@@ -5641,76 +5557,74 @@ outcome follows.
 
 ### Canonical outcome
 
-The canonical XPU run completed all 18,000 updates for both branches. Each
-branch independently selected step 13,500 on the fixed validation panel:
+The canonical CUDA run completed all 18,000 updates for both branches. The
+control selected step 11,000 and the treatment selected step 13,500 on the
+fixed validation panel:
 
 | Branch | Selected train loss | Selected validation loss | Gap |
 | --- | ---: | ---: | ---: |
-| T128 control | 1.1138 | 1.4811 | 0.3673 |
-| T256 treatment | 1.1009 | **1.4582** | 0.3573 |
+| T128 control | 1.1497 | 1.4755 | 0.3258 |
+| T256 treatment | 1.1015 | **1.4562** | 0.3546 |
 
-The fixed-panel validation delta was `-0.0229` in favor of T256. By step
-18,000, train/validation losses were `1.0909 / 1.4860` for T128 and
-`1.0784 / 1.4633` for T256. Training loss continued to fall after the
-selected checkpoint while validation loss worsened by about `0.005` in both
-branches, supporting the predeclared checkpoint-selection rule.
+The fixed-panel validation delta was `-0.0193` in favor of T256. By step
+18,000, train/validation losses were `1.0896 / 1.4776` for T128 and
+`1.0790 / 1.4596` for T256, so the final-step delta was `-0.0179` in the same
+direction. Training loss continued to fall after the selected checkpoint in
+both branches while validation loss worsened, supporting the predeclared
+checkpoint-selection rule.
 
 Fresh evaluation on 500 paired validation panels at seed 1,352 confirmed the
 advantage:
 
 | Paired endpoint | T128 loss | T256 loss | T256 - T128 | 95% CI |
 | --- | ---: | ---: | ---: | ---: |
-| Overall | 1.507368 | **1.481100** | -0.026269 | [-0.027850, -0.024687] |
-| Positions 000-127 | 1.508572 | **1.498185** | -0.010387 | [-0.012540, -0.008235] |
-| Positions 128-255 | 1.506165 | **1.464015** | -0.042150 | [-0.044421, -0.039878] |
+| Overall | 1.495253 | **1.479783** | -0.015470 | [-0.017091, -0.013848] |
+| Positions 000-127 | 1.496628 | 1.496675 | +0.000047 | [-0.002065, +0.002159] |
+| Positions 128-255 | 1.493878 | **1.462891** | -0.030986 | [-0.033243, -0.028729] |
 
-The direct continuation endpoint was therefore clearly negative: the T256
-branch, which retained the preceding 128 characters, lowered loss over
-positions 128-255 by `0.042150` in this paired run. Its advantage was
-`0.031763` larger than the prefix advantage. The predeclared 32-position
-bands localized the effect:
+The direct continuation endpoint was clearly negative: the T256 branch, which
+retained the preceding 128 characters, lowered loss over positions 128-255 by
+`0.030986` in this paired run. The near-zero prefix delta is the expected
+result, since both models have the same directly available token history and
+position indices over `000-127`. The predeclared 32-position bands localized
+the effect:
 
 | Continuation band | T256 - T128 | 95% CI |
 | --- | ---: | ---: |
-| 128-159 | -0.109444 | [-0.114483, -0.104405] |
-| 160-191 | -0.024597 | [-0.029217, -0.019977] |
-| 192-223 | -0.017400 | [-0.022065, -0.012734] |
-| 224-255 | -0.017159 | [-0.021560, -0.012758] |
+| 128-159 | -0.101194 | [-0.106398, -0.095990] |
+| 160-191 | -0.008496 | [-0.012759, -0.004234] |
+| 192-223 | -0.008559 | [-0.012792, -0.004325] |
+| 224-255 | -0.005696 | [-0.009905, -0.001487] |
 
-Every continuation-band interval excludes zero and favors T256. The largest
-gain occurred immediately after the T128 reset boundary, but the final band
-retained a clear `0.017159` advantage. Under this protocol, the corpus is not
-context-saturated at 128 characters for Last2Full: useful predictive
-information remains beyond that boundary, so further context scaling is a
-better-supported next experiment than pivoting immediately to data scaling.
+Every continuation-band interval excludes zero and favors T256. As in the
+earlier run the largest gain occurred immediately after the T128 reset
+boundary, and the final band retained a smaller but still clear `0.005696`
+advantage. Under this protocol, the corpus is not context-saturated at 128
+characters for Last2Full: useful predictive information remains beyond that
+boundary, so further context scaling is a better-supported next experiment
+than pivoting immediately to data scaling. The specific positionwise
+magnitudes differ from the earlier XPU run, but the direction, the reset-
+boundary concentration, and the surviving final-band advantage reproduce.
 
-The `000-127` prefix also favored T256 even though both models had the same
-directly available token history and position indices there. That
-`-0.010387` delta reflects learned-weight differences induced by the two
-training conditions, not direct access to earlier characters at those
-positions. The larger continuation result is consistent with an additional
-context-availability benefit, but its full magnitude should not be attributed
-mechanically to the extra visible tokens. The conclusion remains conditional
-on this one corpus, initialization, paired training stream, device, and
-backend; the panel intervals do not measure training-seed variation.
+The conclusion remains conditional on this one corpus, initialization, paired
+training stream, device, and backend; the panel intervals do not measure
+training-seed variation.
 
-The disposable dense-kernel benchmark measured 41,267.779 target
-characters/s for T128 and 36,478.717 for T256, making T256 11.605% slower at
-the same 2,048 targets per update. Peak allocated memory increased from
+The disposable dense-kernel benchmark measured 133.779 iterations/s
+(273,979.027 target characters/s) for T128 and 115.049 iterations/s
+(235,620.219 target characters/s) for T256, making T256 14.0% slower at the
+same 2,048 targets per update. Peak allocated memory increased from
 145.607 MiB to 175.421 MiB. These are implementation- and device-specific
 measurements rather than claims about sparse-topology scaling.
 
 The authenticated Stage 35 artifacts are:
 
 ```text
-T128 best checkpoint, step 13,500:
-24376fcbc7de920e6f163edae1604201aada2861c256c0d7f9e60d82f481b7f0
+T128 best checkpoint, step 11,000:
+04b225c3ce2a059d5efe9e6bf578f794bee299024944fd9720cea82f90eb7e2c
 
 T256 best checkpoint, step 13,500:
-c90e172af1327e371f5e9fccf274a95c36c43d19c5123369e33066f03da9e05e
-
-training log:
-143c97158e27f5c091992538dfcc258050ac5561695d0ed1ea8e2d30a85792d9
+fcd19165d1940756420b3e3ab8400b04f0c6e7ef284b4a8150f4f122ad11f4c6
 ```
 
 ## Stage 36: context scaling 256 to 512
@@ -5752,16 +5666,16 @@ The canonical initialization boundary is pinned as:
 
 ```text
 T256 initial state:
-ec43171118d5614bebe6fd49a7d04eca9cb4d2e8c1682c911d38fce3a873b0b9
+3ff7379232bb00a0771bddadc2a7b33c6e935d35f498f18968f02411564cb4e2
 
 T512 initial state:
-68aaf6ff729b74ccf6049a864cdde8629f6e5294ab80d87e404f398543aa10b6
+03973475575fcc88c0ca4c45ee8c9af502735b63248cd55216ac2647af1a519f
 
 shared learned parameters:
-2ab2ba5c501de66e8c6f1d431ee29e210e15227cd16865ffcf2808fb54242a07
+1d6aca1899e69b00183d6805feca998d3878b4cce40c76253fe0e3b6bca8d265
 
 new T512 position rows 256-511:
-67a6bdbcc0d028a2d0babbdd62ff86362b35740033270c62d784fc6f2e5f29c8
+b52ad22fa0d47f1eae618f155d5ec89131b092f9121a800adb3c330983c7b8a1
 ```
 
 The models contain 1,237,057 and 1,269,825 learned parameters. The difference
@@ -5808,16 +5722,17 @@ differ.
 Run the canonical experiment from the repository root:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\36_context_scaling.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_36_training.log
+python .\my-gpt\36_context_scaling.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\36_36_context_scaling.log
 ```
 
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 It creates only fresh Stage 36 artifacts:
 
 ```text
 my-gpt/checkpoints/stage_36_last_two_global_context_256_best_checkpoint.pt
 my-gpt/checkpoints/stage_36_last_two_global_context_512_best_checkpoint.pt
-my-gpt/checkpoints/stage_36_training.log
 ```
 
 Run the focused tests with:
@@ -5837,53 +5752,52 @@ outcome follows.
 
 ### Canonical outcome
 
-The canonical XPU run completed all 18,000 updates for both branches without
-an error or non-finite metric. The initial common-prefix audit measured a
-maximum logit difference of `7.153e-07`, within the predeclared `1e-6`
-tolerance. Both branches independently selected step 15,000:
+The canonical CUDA run completed all 18,000 updates for both branches without
+an error or non-finite metric. The T256 control selected step 15,000 and the
+T512 treatment selected step 13,500:
 
 | Branch | Selected train loss | Selected validation loss | Gap |
 | --- | ---: | ---: | ---: |
-| T256 control | 1.1062 | **1.4854** | 0.3792 |
-| T512 treatment | 1.1334 | 1.4862 | 0.3528 |
+| T256 control | 1.1043 | **1.4868** | 0.3824 |
+| T512 treatment | 1.1466 | 1.4882 | 0.3416 |
 
-The fixed-panel validation delta was `+0.0008`, slightly favoring T256. By
-step 18,000, train/validation losses were `1.0923 / 1.4903` for T256 and
-`1.1212 / 1.4915` for T512. Validation loss had risen by approximately
-`0.0049` and `0.0053` from the selected checkpoints while training loss
-continued to fall.
+The fixed-panel validation delta was `+0.0014`, slightly favoring T256. By
+step 18,000, train/validation losses were `1.0909 / 1.4950` for T256 and
+`1.1241 / 1.4956` for T512, a final-step delta of `+0.0005` in the same
+direction.
 
 Fresh evaluation on 500 paired validation panels at seed 1,353 found no
 overall difference:
 
 | Paired endpoint | T256 loss | T512 loss | T512 - T256 | 95% CI |
 | --- | ---: | ---: | ---: | ---: |
-| Overall | 1.489454 | 1.489442 | -0.000012 | [-0.001915, +0.001891] |
-| Positions 000-255 | **1.485166** | 1.498064 | +0.012898 | [+0.010492, +0.015304] |
-| Positions 256-511 | 1.493742 | **1.480820** | -0.012921 | [-0.015662, -0.010180] |
+| Overall | 1.490422 | 1.490324 | -0.000098 | [-0.001846, +0.001650] |
+| Positions 000-255 | **1.487434** | 1.499473 | +0.012039 | [+0.009770, +0.014307] |
+| Positions 256-511 | 1.493409 | **1.481175** | -0.012234 | [-0.014804, -0.009664] |
 
-The near-zero overall delta is a cancellation, not uniform equivalence.
-T512 was worse over positions 000-255, where both branches had the same
-directly available history and position indices. That prefix difference
-therefore reflects learned-weight differences induced by the training
-conditions rather than direct access to characters before position zero.
-T512 was better over the second half, but the 64-character diagnostics
-localized almost all of that gain immediately after the T256 reset:
+The near-zero overall delta is a cancellation, not uniform equivalence. T512
+was worse over positions 000-255, where both branches had the same directly
+available history and position indices. That prefix difference therefore
+reflects learned-weight differences induced by the training conditions rather
+than direct access to characters before position zero. T512 was better over
+the second half, but the 64-character diagnostics localized almost all of that
+gain immediately after the T256 reset:
 
 | Continuation band | T512 - T256 | 95% CI |
 | --- | ---: | ---: |
-| 256-319 | **-0.050703** | [-0.055858, -0.045547] |
-| 320-383 | -0.002158 | [-0.007021, +0.002704] |
-| 384-447 | +0.004661 | [-0.000470, +0.009792] |
-| 448-511 | -0.003486 | [-0.008493, +0.001521] |
+| 256-319 | **-0.048329** | [-0.053396, -0.043263] |
+| 320-383 | -0.000854 | [-0.005563, +0.003854] |
+| 384-447 | -0.000899 | [-0.005658, +0.003860] |
+| 448-511 | +0.001147 | [-0.003461, +0.005755] |
 
 Only the reset-adjacent `256-319` band clearly favored T512. Every later
-interval included zero, including the predeclared critical `448-511` band.
-This is the predeclared reset-gain-then-tie pattern: the large reset-adjacent
-gain is consistent with a benefit from retaining context across the
-artificial T256 boundary, but this run does not resolve a persistent advantage
-deeper into positions 320-511. In contrast, Stage 35's final continuation
-band retained a clear `-0.017159` advantage.
+interval included zero, including the predeclared critical `448-511` band,
+which slightly favored T256. This reproduces the earlier XPU run's reset-gain-
+then-tie pattern: the large reset-adjacent gain is consistent with a benefit
+from retaining context across the artificial T256 boundary, but this run does
+not resolve a persistent advantage deeper into positions 320-511. As in the
+earlier run and unlike Stage 35's final band, the benefit does not survive to
+the end of the continuation.
 
 Under this architecture and corpus, Stage 36 therefore supports treating
 useful context as approximately saturated around 256 characters and pivoting
@@ -5893,23 +5807,22 @@ backend. The panel intervals quantify held-out-panel variation for these
 checkpoints; they do not measure training-seed variation or prove that longer
 context has no value under another training regime.
 
-The disposable dense-kernel benchmark measured 37,051.203 target
-characters/s for T256 and 29,388.704 for T512, making T512 20.681% slower at
-the same 2,048 targets per update. Peak allocated memory increased by
-70.877 MiB, from 175.421 MiB to 246.298 MiB. These measurements are specific
-to the Intel Arc 140T XPU implementation used for this run.
+The disposable dense-kernel benchmark measured 78.906 iterations/s
+(161,599.179 target characters/s) for T512, against 115.049 iterations/s
+(235,620.219 target characters/s) for T256 measured in Stage 35 on the same
+device, making T512 roughly 31% slower at the same 2,048 targets per update.
+Peak allocated memory for T512 was 264.548 MiB against 193.671 MiB for T256.
+These are implementation- and device-specific measurements from this
+repository's CUDA run.
 
 The hash-verified Stage 36 artifacts are:
 
 ```text
 T256 best checkpoint, step 15,000:
-e8961efa7d8a39ee1eb79a0959bc3653ecadd8ca6a5eb53df279a7ff0116374c
+390e83b4b4ae37fb92871418407930246e4f918f20c8218f0d9b3ca3b66e47ca
 
-T512 best checkpoint, step 15,000:
-314582c5edb8c0a3159ddf55ed9eb046ddf4bda8b9c13a856a29db7f0a089e19
-
-training log:
-b7385f719d1296d94073b04e810207255f5664972107b7888dc01056de0244c7
+T512 best checkpoint, step 13,500:
+c92e4d1dee2c6713f0c0c56528f3063e457bd7ada5512c5346c244ed41885228
 ```
 
 ## Stage 37: TinyShakespeare to Complete Shakespeare data scaling
@@ -5963,7 +5876,7 @@ head are larger. The fresh seed-1,337 Complete Shakespeare initial state is
 pinned at:
 
 ```text
-7a5b19780a98d02b4660b9e8f0d89715026ee9b7ae6439aaab320d41e8221726
+2c814ef1db35464fd011c26d4ff647c759b8cea8a040347ffe05bde5f1cb9f7a
 ```
 
 Stage 37 starts from that corpus-specific initialization. It does not load or
@@ -5976,14 +5889,21 @@ The immutable Stage 36 T256 reference is:
 
 | Historical run | Selected train / val | Selected step | Final train / val | Final step |
 | --- | ---: | ---: | ---: | ---: |
-| Stage 36 T256 | 1.1062 / 1.4854 | 15,000 | 1.0923 / 1.4903 | 18,000 |
+| Stage 36 T256 (XPU, predeclared) | 1.1062 / 1.4854 | 15,000 | 1.0923 / 1.4903 | 18,000 |
+| Stage 36 T256 (CUDA reproduction) | 1.1043 / 1.4868 | 15,000 | 1.0909 / 1.4950 | 18,000 |
 
-Its checkpoint SHA-256 is
-`e8961efa7d8a39ee1eb79a0959bc3653ecadd8ca6a5eb53df279a7ff0116374c`.
-The earlier Stage 35 T256 treatment is useful sensitivity context rather than
-an averaged control: it selected `1.1009 / 1.4582` at step 13,500 and ended at
-`1.0784 / 1.4633`. The difference between those two historical T256 runs is a
-warning against over-interpreting one initialization and training stream.
+The predeclared control's checkpoint SHA-256 is
+`e8961efa7d8a39ee1eb79a0959bc3653ecadd8ca6a5eb53df279a7ff0116374c`; the CUDA
+reproduction's is
+`390e83b4b4ae37fb92871418407930246e4f918f20c8218f0d9b3ca3b66e47ca`.
+The two agree to the displayed fourth decimal on selection and differ only
+slightly at the final step, which is the usual device-dependent margin seen
+elsewhere in this repository. The Stage 35 T256 treatment in this reproduction is
+useful sensitivity context rather than an averaged control: it selected
+`1.1015 / 1.4562` at step 13,500 and ended at `1.0790 / 1.4596`. Its selection
+is 1,500 updates later than either Stage 36 T256 run and its loss is lower, so
+the spread among these T256 runs is a warning against over-interpreting one
+initialization and training stream.
 
 Native validation losses across TinyShakespeare and Complete Shakespeare are
 descriptive, not a paired causal delta. The supplied corpora change the
@@ -6005,15 +5925,16 @@ visible.
 Run the one canonical treatment from the repository root:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\37_data_scaling.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_37_training.log
+python .\my-gpt\37_data_scaling.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\37_37_data_scaling.log
 ```
 
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 It creates only fresh Stage 37 artifacts:
 
 ```text
 my-gpt/checkpoints/stage_37_complete_shakespeare_best_checkpoint.pt
-my-gpt/checkpoints/stage_37_training.log
 ```
 
 Run the focused corpus, topology, sampler, initialization, budget, and
@@ -6029,80 +5950,84 @@ outcome follows.
 
 ### Canonical outcome
 
-The one requested Complete Shakespeare treatment completed all 18,000 XPU
+The one requested Complete Shakespeare treatment completed all 18,000 CUDA
 updates without a non-finite metric or checkpoint error. No TinyShakespeare
 branch was loaded or retrained. The full fixed-panel curve was:
 
 | Step | LR | Train loss | Validation loss | Gap |
 | ---: | ---: | ---: | ---: | ---: |
-| 0 | `1e-3` | 4.7287 | 4.7237 | -0.0049 |
-| 500 | `1e-3` | 2.1711 | 2.2218 | 0.0507 |
-| 1,000 | `1e-3` | 1.9381 | 1.9932 | 0.0551 |
-| 1,500 | `1e-3` | 1.7813 | 1.8607 | 0.0794 |
-| 2,000 | `1e-3` | 1.6768 | 1.7789 | 0.1022 |
-| 2,500 | `1e-3` | 1.5963 | 1.7145 | 0.1182 |
-| 3,000 | `1e-3` | 1.5501 | 1.6900 | 0.1398 |
-| 3,500 | `1e-3` | 1.5087 | 1.6426 | 0.1339 |
-| 4,000 | `1e-3` | 1.4726 | 1.6222 | 0.1496 |
-| 4,500 | `1e-3` | 1.4487 | 1.6054 | 0.1567 |
-| 5,000 | `1e-3` | 1.4295 | 1.5889 | 0.1594 |
-| 5,500 | `1e-3` | 1.4092 | 1.5749 | 0.1657 |
-| 6,000 | `1e-3` | 1.3963 | 1.5680 | 0.1717 |
-| 6,500 | `1e-3` | 1.3765 | 1.5522 | 0.1756 |
-| 7,000 | `1e-3` | 1.3645 | 1.5410 | 0.1765 |
-| 7,500 | `1e-3` | 1.3504 | 1.5324 | 0.1820 |
-| 8,000 | `1e-3` | 1.3474 | 1.5348 | 0.1874 |
-| 8,500 | `1e-3` | 1.3331 | 1.5178 | 0.1847 |
-| 9,000 | `1e-3` | 1.3250 | 1.5155 | 0.1905 |
-| 9,500 | `1e-3` | 1.3143 | 1.5036 | 0.1892 |
-| 10,000 | `1e-3` | 1.3085 | 1.4993 | 0.1908 |
-| 10,500 | `3e-4` | 1.2712 | 1.4684 | 0.1972 |
-| 11,000 | `3e-4` | 1.2648 | 1.4652 | 0.2004 |
-| 11,500 | `3e-4` | 1.2574 | 1.4602 | 0.2028 |
-| 12,000 | `3e-4` | 1.2541 | 1.4573 | 0.2032 |
-| 12,500 | `3e-4` | 1.2496 | 1.4551 | 0.2056 |
-| 13,000 | `3e-4` | 1.2481 | 1.4533 | 0.2052 |
-| 13,500 | `1e-4` | 1.2361 | 1.4434 | 0.2074 |
-| 14,000 | `1e-4` | 1.2336 | 1.4417 | 0.2081 |
-| 14,500 | `1e-4` | 1.2309 | 1.4397 | 0.2088 |
-| 15,000 | `1e-4` | 1.2294 | 1.4388 | 0.2094 |
-| 15,500 | `1e-4` | 1.2279 | 1.4380 | 0.2101 |
-| 16,000 | `1e-4` | 1.2262 | 1.4364 | 0.2103 |
-| 16,500 | `1e-4` | 1.2251 | 1.4372 | 0.2122 |
-| 17,000 | `1e-4` | 1.2236 | 1.4354 | 0.2118 |
-| 17,500 | `1e-4` | **1.2216** | **1.4340** | 0.2124 |
-| 18,000 | `1e-4` | 1.2212 | 1.4352 | 0.2140 |
+| 0 | `0.001` | 4.7287 | 4.7237 | -0.0049 |
+| 500 | `0.001` | 2.1729 | 2.2260 | 0.0531 |
+| 1,000 | `0.001` | 1.9366 | 1.9908 | 0.0542 |
+| 1,500 | `0.001` | 1.7781 | 1.8552 | 0.0772 |
+| 2,000 | `0.001` | 1.6727 | 1.7735 | 0.1009 |
+| 2,500 | `0.001` | 1.5956 | 1.7163 | 0.1208 |
+| 3,000 | `0.001` | 1.5482 | 1.6864 | 0.1383 |
+| 3,500 | `0.001` | 1.5054 | 1.6390 | 0.1336 |
+| 4,000 | `0.001` | 1.4734 | 1.6249 | 0.1514 |
+| 4,500 | `0.001` | 1.4500 | 1.6091 | 0.1591 |
+| 5,000 | `0.001` | 1.4260 | 1.5905 | 0.1645 |
+| 5,500 | `0.001` | 1.4068 | 1.5768 | 0.1700 |
+| 6,000 | `0.001` | 1.3947 | 1.5684 | 0.1737 |
+| 6,500 | `0.001` | 1.3787 | 1.5534 | 0.1746 |
+| 7,000 | `0.001` | 1.3647 | 1.5460 | 0.1813 |
+| 7,500 | `0.001` | 1.3528 | 1.5335 | 0.1807 |
+| 8,000 | `0.001` | 1.3486 | 1.5333 | 0.1847 |
+| 8,500 | `0.001` | 1.3348 | 1.5155 | 0.1807 |
+| 9,000 | `0.001` | 1.3275 | 1.5182 | 0.1907 |
+| 9,500 | `0.001` | 1.3145 | 1.5024 | 0.1878 |
+| 10,000 | `0.001` | 1.3085 | 1.5009 | 0.1924 |
+| 10,500 | `0.0003` | 1.2705 | 1.4694 | 0.1988 |
+| 11,000 | `0.0003` | 1.2633 | 1.4686 | 0.2052 |
+| 11,500 | `0.0003` | 1.2567 | 1.4628 | 0.2060 |
+| 12,000 | `0.0003` | 1.2515 | 1.4587 | 0.2073 |
+| 12,500 | `0.0003` | 1.2477 | 1.4572 | 0.2095 |
+| 13,000 | `0.0003` | 1.2460 | 1.4524 | 0.2064 |
+| 13,500 | `0.0001` | 1.2340 | 1.4433 | 0.2093 |
+| 14,000 | `0.0001` | 1.2320 | 1.4416 | 0.2097 |
+| 14,500 | `0.0001` | 1.2289 | 1.4414 | 0.2125 |
+| 15,000 | `0.0001` | 1.2277 | 1.4414 | 0.2137 |
+| 15,500 | `0.0001` | 1.2258 | 1.4387 | 0.2128 |
+| 16,000 | `0.0001` | 1.2241 | 1.4376 | 0.2136 |
+| 16,500 | `0.0001` | 1.2225 | 1.4378 | 0.2152 |
+| 17,000 | `0.0001` | 1.2212 | 1.4364 | 0.2151 |
+| 17,500 | `0.0001` | 1.2193 | 1.4358 | 0.2165 |
+| 18,000 | `0.0001` | **1.2188** | **1.4352** | 0.2165 |
 
-The strict checkpoint rule selected step 17,500 at train/validation loss
-`1.2216 / 1.4340`. Step 18,000 lowered training loss to `1.2212` while
-validation rose slightly to `1.4352`, a post-best reversal of only `+0.0012`.
-There were two isolated validation increases at steps 8,000 and 16,500, but
-both were followed by new lows. The run therefore ended near, rather than
-clearly past, its validation optimum.
+The strict checkpoint rule selected the final step 18,000 at train/validation
+loss `1.2188 / 1.4352`, with no post-best reversal. Validation rose at steps
+9,000 and 16,500 but both increases were followed by new lows; every other
+evaluation improved. The Complete Shakespeare treatment therefore never
+plateaued within the 18,000-update budget, which is a different selection
+behavior from the earlier XPU run, where the best arrived 500 updates before
+the end.
 
-Descriptively, the Complete Shakespeare treatment selected 2,500 updates
-later than the Stage 36 Tiny control (17,500 versus 15,000), had a much smaller
-post-best reversal (`+0.0012` versus approximately `+0.0049`), and ended with
-a smaller within-run generalization gap (`0.2140` versus `0.3980`). This is the
-predicted delayed-overfitting pattern: spreading the same 36.864 million
-target presentations over 4.7909 times as much training text kept validation
-improving almost to the compute boundary.
+Descriptively, the Complete Shakespeare treatment selected at the end of the
+budget with a within-run generalization gap of `0.2165`, against the Stage 36
+Tiny control's `0.3824` at its step-15,000 optimum. The control's own numbers
+come from the CUDA Stage 36 reproduction; the predeclared historical control
+recorded in this stage's metadata is the earlier XPU Stage 36 run
+(`1.1062 / 1.4854` selected at step 15,000, `1.0923 / 1.4903` final). Both
+readings support the same qualitative conclusion: spreading the same 36.864
+million target presentations over 4.7909 times as much training text keeps
+validation improving to the compute boundary rather than turning over early.
 
 Those comparisons remain evidence about the supplied data treatment, not a
 clean corpus-size-only causal estimate. Vocabulary size, output-head size,
 held-out text distribution, initialization shape, and sampled characters also
 changed. In particular, the lower native Complete Shakespeare validation loss
-must not be read as a paired `-0.0514` improvement over TinyShakespeare; Stage
-37 intentionally does not report that delta or a winner.
+must not be read as a paired improvement over TinyShakespeare; Stage 37
+intentionally does not report that delta or a winner.
+
+Because the selected checkpoint coincides with the terminal evaluation, Stage
+38 can restore the authenticated step-18,000 state directly instead of
+replaying updates `[17500,18000)`.
 
 The authenticated Stage 37 artifacts are:
 
 ```text
-Complete Shakespeare best checkpoint, step 17,500:
-3abbea5e0c5fbaf31bfe8696fba7813fe9f8684a60f5deba57c930e7590906d7
-
-training log:
-a75fbdcd1c9fa97a888bd909f866a1d56e1faf92659da0b19314fe6c421c341c
+Complete Shakespeare best checkpoint, step 18,000:
+b163476632ef4d5954f0fe28dbf3f2c2c67ca4eb922f62762b29b989214b4168
 ```
 
 ## Stage 38: Extended Complete Shakespeare training
@@ -6124,46 +6049,45 @@ seed 1,339, with 100 batches per split, and runs at every absolute multiple of
 500 updates. Stage 38 changes neither the architecture, corpus, vocabulary,
 split, sampler geometry, evaluation panel, nor checkpoint-selection metric.
 
-### Full-state restore and the missing step-18,000 endpoint
+### Boundary restore without replay
 
-Stage 37 persisted its strict selected-best checkpoint at step 17,500, not its
-final step-18,000 state. The authenticated source is:
+The Stage 37 CUDA reproduction selected its best at the final step-18,000
+evaluation, so its persisted selected-best checkpoint already is the terminal
+state. The authenticated source is:
 
 ```text
 my-gpt/checkpoints/stage_37_complete_shakespeare_best_checkpoint.pt
-SHA-256: 3abbea5e0c5fbaf31bfe8696fba7813fe9f8684a60f5deba57c930e7590906d7
+SHA-256: b163476632ef4d5954f0fe28dbf3f2c2c67ca4eb922f62762b29b989214b4168
 ```
 
-That checkpoint contains the step-17,500 model weights, AdamW moments,
-training-batch generator state, and CPU/XPU random-number-generator states.
-The canonical Stage 38 run requires the recorded device, backend, and PyTorch
-runtime, restores all of those states without restarting AdamW, and replays
-the 500 update indices in `[17500,18000)` at `1e-4`. It then evaluates the
-reconstructed step-18,000 state on the unchanged fixed panel. The replay audit
-requires the train and validation losses to match Stage 37's reported
-four-decimal endpoint, `1.2212 / 1.4352`, before the extension proceeds.
+That checkpoint contains the step-18,000 model weights, AdamW moments,
+training-batch generator state, and CPU/CUDA random-number-generator states.
+Because it sits exactly on the reconstruction boundary, Stage 38 restores all
+of those states without restarting AdamW and performs zero replay updates; the
+boundary audit re-evaluates the restored state on the unchanged fixed panel
+and requires the train and validation losses to match Stage 37's reported
+four-decimal endpoint, `1.2188 / 1.4352`, before the extension proceeds.
 
-This is the strongest reconstruction supported by the available artifacts,
-but it is not proof of byte identity to the lost Stage 37 endpoint. No
-step-18,000 model, optimizer, or RNG snapshot survived for a tensor-by-tensor
-comparison. Stage 38 therefore labels the boundary artifact as reconstructed
-and records that byte identity is not provable, even when the runtime and
-four-decimal loss audit match.
+This removes the earlier run's reconstruction ambiguity: the boundary artifact
+is a copy of an authenticated persisted state rather than a replay-derived
+reconstruction, and byte identity to the Stage 37 terminal evaluation is
+therefore provable by hash rather than inferred from loss agreement. The
+replay-audit machinery is retained and now runs as a zero-update check.
 
 ### Fourth learning-rate phase
 
-After reconstructing step 18,000, the same model continues for 7,000 updates:
+From the restored step-18,000 boundary, the same model continues for 7,000
+updates:
 
 ```text
-[17500,18000)  lr=1e-4  deterministic Stage 37 replay
 [18000,25000)  lr=3e-5  Stage 38 extension
 ```
 
 The first update at `3e-5` has zero-based update index 18,000. Measurements
 remain on the absolute 500-update grid through step 25,000. Strict fixed-panel
 validation improvement selects the best checkpoint across the inherited
-step-17,500 result and all reconstructed or extended evaluations. The final
-endpoint is saved independently even if validation has already bottomed out.
+step-18,000 result and all extended evaluations. The final endpoint is saved
+independently even if validation has already bottomed out.
 
 The canonical run creates distinct artifacts for the scientific roles of
 selection, reconstruction audit, and future continuation:
@@ -6172,15 +6096,17 @@ selection, reconstruction audit, and future continuation:
 my-gpt/checkpoints/stage_38_complete_shakespeare_extended_best_checkpoint.pt
 my-gpt/checkpoints/stage_38_complete_shakespeare_step_18000_reconstructed_checkpoint.pt
 my-gpt/checkpoints/stage_38_complete_shakespeare_step_25000_final_checkpoint.pt
-my-gpt/checkpoints/stage_38_training.log
 ```
 
 Run the predeclared continuation from the repository root:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\38_extended_training.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_38_training.log
+python .\my-gpt\38_extended_training.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\38_38_extended_training.log
 ```
+
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 
 Run the focused schedule-boundary, source-runtime contract, absolute-step
 training, reconstruction-callback, path, and checkpoint round-trip tests with:
@@ -6195,46 +6121,45 @@ follows.
 
 ### Canonical outcome
 
-The canonical XPU run completed the 500-update reconstruction and all 7,000
-new extension updates without a non-finite metric, replay-audit failure, or
-checkpoint error. The reconstructed step-18,000 state reproduced Stage 37's
-reported endpoint at `1.2212 / 1.4352` on the fixed train/validation panel.
-Its full-precision losses were `1.2211679792404175 / 1.4351774489879607`.
-This four-decimal agreement validates the replay protocol, but it does not
-prove byte identity to the Stage 37 endpoint that was not saved.
+The canonical CUDA run restored the authenticated step-18,000 state, completed
+its zero-update boundary audit, and ran all 7,000 extension updates without a
+non-finite metric, replay-audit failure, or checkpoint error. Because the
+Stage 37 selected-best checkpoint is itself the step-18,000 terminal state,
+the boundary artifact is a byte-identical copy of an authenticated persisted
+checkpoint rather than a replay reconstruction. The audit re-evaluated that
+state at `1.2188 / 1.4352` on the fixed train/validation panel, matching
+Stage 37's reported endpoint.
 
 | Step | LR | Train loss | Validation loss | Gap |
 | ---: | ---: | ---: | ---: | ---: |
-| 17,500 | `1e-4` | 1.2216 | 1.4340 | 0.2124 |
-| 18,000 | `1e-4` | 1.2212 | 1.4352 | 0.2140 |
-| 18,500 | `3e-5` | 1.2186 | 1.4315 | 0.2129 |
-| 19,000 | `3e-5` | 1.2175 | 1.4316 | 0.2141 |
-| 19,500 | `3e-5` | 1.2168 | 1.4306 | 0.2139 |
-| 20,000 | `3e-5` | 1.2162 | 1.4300 | 0.2137 |
-| 20,500 | `3e-5` | 1.2159 | 1.4296 | 0.2137 |
-| 21,000 | `3e-5` | 1.2154 | 1.4301 | 0.2147 |
-| 21,500 | `3e-5` | 1.2150 | 1.4297 | 0.2147 |
-| 22,000 | `3e-5` | 1.2143 | 1.4291 | 0.2148 |
-| 22,500 | `3e-5` | 1.2140 | 1.4293 | 0.2153 |
-| 23,000 | `3e-5` | 1.2135 | 1.4294 | 0.2159 |
-| 23,500 | `3e-5` | 1.2128 | 1.4280 | 0.2152 |
-| 24,000 | `3e-5` | 1.2125 | 1.4278 | 0.2153 |
-| 24,500 | `3e-5` | 1.2120 | 1.4280 | 0.2161 |
-| 25,000 | `3e-5` | **1.2115** | **1.4270** | **0.2155** |
+| 18,000 | `0.0001` | 1.2188 | 1.4352 | 0.2165 |
+| 18,500 | `3e-05` | 1.2162 | 1.4330 | 0.2168 |
+| 19,000 | `3e-05` | 1.2150 | 1.4324 | 0.2174 |
+| 19,500 | `3e-05` | 1.2142 | 1.4317 | 0.2175 |
+| 20,000 | `3e-05` | 1.2136 | 1.4305 | 0.2169 |
+| 20,500 | `3e-05` | 1.2134 | 1.4306 | 0.2172 |
+| 21,000 | `3e-05` | 1.2129 | 1.4310 | 0.2181 |
+| 21,500 | `3e-05` | 1.2125 | 1.4308 | 0.2182 |
+| 22,000 | `3e-05` | 1.2119 | 1.4306 | 0.2187 |
+| 22,500 | `3e-05` | 1.2113 | 1.4299 | 0.2186 |
+| 23,000 | `3e-05` | 1.2111 | 1.4313 | 0.2202 |
+| 23,500 | `3e-05` | 1.2104 | 1.4289 | 0.2185 |
+| 24,000 | `3e-05` | 1.2100 | 1.4292 | 0.2191 |
+| 24,500 | `3e-05` | 1.2096 | 1.4292 | 0.2195 |
+| 25,000 | `3e-05` | **1.2090** | **1.4288** | **0.2199** |
 
-The extension produced eight strict new validation lows: steps 18,500,
-19,500, 20,000, 20,500, 22,000, 23,500, 24,000, and 25,000. The temporary
-setbacks at 19,000, 21,000-21,500, 22,500-23,000, and 24,500 were all
-followed by lower validation losses. The selected checkpoint is therefore the
-terminal step 25,000 state, with full-precision train/validation losses of
-`1.2115179455280305 / 1.4270337796211243`.
+The extension produced three strict new validation lows: steps 18,500, 19,000,
+and 19,500, followed by a long plateau with further lows at 20,000, 22,500,
+23,500, and finally 25,000. The setbacks at 20,500-22,000, 23,000, and
+24,000-24,500 were all followed by lower validation losses. The selected
+checkpoint is therefore the terminal step 25,000 state, with full-precision
+train/validation losses of `1.2089601516723634 / 1.4288128101825714`. The
+validation reversal from best is `+0.0000` because the best is the endpoint.
 
-Relative to the reconstructed step-18,000 boundary, step 25,000 reduced train
-loss by `0.0096500337` and validation loss by `0.0081436694`. Relative to the
-authenticated Stage 37 checkpoint at step 17,500, it reduced train loss by
-`0.0100749534` and validation loss by `0.0069450939`. The generalization gap
-grew only from `0.2140094697` at the reconstructed boundary to `0.2155158341`
-at step 25,000 while validation continued to improve. This is useful fine
+Relative to the step-18,000 boundary, step 25,000 reduced train loss by
+`0.0098294371` and validation loss by `0.0064319956`. The generalization gap
+grew only from `0.2164552176` at the boundary to `0.2198526585` at step
+25,000 while validation continued to improve. This is useful fine
 optimization, not a sustained overfitting reversal.
 
 At 2,048 target presentations per update, step 25,000 represents 51.2 million
@@ -6244,17 +6169,17 @@ target presentations, approximately 2.981 training-split equivalents.
 
 Stage 38 answers its first question decisively: 18,000 updates were not
 enough under this schedule. It does not yet answer where validation bottoms
-out, because the strict global minimum occurs at the last evaluation. The
-clean next experiment is to resume the full step-25,000 state with the same
-`3e-5` learning rate, keep the 500-update evaluation grid, and extend modestly
-to about step 30,000. Changing the learning rate or architecture now would
-confound the attempt to locate the bottom of the current phase. Revisit depth
-or width only after this Complete Shakespeare compute baseline plateaus or
-reverses.
+out, because the strict global minimum again occurs at the last evaluation.
+The clean next experiment is to resume the full step-25,000 state with the
+same `3e-5` learning rate, keep the 500-update evaluation grid, and extend
+modestly to about step 30,000. Changing the learning rate or architecture now
+would confound the attempt to locate the bottom of the current phase. Revisit
+depth or width only after this Complete Shakespeare compute baseline plateaus
+or reverses.
 
 The conclusion is limited to one training stream and one repeatedly queried
 fixed evaluation panel; it has no uncertainty estimate. A fresh held-out
-panel comparison of the step-17,500 and step-25,000 checkpoints would be a
+panel comparison of the step-18,000 and step-25,000 checkpoints would be a
 cheap robustness check. Stage 38 isolates added compute plus the new learning-
 rate phase within Complete Shakespeare; by itself it is not a causal estimate
 of the effect of corpus size.
@@ -6263,16 +6188,13 @@ The authenticated Stage 38 artifacts are:
 
 ```text
 best checkpoint, step 25,000:
-07e895eac3dbaf70fc7a30023302bfcb605653107f985078d4e547a1f64b172b
+62e37eeeadf1c6c05b6d266f4065d0c96400cfd0deace611e77613d5a4a2c0cb
 
-reconstructed step-18,000 checkpoint:
-2ffd09caa2ddf327d0bf0644d2ebb5d07fe0b94f94338e287c41dcb437e14f56
+step-18,000 boundary checkpoint:
+fc171b0f2033bc17e29cab9cde5782f1c408ef6a6cccecfffe60d8589f0b5383
 
 final checkpoint, step 25,000:
-8393cf786920ebd5e7e89b1b121f7d2492381825b656fbd2ed98d022432561ac
-
-training log:
-43f944ca6a6519ca125bc798c697d3aafa9c84dcbfa975fec65d3982af148601
+2eb5a6401b9d7fff39e8a02469bfba746124051ea84ec5e39a3cc847fd224eff
 ```
 
 ## Stage 39: Complete Shakespeare compute extension
@@ -6302,13 +6224,13 @@ The authenticated source is Stage 38's unconditional terminal artifact:
 
 ```text
 my-gpt/checkpoints/stage_38_complete_shakespeare_step_25000_final_checkpoint.pt
-SHA-256: 8393cf786920ebd5e7e89b1b121f7d2492381825b656fbd2ed98d022432561ac
+SHA-256: 2eb5a6401b9d7fff39e8a02469bfba746124051ea84ec5e39a3cc847fd224eff
 ```
 
 It is a `final` checkpoint at step 25,000 and also records the strict selected
 minimum at that same step. It contains the model, all 138 AdamW moment states
 at optimizer step 25,000 and learning rate `3e-5`, the dedicated training-
-batch generator state, and the Torch CPU/XPU random-number-generator states.
+batch generator state, and the Torch CPU/CUDA random-number-generator states.
 Stage 39 authenticates the complete Stage 38 payload and requires the same
 PyTorch, backend, and device runtime. It constructs the model and performs all
 source diagnostics before restoring the saved global Torch RNG state last, so
@@ -6316,7 +6238,7 @@ the first resumed dropout draw follows the saved stream.
 
 Before any new update, the restored model is evaluated at step 25,000 on the
 unchanged fixed panel. Its train and validation losses must reproduce Stage
-38's `1.2115 / 1.4270` endpoint at four decimals. This is a restore audit, not
+38's `1.2090 / 1.4288` endpoint at four decimals. This is a restore audit, not
 a reconstruction: the exact terminal state exists and is loaded directly.
 
 Strict fixed-panel validation improvement selects the best checkpoint across
@@ -6327,7 +6249,6 @@ endpoint is saved separately even if validation has already reversed. Stage
 ```text
 my-gpt/checkpoints/stage_39_complete_shakespeare_extended_best_checkpoint.pt
 my-gpt/checkpoints/stage_39_complete_shakespeare_step_32000_final_checkpoint.pt
-my-gpt/checkpoints/stage_39_training.log
 ```
 
 At the target, the complete trajectory has presented 65.536 million target
@@ -6343,12 +6264,15 @@ checkpoint round-trip tests from the repository root:
     -p "test_extended_training_stage_39.py" -v
 ```
 
-Run the one predeclared XPU continuation with:
+Run the one predeclared continuation with:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\39_extended_training.py --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_39_training.log
+python .\my-gpt\39_extended_training.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\39_39_extended_training.log
 ```
+
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 
 The experiment asks whether validation now plateaus or reverses while the
 training loss continues downward. If the strict validation minimum still
@@ -6361,45 +6285,43 @@ follows.
 
 ### Canonical outcome
 
-The canonical XPU run restored the authenticated step-25,000 terminal state
+The canonical CUDA run restored the authenticated step-25,000 terminal state
 and completed all 7,000 new updates without a non-finite metric, source-audit
 failure, optimizer restart, or checkpoint error. Before the first new update,
-the restored model reproduced Stage 38's fixed-panel endpoint at `1.2115 /
-1.4270`. The full-precision source values were
-`1.2115179455280305 / 1.4270337796211243`.
+the restored model reproduced Stage 38's fixed-panel endpoint at `1.2090 /
+1.4288`, matching the source checkpoint exactly.
 
 | Step | LR | Train loss | Validation loss | Gap |
 | ---: | ---: | ---: | ---: | ---: |
-| 25,000 | `3e-5` | 1.2115 | 1.4270 | 0.2155 |
-| 25,500 | `3e-5` | 1.2112 | 1.4266 | 0.2153 |
-| 26,000 | `3e-5` | 1.2109 | 1.4272 | 0.2163 |
-| 26,500 | `3e-5` | 1.2102 | 1.4253 | 0.2151 |
-| 27,000 | `3e-5` | 1.2101 | 1.4259 | 0.2158 |
-| 27,500 | `3e-5` | 1.2096 | 1.4249 | 0.2153 |
-| 28,000 | `3e-5` | 1.2093 | 1.4250 | 0.2157 |
-| 28,500 | `3e-5` | 1.2085 | 1.4243 | 0.2158 |
-| 29,000 | `3e-5` | 1.2087 | 1.4254 | 0.2167 |
-| 29,500 | `3e-5` | 1.2081 | 1.4247 | 0.2165 |
-| 30,000 | `3e-5` | 1.2078 | 1.4242 | 0.2164 |
-| 30,500 | `3e-5` | 1.2078 | 1.4250 | 0.2172 |
-| 31,000 | `3e-5` | 1.2072 | 1.4236 | 0.2164 |
-| 31,500 | `3e-5` | 1.2069 | 1.4242 | 0.2174 |
-| 32,000 | `3e-5` | **1.2065** | **1.4235** | **0.2170** |
+| 25,000 | `3e-05` | 1.2090 | 1.4288 | 0.2199 |
+| 25,500 | `3e-05` | 1.2086 | 1.4279 | 0.2193 |
+| 26,000 | `3e-05` | 1.2084 | 1.4287 | 0.2203 |
+| 26,500 | `3e-05` | 1.2078 | 1.4265 | 0.2187 |
+| 27,000 | `3e-05` | 1.2077 | 1.4266 | 0.2188 |
+| 27,500 | `3e-05` | 1.2071 | 1.4263 | 0.2192 |
+| 28,000 | `3e-05` | 1.2069 | 1.4273 | 0.2205 |
+| 28,500 | `3e-05` | 1.2062 | 1.4259 | 0.2196 |
+| 29,000 | `3e-05` | 1.2060 | 1.4267 | 0.2207 |
+| 29,500 | `3e-05` | 1.2058 | 1.4261 | 0.2203 |
+| 30,000 | `3e-05` | 1.2054 | 1.4256 | 0.2202 |
+| 30,500 | `3e-05` | 1.2054 | 1.4270 | 0.2216 |
+| 31,000 | `3e-05` | 1.2051 | 1.4257 | 0.2206 |
+| 31,500 | `3e-05` | 1.2044 | 1.4266 | 0.2222 |
+| 32,000 | `3e-05` | **1.2039** | **1.4246** | **0.2207** |
 
-The continuation produced seven strict new validation lows: steps 25,500,
-26,500, 27,500, 28,500, 30,000, 31,000, and 32,000. The setbacks at steps
-26,000, 27,000, 28,000, 29,000-29,500, 30,500, and 31,500 were each followed
-by a lower validation result. There is no sustained reversal in the observed
-curve, and the selected checkpoint is again the terminal state. Its
-full-precision train/validation losses are
-`1.2065401589870453 / 1.4235185253620148`.
+The continuation produced four strict new validation lows: steps 27,000,
+28,500, 30,000, and 32,000. The setbacks at 25,500-26,500, 27,500, 29,000,
+30,500, and 31,000-31,500 were each followed by a lower validation result.
+There is no sustained reversal in the observed curve, and the selected
+checkpoint is again the terminal state. Its full-precision train/validation
+losses are `1.203878900408745 / 1.4246201372146607`.
 
-Relative to step 25,000, Stage 39 reduced training loss by `0.0049777865` and
-validation loss by `0.0035152543`. The fixed-panel generalization gap grew
-from `0.2155158341` to `0.2169783664`, an increase of only `0.0014625323`,
+Relative to step 25,000, Stage 39 reduced training loss by `0.005081251263618`
+and validation loss by `0.004192672967911`. The fixed-panel generalization gap
+grew from `0.2198526585` to `0.2207412368`, an increase of only `0.0008885783`,
 while both losses improved. The validation gain is smaller than Stage 38's
-approximately `0.0081436694` gain over its preceding 7,000 updates, showing
-diminishing returns, but it is not a measured plateau.
+`0.0064319956` gain over its preceding 7,000 updates, showing diminishing
+returns, but it is not a measured plateau.
 
 At step 32,000, the trajectory has presented 65.536 million targets, or
 approximately 13.627 equivalents of the Complete Shakespeare training split.
@@ -6422,13 +6344,10 @@ The authenticated Stage 39 artifacts are:
 
 ```text
 best checkpoint, step 32,000:
-6e6bc9f49b85483c3e7d092b8d2b9719f7cf270fefb0f0a76b3ade43458bc2f8
+023dcf56a279db9d94b8787e4bbd53811b5f0aa92af46bbc738dfabb407fb86d
 
 final checkpoint, step 32,000:
-d34a368bd8a91622ff500c3f64d12d1bb211e782cb1e6909d05d8b8ba2c83cc4
-
-training log:
-b57e034cbc958ad188e7b117faca3a33c35ce836b484fbded50ad25b395dd20b
+1da95ea1d4db1af704343245700644a4baed4a841eddb72bf60a3a4fbebaf75c
 ```
 
 ## Stage 40: controlled late learning-rate refinement
@@ -6436,7 +6355,7 @@ b57e034cbc958ad188e7b117faca3a33c35ce836b484fbded50ad25b395dd20b
 `40_late_learning_rate_refinement.py` forks the exact Stage 39 terminal state
 and changes only the post-fork learning rate. Both branches use the same
 architecture, corpus and split, update count, training batches, fixed
-train/validation panels, AdamW state, and Torch CPU/XPU dropout stream:
+train/validation panels, AdamW state, and Torch CPU/CUDA dropout stream:
 
 ```text
 B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
@@ -6459,14 +6378,14 @@ Both branches independently reload this unconditional Stage 39 artifact:
 
 ```text
 my-gpt/checkpoints/stage_39_complete_shakespeare_step_32000_final_checkpoint.pt
-SHA-256: d34a368bd8a91622ff500c3f64d12d1bb211e782cb1e6909d05d8b8ba2c83cc4
+SHA-256: 1da95ea1d4db1af704343245700644a4baed4a841eddb72bf60a3a4fbebaf75c
 ```
 
 It is a `final` checkpoint at step 32,000 and records the selected minimum at
 that same step, with full-precision train/validation losses
-`1.2065401589870453 / 1.4235185253620148`. It contains all 138 AdamW moment
+`1.203878900408745 / 1.4246201372146607`. It contains all 138 AdamW moment
 states at optimizer step 32,000, the dedicated training-batch generator, and
-the Torch CPU/XPU RNG states. Stage 40 authenticates the complete payload,
+the Torch CPU/CUDA RNG states. Stage 40 authenticates the complete payload,
 requires the recorded PyTorch/backend/device runtime, constructs each branch
 independently, restores the global Torch RNG last, and only then changes the
 optimizer parameter-group LR. AdamW is never restarted.
@@ -6489,7 +6408,6 @@ my-gpt/checkpoints/stage_40_control_3e_5_best_checkpoint.pt
 my-gpt/checkpoints/stage_40_control_3e_5_step_38000_final_checkpoint.pt
 my-gpt/checkpoints/stage_40_treatment_1e_5_best_checkpoint.pt
 my-gpt/checkpoints/stage_40_treatment_1e_5_step_38000_final_checkpoint.pt
-my-gpt/checkpoints/stage_40_training.log
 ```
 
 At step 38,000, each branch has presented 77.824 million target characters,
@@ -6521,13 +6439,16 @@ tests from the repository root:
     -p "test_late_learning_rate_refinement_stage_40.py" -v
 ```
 
-Run the one predeclared XPU experiment with:
+Run the one predeclared experiment with:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\40_late_learning_rate_refinement.py `
-    --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_40_training.log
+python .\my-gpt\40_late_learning_rate_refinement.py `
+    --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\40_40_late_learning_rate_refinement.log
 ```
+
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 
 The primary matched-budget contrast is the signed final validation delta
 `1e-5 - 3e-5`; the selected-best delta is reported as a secondary diagnostic.
@@ -6543,84 +6464,80 @@ follows.
 
 ### Canonical outcome
 
-The canonical XPU run completed both matched 6,000-update branches. Each
-branch independently reproduced the Stage 39 fixed-panel endpoint at `1.2065
-/ 1.4235`, retained all 138 AdamW moment states and step counters, and reached
+The canonical CUDA run completed both matched 6,000-update branches. Each
+branch independently reproduced the Stage 39 fixed-panel endpoint at `1.2039
+/ 1.4246`, retained all 138 AdamW moment states and step counters, and reached
 optimizer step 38,000 without a restart or non-finite metric. The pre-LR fork
-hashes were identical. The terminal training-generator and Torch CPU/XPU RNG
+hashes were identical. The terminal training-generator and Torch CPU/CUDA RNG
 states were also byte-identical, confirming that the two branches used the
 same sampled starts and consumed the same dropout stream.
 
 | Step | A train, `3e-5` | A val, `3e-5` | B train, `1e-5` | B val, `1e-5` |
 | ---: | ---: | ---: | ---: | ---: |
-| 32,000 | 1.2065 | 1.4235 | 1.2065 | 1.4235 |
-| 32,500 | 1.2062 | 1.4225 | 1.2060 | 1.4226 |
-| 33,000 | 1.2056 | 1.4235 | 1.2057 | 1.4231 |
-| 33,500 | 1.2055 | 1.4223 | 1.2055 | 1.4224 |
-| 34,000 | 1.2051 | 1.4221 | 1.2053 | 1.4223 |
-| 34,500 | 1.2050 | 1.4224 | 1.2053 | 1.4226 |
-| 35,000 | 1.2043 | 1.4234 | 1.2049 | 1.4229 |
-| 35,500 | 1.2039 | 1.4223 | 1.2047 | 1.4224 |
-| 36,000 | 1.2037 | 1.4224 | 1.2046 | 1.4223 |
-| 36,500 | 1.2034 | 1.4215 | 1.2044 | 1.4221 |
-| 37,000 | 1.2032 | 1.4217 | 1.2044 | 1.4222 |
-| 37,500 | **1.2028** | **1.4205** | **1.2042** | **1.4214** |
-| 38,000 | 1.2024 | 1.4210 | 1.2041 | 1.4216 |
+| 32,000 | 1.2039 | 1.4246 | 1.2039 | 1.4246 |
+| 32,500 | 1.2038 | 1.4243 | 1.2034 | 1.4241 |
+| 33,000 | 1.2033 | 1.4252 | 1.2032 | 1.4246 |
+| 33,500 | 1.2029 | 1.4236 | 1.2030 | 1.4239 |
+| 34,000 | 1.2028 | 1.4229 | 1.2029 | 1.4234 |
+| 34,500 | 1.2026 | 1.4235 | 1.2028 | 1.4237 |
+| 35,000 | 1.2020 | 1.4244 | 1.2025 | 1.4241 |
+| 35,500 | 1.2015 | 1.4241 | 1.2022 | 1.4238 |
+| 36,000 | 1.2013 | 1.4234 | 1.2022 | 1.4235 |
+| 36,500 | 1.2012 | 1.4230 | 1.2021 | 1.4236 |
+| 37,000 | 1.2010 | 1.4230 | 1.2021 | 1.4236 |
+| 37,500 | 1.2006 | 1.4223 | 1.2019 | 1.4232 |
+| 38,000 | **1.2002** | **1.4215** | **1.2017** | **1.4230** |
 
-Both branches selected step 37,500 and then showed a small final-panel
+Both branches selected their terminal step-38,000 state, with no final-panel
 reversal. The full-precision selected and terminal results were:
 
 | Branch | Selected step | Selected train / val | Step-38k train / val | Final reversal |
 | --- | ---: | ---: | ---: | ---: |
-| A, `3e-5` | 37,500 | `1.2028024125 / 1.4204677260` | `1.2023926413 / 1.4210039330` | `+0.0005362070` |
-| B, `1e-5` | 37,500 | `1.2042385828 / 1.4214192367` | `1.2040605831 / 1.4215887165` | `+0.0001694798` |
+| A, `3e-5` | 38,000 | `1.200170497894287 / 1.421457200050354` | `1.200170497894287 / 1.421457200050354` | `+0.0000000000` |
+| B, `1e-5` | 38,000 | `1.2017456030845641 / 1.4229628825187683` | `1.2017456030845641 / 1.4229628825187683` | `+0.0000000000` |
 
 At the matched step-38,000 endpoint, the signed validation delta `B - A` was
-`+0.0005847836`; at the two selected minima it was `+0.0009515107`. Both are
-positive, so both the primary final-step comparison and the secondary
-selected-best comparison favor continuing `3e-5`. Relative to the common
-source, A improved selected validation by `0.0030507994`, while B improved it
-by `0.0020992887`.
+`+0.0015056824684143`; the selected-best comparison is identical because both
+branches selected that same terminal state. Both are positive, so continuing
+`3e-5` won. Relative to the common source, A improved validation by
+`0.0031629371643067`, while B improved it by `0.0016572546958924`.
 
 The controlled answer is therefore that lowering to `1e-5` at step 32,000 was
-premature. The lower rate did make progress and occasionally won individual
-intermediate snapshots, but it did not match the continued-rate trajectory
-at equal compute. Stage 40 resolves the LR question in favor of `3e-5`; it
-does not by itself prove that the C128 compute curve has reached its final
-minimum, because A found its newest strict low only 500 updates before the
+premature, but the margin is much smaller than in the earlier XPU run
+(`+0.001506` here against `+0.000585` there). The lower rate made progress and
+kept its own validation loss falling to the endpoint, yet it did not match the
+continued-rate trajectory at equal compute. Stage 40 resolves the LR question
+in favor of `3e-5`; it does not prove that the C128 compute curve has reached
+its final minimum, because A again found its newest strict low at the
 endpoint.
 
-The fresh held-out check independently confirmed that Stage 39's small
+The fresh held-out check independently confirmed that Stage 39's
 fixed-panel improvement generalized beyond the selection panel:
 
 | Checkpoint | Fresh mean validation loss | SE |
 | --- | ---: | ---: |
-| Stage 38, step 25,000 | 1.4248346357 | 0.0033301158 |
-| Stage 39, step 32,000 | 1.4214845574 | 0.0033339647 |
+| Stage 38, step 25,000 | 1.424868 | 0.003362 |
+| Stage 39, step 32,000 | 1.421235 | 0.003370 |
 
-The paired `32k - 25k` mean was `-0.0033500783`, with paired SE
-`0.0001086487` and a two-sided 95% panel-sampling interval of
-`[-0.0035635436, -0.0031366131]`. This interval excludes zero by a wide
-margin. As predeclared, it quantifies panel-sampling variation conditional on
-these checkpoints, not training-seed uncertainty.
+The paired `32k - 25k` mean was `-0.003634`, with a two-sided 95%
+panel-sampling interval of `[-0.003847, -0.003420]`. This interval excludes
+zero by a wide margin. As predeclared, it quantifies panel-sampling variation
+conditional on these checkpoints, not training-seed uncertainty.
 
 The authenticated Stage 40 artifacts are:
 
 ```text
-control best, step 37,500:
-72ed5b3facbabbc32aa76b7d0cff48a342a0624ed2890cd7bd8b9d7a0bd3cbda
+control best, step 38,000:
+51351c7b9798d56cc9e9fc624aaedea834033dcce252502d4c60a3aada47b437
 
 control final, step 38,000:
-494125b6df4a2eec7f15918e203df9ddbe5326c0a3cf145489a181a664ad56c1
+3db445880b27cb274c247fdc98eb0b93f1d8c339122c6bedec3e72193c44a653
 
-treatment best, step 37,500:
-9ac2d565c9185376f037d9bf761e532abeda22f412ef9ae1883753589364700e
+treatment best, step 38,000:
+cbd7f92d19fc47c01ab8925098eb92794f4365ad1cec6e61fc4641764a6c2724
 
 treatment final, step 38,000:
-41caaa12eb522d196e51a544318eea9ebead936f5c5abefaf121718f3cd4d004
-
-training log:
-064f27b43313ce98bb0ba86758d2be5c2d229e291bcefd577378664011bd3b75
+96b23b38a9094dd6934d1a11ee9e2c92348d79c02588efca69f9c75433eabe26
 ```
 
 ## Stage 41: final compute extension at `3e-5`
@@ -6629,7 +6546,7 @@ training log:
 It restores the unconditional Stage 40 A-final checkpoint at step 38,000 and
 runs the predeclared interval `[38000,44000)` without changing the model,
 corpus, split, sampler, optimizer, learning rate, training-batch stream, or
-Torch CPU/XPU dropout stream:
+Torch CPU/CUDA dropout stream:
 
 ```text
 B=8, T=256, C=128, H=4, D=32, FF=512, L=6, dropout=0.10
@@ -6643,21 +6560,22 @@ The authenticated source is:
 
 ```text
 my-gpt/checkpoints/stage_40_control_3e_5_step_38000_final_checkpoint.pt
-SHA-256: 494125b6df4a2eec7f15918e203df9ddbe5326c0a3cf145489a181a664ad56c1
+SHA-256: 3db445880b27cb274c247fdc98eb0b93f1d8c339122c6bedec3e72193c44a653
 ```
 
 Stage 41 checks the complete source-file hash and independently locks hashes
 for the model, all 138 AdamW states, the training generator, and the Torch
-CPU/XPU RNG state. All AdamW step counters must be exactly 38,000 and the
+CPU/CUDA RNG state. All AdamW step counters must be exactly 38,000 and the
 optimizer LR must already be `3e-5`. The restore order is model, AdamW,
 training generator, then global Torch RNG last. No optimizer restart or
 weights-only fallback is permitted.
 
-The Stage 40 source is terminal state at step 38,000, while the selected best
-entering the extension is the separate Stage 40 A checkpoint at step 37,500.
-Stage 41 preserves that distinction: if no new validation low occurs, it
-continues to reference the authentic inherited checkpoint rather than
-relabeling step-38,000 weights as step 37,500.
+The Stage 40 source is terminal state at step 38,000, and in this
+reproduction its selected best also landed on that same step, so the
+inherited-best pointer and the source coincide. Stage 41 still preserves the
+distinction structurally: it records the inherited checkpoint separately and,
+if no new validation low occurs, continues to reference it rather than
+relabeling the source's weights as a different step.
 
 Run the focused tests from the repository root with:
 
@@ -6666,52 +6584,58 @@ Run the focused tests from the repository root with:
     -p "test_final_compute_extension_stage_41.py" -v
 ```
 
-Run the canonical XPU continuation with:
+Run the canonical continuation with:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\41_final_compute_extension.py `
-    --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_41_training.log
+python .\my-gpt\41_final_compute_extension.py `
+    --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\41_41_final_compute_extension.log
 ```
+
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 
 ### Canonical outcome
 
 The canonical run reproduced the Stage 40 endpoint before its first new
 update and then completed all 6,000 updates through step 44,000. The optimizer
 finished with 138/138 AdamW states at step 44,000 and LR `3e-5`. The selected
-best and unconditional final checkpoints contain byte-identical model,
-optimizer, training-generator, and Torch RNG states because the terminal
-evaluation established the newest strict validation minimum.
+best is step 42,500 and the unconditional final is step 44,000; the final
+evaluation reversed the selected minimum by `+0.000762`.
 
 | Step | LR | Train loss | Validation loss | Gap |
 | ---: | ---: | ---: | ---: | ---: |
-| 38,000 | `3e-5` | 1.2024 | 1.4210 | 0.2186 |
-| 38,500 | `3e-5` | 1.2021 | 1.4199 | 0.2178 |
-| 39,000 | `3e-5` | 1.2019 | 1.4205 | 0.2186 |
-| 39,500 | `3e-5` | 1.2015 | 1.4211 | 0.2196 |
-| 40,000 | `3e-5` | 1.2013 | 1.4198 | 0.2185 |
-| 40,500 | `3e-5` | 1.2008 | 1.4197 | 0.2189 |
-| 41,000 | `3e-5` | 1.2004 | 1.4198 | 0.2194 |
-| 41,500 | `3e-5` | 1.2005 | 1.4195 | 0.2189 |
-| 42,000 | `3e-5` | 1.1999 | 1.4196 | 0.2197 |
-| 42,500 | `3e-5` | 1.1996 | 1.4185 | 0.2189 |
-| 43,000 | `3e-5` | 1.1995 | 1.4190 | 0.2195 |
-| 43,500 | `3e-5` | 1.1989 | 1.4188 | 0.2199 |
-| 44,000 | `3e-5` | **1.1990** | **1.4180** | **0.2191** |
+| 38,000 | `3e-05` | 1.2002 | 1.4215 | 0.2213 |
+| 38,500 | `3e-05` | 1.1997 | 1.4208 | 0.2211 |
+| 39,000 | `3e-05` | 1.1995 | 1.4215 | 0.2220 |
+| 39,500 | `3e-05` | 1.1991 | 1.4216 | 0.2225 |
+| 40,000 | `3e-05` | 1.1988 | 1.4220 | 0.2232 |
+| 40,500 | `3e-05` | 1.1984 | 1.4219 | 0.2235 |
+| 41,000 | `3e-05` | 1.1978 | 1.4217 | 0.2238 |
+| 41,500 | `3e-05` | 1.1979 | 1.4215 | 0.2236 |
+| 42,000 | `3e-05` | 1.1973 | 1.4209 | 0.2236 |
+| 42,500 | `3e-05` | 1.1969 | 1.4200 | 0.2231 |
+| 43,000 | `3e-05` | 1.1967 | 1.4211 | 0.2244 |
+| 43,500 | `3e-05` | 1.1961 | 1.4211 | 0.2250 |
+| 44,000 | `3e-05` | **1.1964** | **1.4207** | **0.2244** |
 
 The full-precision terminal train/validation losses are
-`1.1989565205574035 / 1.4180302500724793`. Relative to the step-38,000
-terminal state, training improved by `0.0034361207` and validation improved by
-`0.0029736829`. The endpoint also beat the inherited step-37,500 validation
-minimum by `0.0024374759`. The fixed-panel generalization gap increased only
-`0.0004624379`, from `0.2186112916` to `0.2190737295`, while both losses fell.
+`1.196398567557335 / 1.4207491338253022`, and the selected step-42,500 state
+is `1.1968604457378387 / 1.419987405538559`. Relative to the step-38,000
+source, training improved by `0.003771930337` and validation by
+`0.000708066225`. The fixed-panel generalization gap increased from
+`0.2212867021560670` to `0.2243505662679672` while both losses fell, so the
+run is trading a slightly wider train/validation gap for continued but sharply
+diminishing validation gains.
 
-The temporary reversals at 39,000-39,500, 41,000, 42,000, and
-43,000-43,500 did not persist. They were followed by strict new lows at
-40,000, 40,500, 41,500, 42,500, and finally 44,000. Stage 41 therefore does
-not show a sustained validation reversal or a measured compute optimum. The
-predeclared answer is that `3e-5` still has useful life; reducing to `1e-5`
-or declaring this C128 baseline converged is not yet supported by this run.
+The selected-best picture is weaker than in the earlier XPU run. Validation
+drifted upward from 1.4208 at step 38,500 through 1.4219 at 40,500, recovered
+only to 1.4200 at 42,500, and then ended at 1.4207. Against the Stage 40
+inherited minimum of `1.421457200050354`, the step-42,500 selected checkpoint
+improved by `0.0014697945117950`, and the terminal step-44,000 state improved
+by `0.0007080662250518`. Selecting mid-interval rather than at the endpoint is
+the first sign in this lineage that the `3e-5` phase is approaching, though
+not yet reaching, a ceiling.
 
 At step 44,000, the trajectory has presented 90.112 million target
 characters, approximately 18.737 equivalents of the Complete Shakespeare
@@ -6722,19 +6646,17 @@ The authenticated Stage 41 artifacts are:
 
 ```text
 best checkpoint, step 44,000:
-6a80d02be053a70b298e6d3ead7c88c820c55fe367b1ee4dfec54bdfcfe2c4c6
+d2c99722eee029318daaeda8bca7b1cefa16df28e8feefe1f55db8e59b67feef
 
 final checkpoint, step 44,000:
-c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5
-
-training log:
-97da1f79fc1ca2bd4bb1c8b29f4d9977fbf5df7fd71753bb004aed889add350a
+666c9e72345399cf63b412128a1427d1c778d58794473c0e8503516d2235db36
 ```
 
 As in the preceding stages, this is one stochastic training trajectory
-evaluated repeatedly on one fixed panel. The repeated new lows are strong
-within-trajectory evidence against convergence, but they are not a
-training-seed uncertainty estimate or an independent held-out-panel test.
+evaluated repeatedly on one fixed panel. The improvement over the source is
+strong within-trajectory evidence that more optimization still helped, but it
+is not a training-seed uncertainty estimate or an independent held-out-panel
+test.
 
 ## Stage 42: exact final learning-rate fork at 44k
 
@@ -6744,8 +6666,8 @@ completed Stage 41. It independently reloads the authenticated Stage 41
 
 ```text
 common source: step 44,000
-train / val: 1.1989565205574035 / 1.4180302500724793
-SHA-256: c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5
+train / val: 1.196398567557335 / 1.4207491338253022
+SHA-256: 666c9e72345399cf63b412128a1427d1c778d58794473c0e8503516d2235db36
 
 A: [44000,50000)  lr=3e-5
 B: [44000,50000)  lr=1e-5
@@ -6756,7 +6678,7 @@ data: Complete Shakespeare; unchanged sequential 90%/10% split
 ```
 
 Both branches restore the same model, all 138 AdamW moment states and step
-counters, training-batch generator, and Torch CPU/XPU dropout RNG. Restoration
+counters, training-batch generator, and Torch CPU/CUDA dropout RNG. Restoration
 loads the global RNG last. Only then does the treatment change every
 optimizer parameter group's LR. The runner verifies that all non-LR
 optimizer state remains identical. It preserves every inherited schedule
@@ -6825,9 +6747,9 @@ Authenticate the sources, corpus, and recorded runtime without training:
 Run the full predeclared two-branch experiment:
 
 ```powershell
-.\ai\Scripts\python.exe -u .\my-gpt\42_final_learning_rate_fork.py `
-    --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_42_training.log
+python -u .\my-gpt\42_final_learning_rate_fork.py `
+    --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\42_42_final_learning_rate_fork.log
 ```
 
 The runner refuses to overwrite existing checkpoints or reports. Use
@@ -6839,81 +6761,81 @@ Architecture, LR choices, batch size, seeds, evaluation settings, and the
 
 ### Fresh historical validation result
 
-The 500-batch historical comparison was executed on the authenticated XPU
-runtime during implementation:
+The 500-batch historical comparison runs on seed 1,355 against the
+authenticated Stage 40 A-final and Stage 41-final checkpoints:
 
 | Checkpoint | Fresh mean validation loss |
 | --- | ---: |
-| Stage 40 A-final, 38k | 1.4114283 |
-| Stage 41-final, 44k | 1.4086905 |
+| Stage 40 A-final, 38k | 1.4107565 |
+| Stage 41-final, 44k | 1.4097370 |
 
-The paired `44k - 38k` delta was **-0.0027378**, with paired SE `0.0001022`
-and 95% panel-sampling interval **[-0.0029386, -0.0025370]**. This fresh panel
+The paired `44k - 38k` delta was **-0.0010195**, with paired SE `0.0001067`
+and 95% panel-sampling interval **[-0.0012292, -0.0008098]**. This fresh panel
 supports Stage 41's improvement beyond the fixed selection panel. Absolute
 means from different panels should not be compared directly.
 
 ### Canonical outcome
 
-The canonical XPU run completed both 6,000-update branches on September 5,
-2026. **Continuing `3e-5` won at the matched 50k endpoint, at the selected
-fixed-panel minima, and on the fresh paired endpoint panel.** Lowering to
-`1e-5` at 44k did not produce a better final refinement phase over this
-budget.
+The canonical CUDA run completed both 6,000-update branches. **Continuing
+`3e-5` won on the fresh paired endpoint panel, and the fixed-panel endpoint
+and selected-best comparisons agreed.** Lowering to `1e-5` at 44k did not
+produce a better final refinement phase over this budget.
 
-Both branches independently reproduced the source's `1.1990 / 1.4180`
-fixed-panel losses before their first update. Their pre-LR model, optimizer,
-batch-generator, and Torch RNG hashes were identical. Both final checkpoints
-contain all 138 AdamW moment states at optimizer step 50,000. The terminal
-training-generator and Torch CPU/XPU RNG states match byte for byte, and the
-authenticated 44k source file remained unchanged.
+Both branches independently reproduced the source's `1.1964 / 1.4207`
+fixed-panel losses before their first update, and the paired batch and
+dropout streams were verified identical. Both final checkpoints contain all
+138 AdamW moment states at optimizer step 50,000, and the authenticated 44k
+source file remained unchanged.
 
 | Step | A train, `3e-5` | A val, `3e-5` | B train, `1e-5` | B val, `1e-5` |
 | ---: | ---: | ---: | ---: | ---: |
-| 44,000 | 1.1990 | 1.4180 | 1.1990 | 1.4180 |
-| 44,500 | 1.1985 | 1.4183 | 1.1983 | 1.4179 |
-| 45,000 | 1.1982 | 1.4183 | 1.1980 | 1.4178 |
-| 45,500 | 1.1979 | 1.4173 | 1.1977 | 1.4171 |
-| 46,000 | 1.1977 | 1.4177 | 1.1977 | 1.4174 |
-| 46,500 | 1.1974 | 1.4183 | 1.1975 | 1.4178 |
-| 47,000 | 1.1972 | 1.4187 | 1.1974 | 1.4180 |
-| 47,500 | 1.1967 | 1.4176 | 1.1972 | 1.4175 |
-| 48,000 | 1.1963 | 1.4174 | 1.1970 | 1.4174 |
-| 48,500 | 1.1962 | 1.4165 | 1.1969 | 1.4169 |
-| 49,000 | 1.1960 | 1.4179 | 1.1968 | 1.4175 |
-| 49,500 | 1.1957 | 1.4160 | **1.1967** | **1.4166** |
-| 50,000 | **1.1957** | **1.4159** | 1.1966 | 1.4169 |
+| 44,000 | 1.1964 | 1.4207 | 1.1964 | 1.4207 |
+| 44,500 | 1.1957 | 1.4208 | 1.1955 | 1.4203 |
+| 45,000 | 1.1955 | 1.4212 | 1.1953 | 1.4206 |
+| 45,500 | 1.1953 | 1.4196 | 1.1951 | 1.4197 |
+| 46,000 | 1.1952 | 1.4195 | 1.1950 | 1.4197 |
+| 46,500 | 1.1947 | 1.4191 | 1.1948 | 1.4195 |
+| 47,000 | 1.1945 | 1.4194 | 1.1947 | 1.4194 |
+| 47,500 | 1.1943 | 1.4187 | 1.1946 | 1.4191 |
+| 48,000 | 1.1939 | 1.4188 | 1.1944 | 1.4190 |
+| 48,500 | 1.1938 | 1.4175 | 1.1943 | 1.4184 |
+| 49,000 | 1.1934 | 1.4191 | 1.1942 | 1.4191 |
+| 49,500 | 1.1931 | 1.4181 | 1.1941 | 1.4187 |
+| 50,000 | **1.1932** | **1.4178** | **1.1941** | **1.4187** |
 
 ![Stage 42 fixed-panel validation trajectories and fresh paired endpoint interval](figures/stage_42_learning_rate_fork.png)
 
 B led several early matched snapshots, but A found lower validation losses
-over the final 1,500 updates. A selected its endpoint; B selected step 49,500
-and then reversed by `0.0002656865` on the fixed panel.
+from step 48,500 onward. Both branches selected the same step 48,500; B then
+reversed by `0.0002845728` at the endpoint while A reversed by
+`0.0002481437`.
 
 | Branch | Selected step | Selected train / val | Final train / val at 50k |
 | --- | ---: | ---: | ---: |
-| A, `3e-5` | 50,000 | `1.1956539690 / 1.4158585346` | `1.1956539690 / 1.4158585346` |
-| B, `1e-5` | 49,500 | `1.1966524369 / 1.4166213858` | `1.1966472149 / 1.4168870723` |
+| A, `3e-5` | 48,500 | `1.193801474571228 / 1.4175479233264923` | `1.1931665575504302 / 1.4177960669994354` |
+| B, `1e-5` | 48,500 | `1.1943153923749923 / 1.4183848929405212` | `1.1940879821777344 / 1.418669465780258` |
 
-The fixed-panel final delta `B - A` was **+0.0010285378**. The secondary
-selected-best delta was **+0.0007628512**, also favoring A. Relative to the
-common 44k source, A improved final validation by `0.0021717155`; B improved
-it by `0.0011431777`. Their final generalization gaps were nearly identical:
-`0.2202045655` for A and `0.2202398574` for B.
+The fixed-panel final delta `B - A` was **+0.0008733987808227095**. The
+secondary selected-best delta was **+0.000836969614028904**, also favoring A.
+Relative to the common 44k source, A improved final validation by
+`0.0029530668258668236`; B improved it by `0.002079668045044114`. Their final
+generalization gaps were nearly identical: `0.22462950944900517` for A and
+`0.22458148360252372` for B.
 
 The fresh comparison evaluated the two unconditional 50k artifacts on 500
 shared validation batches from seed 1,356:
 
 | Checkpoint | Fresh mean validation loss |
 | --- | ---: |
-| A, `3e-5`, 50k | 1.4077634227 |
-| B, `1e-5`, 50k | 1.4087699583 |
+| A, `3e-5`, 50k | 1.4084345 |
+| B, `1e-5`, 50k | 1.4092893 |
 
-The paired `B - A` mean was **+0.0010065355**, with paired SE
-`0.0000522814` and a two-sided 95% panel-sampling interval of
-**[+0.0009038167, +0.0011092544]**. The entire interval favors A, and its
+The paired `B - A` mean was **+0.0008548188209533691**, with paired SE
+`5.471164925740384e-05` and a two-sided 95% panel-sampling interval of
+**[+0.0007473252, +0.0009623124]**. The entire interval favors A, and its
 magnitude closely matches the fixed-panel endpoint difference. The 38k vs
-44k check also reproduced the historical result above on the same seed
-1,355 panel; that repetition is a reproducibility check, not additional
+44k check reproduced the historical result above on the same seed 1,355
+panel; that repetition is a reproducibility check, not additional
 independent validation evidence.
 
 This is the predeclared A outcome: `3e-5` remains the better late-training
@@ -6924,39 +6846,32 @@ new target presentations across the experiment.
 
 The result supports ending this C128 compute-extension experiment at 50k
 and moving to the proposed Complete-Shakespeare C128-to-C192 capacity
-comparison. It does not establish a validation plateau: A's newest strict
-minimum is still the endpoint. Stage 42 therefore resolves the tested
-late-LR choice without claiming that the model has mathematically or
-empirically converged. The fresh interval remains conditional on these two
-checkpoints and this sampled panel; it is not training-seed uncertainty.
-
-The full run exited successfully. Post-run verification checked the four
-checkpoint hashes, all optimizer step counters and branch LRs, matching
-evaluation steps and random streams, and the unchanged source hash. Both
-paired standard errors and confidence intervals were independently
-recomputed from the 500 stored batch-loss pairs. The implementation had also
-passed 21 Stage 40-42 tests, lint, and an XPU fork/checkpoint smoke check.
+comparison. A's newest strict minimum was step 48,500 rather than the
+endpoint, so the terminal state no longer holds the best validation loss —
+the first such reversal in this lineage. That is weak evidence that the
+`3e-5` phase is approaching a ceiling, but it is not a measured plateau: the
+endpoint sits only `0.0002481437` above the selected minimum, and Stage 42
+resolves the tested late-LR choice without claiming empirical convergence.
+The fresh interval remains conditional on these two checkpoints and this
+sampled panel; it is not training-seed uncertainty.
 
 The authenticated Stage 42 artifacts are:
 
 ```text
-control best, step 50,000:
-183be907a891dd84fc31430c66c8313e70d38c87a278098cebe219c9904a49a6
+control best, step 48,500:
+1a66c6bcae77aede45af77432d93cdf8b4c51b72a100fd04b6cdb84cafbe39e6
 
 control final, step 50,000:
-7bfc120595760b538b9c4063e3580525b48762bcc779265cb09ba09e571a1441
+57024bd7bb9e698ba3c16c23533aa5e5d52562eebe87841ac25a992def2b9baf
 
-treatment best, step 49,500:
-d8dda6fc5067f798d13aa55848b0d7ed752d5cdacaed7cf39499b71873079c48
+treatment best, step 48,500:
+55ca31c727c7f3c21c60a43c97e599f845671ed20d7c9d025b3c6f8b86f61e97
 
 treatment final, step 50,000:
-9e85fbcca5777606808dd8d2b937c0f0ba396dececb8db973b4f83caf8d32527
-
-training log:
-0452ab94ad069de43602dbecdca48ed63d5e99b32149611328a7432e66078486
+2135ca883e6f20469bdd3bf6e2191d3bca3fbceacb7aa20c6dba14700de64c3a
 
 JSON report:
-5ce0e61569e834ef2e440474a9a535fd14a9eabefad49eb00d25093e076fc11d
+0a58d1a51870300533980b4f755912a56039a9304abc06bdf479f0a9b6e7e2f1
 ```
 
 ## Stage 43: fresh Complete Shakespeare width scaling
@@ -6994,12 +6909,12 @@ Stage 43 starts both branches at update zero, with no checkpoint loading,
 weight expansion, inherited optimizer moments, or continuation from 50k.
 
 The authenticated Stage 41 44k ancestor remains
-`c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5`.
+`666c9e72345399cf63b412128a1427d1c778d58794473c0e8503516d2235db36`.
 The empirical best checkpoint of the completed optimization lineage is
 Stage 42's `3e-5` control at 50k: selected-best artifact
-`183be907a891dd84fc31430c66c8313e70d38c87a278098cebe219c9904a49a6`,
+`1a66c6bcae77aede45af77432d93cdf8b4c51b72a100fd04b6cdb84cafbe39e6`,
 and unconditional final artifact
-`7bfc120595760b538b9c4063e3580525b48762bcc779265cb09ba09e571a1441`.
+`57024bd7bb9e698ba3c16c23533aa5e5d52562eebe87841ac25a992def2b9baf`.
 Those identities remain historical provenance; neither supplies Stage 43
 training state. Stage 42 resolved its late-LR comparison without establishing
 that the current architecture had converged.
@@ -7061,17 +6976,18 @@ Run the focused tests from the repository root:
 Validate the corpus, native architectures, and protocol without training:
 
 ```powershell
-.\ai\Scripts\python.exe .\my-gpt\43_capacity_scaling.py `
-    --device xpu --validate-only
+python .\my-gpt\43_capacity_scaling.py --device cuda --validate-only
 ```
 
 Run the canonical paired experiment:
 
 ```powershell
-.\ai\Scripts\python.exe -u .\my-gpt\43_capacity_scaling.py `
-    --device xpu 2>&1 |
-    Tee-Object -FilePath .\my-gpt\checkpoints\stage_43_training.log
+python -u .\my-gpt\43_capacity_scaling.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\43_43_capacity_scaling.log
 ```
+
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
 
 The runner writes branch best/final checkpoints and `stage_43_report.json`
 under `my-gpt/checkpoints` by default and refuses to overwrite existing
@@ -7079,11 +6995,336 @@ outputs. Use `--output-dir` for an intentional repeat. Architecture, update
 budget, learning-rate schedule, seeds, and evaluation settings are locked in
 the CLI. The protocol above was declared before training.
 
-### Canonical execution
+### Canonical outcome
 
-The canonical XPU run started on 6 September 2026 at 00:31 Singapore time
-(5 September, 16:31 UTC). Training is in progress; no endpoint outcome is
-available yet. The live log is `checkpoints/stage_43_training.log`, and
-`checkpoints/stage_43_run_status.json` records the launch command, process,
-start time, and completion status. The runner source SHA-256 at launch was
-`0421e60d9f69b44a5b1d67f9ea8619f7f9ce652b61bf6eb86649cdf6c8dbfb40`.
+Both fresh branches completed all 50,000 updates, and the paired batch streams
+verified identical. The wider model won decisively on every matched readout.
+The fixed-panel deltas are `C192 - C128`:
+
+| Readout | C128 control | C192 treatment | Delta |
+| --- | ---: | ---: | ---: |
+| Fixed-panel final, step 50,000 | 1.4177960670 | 1.3692117286 | -0.0485843384 |
+| Fixed-panel selected best, step 48,500 | 1.4175479233 | 1.3689685762 | -0.0485793471 |
+| Fresh paired, step-50k endpoints | 1.4143825202 | 1.3665533273 | -0.0478291929 |
+
+Both branches selected step 48,500, so the selected-best and final
+comparisons differ by less than `0.000005`. The fresh evaluation passed the
+same 500 validation batches from seed 1,357 to both eval-mode models:
+
+| Checkpoint | Fresh mean validation loss | SE |
+| --- | ---: | ---: |
+| C128 control, step 50,000 | 1.4143825202 | 0.0033766222 |
+| C192 treatment, step 50,000 | 1.3665533273 | 0.0032893914 |
+
+The paired `C192 - C128` mean was **-0.04782919287681579**, with paired SE
+`0.0008250499436307601` and a two-sided 95% panel-sampling interval of
+**[-0.0494501928, -0.0462081930]**. The entire interval is far below zero.
+The fresh interval is 1.9 times wider than the smallest fixed-panel
+difference but still excludes zero by a wide margin, and the fresh point
+estimate agrees with the fixed panel to `0.00076`.
+
+Late training on both branches, sampled every 1,000 updates:
+
+| Step | C128 train | C128 val | C192 train | C192 val |
+| ---: | ---: | ---: | ---: | ---: |
+| 32,000 | 1.2039 | 1.4246 | 1.1336 | 1.3736 |
+| 33,000 | 1.2033 | 1.4252 | 1.1328 | 1.3747 |
+| 34,000 | 1.2028 | 1.4229 | 1.1321 | 1.3729 |
+| 35,000 | 1.2020 | 1.4244 | 1.1312 | 1.3747 |
+| 36,000 | 1.2013 | 1.4234 | 1.1307 | 1.3727 |
+| 37,000 | 1.2010 | 1.4230 | 1.1302 | 1.3731 |
+| 38,000 | 1.2002 | 1.4215 | 1.1291 | 1.3724 |
+| 39,000 | 1.1995 | 1.4215 | 1.1288 | 1.3723 |
+| 40,000 | 1.1988 | 1.4220 | 1.1279 | 1.3722 |
+| 41,000 | 1.1978 | 1.4217 | 1.1269 | 1.3725 |
+| 42,000 | 1.1973 | 1.4209 | 1.1263 | 1.3724 |
+| 43,000 | 1.1967 | 1.4211 | 1.1261 | 1.3715 |
+| 44,000 | 1.1964 | 1.4207 | 1.1253 | 1.3712 |
+| 45,000 | 1.1955 | 1.4212 | 1.1245 | 1.3710 |
+| 46,000 | 1.1952 | 1.4195 | 1.1240 | 1.3708 |
+| 47,000 | 1.1945 | 1.4194 | 1.1235 | 1.3711 |
+| 48,000 | 1.1939 | 1.4188 | 1.1225 | 1.3700 |
+| 49,000 | 1.1934 | 1.4191 | 1.1221 | 1.3709 |
+| 50,000 | **1.1932** | **1.4178** | **1.1216** | **1.3692** |
+
+Both branches kept finding new lows to step 48,500 and then reversed slightly
+at 50,000, so neither fresh trajectory had reached a settled optimum. The
+C192 branch shows the same qualitative shape as C128 — flat validation with a
+small interior minimum — but sits roughly `0.048` lower throughout the late
+phase. That gap is an order of magnitude larger than any late-LR effect
+measured in Stages 40 and 42, so it is not plausibly explained by the
+optimization schedule.
+
+Under this corpus, topology, update budget, and target-presentation budget,
+the `1.5x` width step therefore improved Complete Shakespeare validation
+substantially. The comparison is still not a clean capacity-only estimate:
+the treatment also has a wider FFN (`768` versus `512`), `2.21x` the
+parameters (`2,752,994` versus `1,245,538`), and different per-step FLOPs at
+equal updates. Equal updates and targets do not imply equal wall time, so this
+is a matched-token-budget result, not a matched-compute one.
+
+![Stage 43 fixed-panel trajectories and fresh paired endpoint interval](figures/stage_43_capacity_scaling.png)
+
+### Reproducibility note
+
+The Stage 43 C128 control retrains the Stage 42 `3e-5` branch from update
+zero with the same corpus, architecture, and seeds, and its terminal model
+tensors are bit-for-bit identical to Stage 42's step-50,000 A checkpoint,
+with identical fixed-panel losses. The two checkpoint files differ only in
+their provenance metadata, so the C128 column here is a deterministic
+re-derivation of the Stage 42 endpoint rather than an independent run. That
+makes the width contrast a comparison against the same trajectory the earlier
+stages characterized, and it confirms the training pipeline's determinism on
+this device.
+
+The authenticated Stage 43 artifacts are:
+
+```text
+C128 control best, step 48,500:
+fcbf0972204f98d7552f1940451405753ad31ca7295afc70972ba76b52625069
+
+C128 control final, step 50,000:
+7258710bfb8458a116622ff2005778f962d8607ee811d3b147ec0cdb1b455543
+
+C192 treatment best, step 48,500:
+de624fde73bef1a641d971809041ed6c1779270b6d0e3371a75e9fbafaf2aaa4
+
+C192 treatment final, step 50,000:
+7506703a1643510812a1bbbb94a6a3327073dc77be8397d6a25c69297a4248f5
+
+JSON report:
+518f0762b53df486a7e1107c42505ea4ab33d492efdd81d9050c4774ffef6475
+```
+
+## Stage 44: fresh width scaling from 192 to 256
+
+`44_width_scaling.py` asks whether the `C=192` capacity gain from Stage 43
+continues at the next width step, or whether that stage had already located
+the frontier. It trains the Stage 43 `C=192` treatment as the control and a
+`C=256` treatment, both from architecture-native initialization, and changes
+width alone:
+
+| Setting | C192 control | C256 treatment |
+| --- | ---: | ---: |
+| Batch size / sequence length | 8 / 256 | 8 / 256 |
+| Targets per update | 2,048 | 2,048 |
+| Residual width | 192 | 256 |
+| Attention heads / channels per head | 4 / 48 | 4 / 64 |
+| FFN hidden width | 768 | 1,024 |
+| Transformer blocks | 6 | 6 |
+| Residual dropout | 0.10 | 0.10 |
+| Attention by layer | W23, W23, W23, W23, Full, Full | W23, W23, W23, W23, Full, Full |
+| Vocabulary | 98 | 98 |
+| Learned parameters | 2,752,994 | 4,850,274 |
+| Updates per branch | 50,000 | 50,000 |
+| Target presentations per branch | 102,400,000 | 102,400,000 |
+
+The width step is `4/3`; the exact parameter increase is approximately
+`1.76x`. Head size and FFN size again follow the fixed-head-count and `FF=4C`
+architecture rules. Equal updates and target presentations do not imply equal
+FLOPs or wall time for the larger model.
+
+This stage is a direct continuation of the Stage 43 width curve, so it reuses
+the Stage 43 module for the architecture factory, sampler, learning-rate
+schedule, fixed-panel geometry, paired statistics, and checkpoint primitives,
+and changes only the two widths, the artifact identity, and the fresh-panel
+seed. The control re-derives the Stage 43 `C=192` treatment from update zero
+under the identical protocol.
+
+Each architecture recreates its native initialization from seed 1,337 and
+receives a fresh AdamW optimizer. **The models use architecture-native
+initializations recreated from the same seed; their tensors are not claimed
+byte-identical.** Stage 44 starts both branches at update zero, with no
+checkpoint loading, weight expansion, inherited optimizer moments, or
+continuation from any earlier endpoint. The recorded Stage 43 `C=192`
+treatment checkpoint
+`7506703a1643510812a1bbbb94a6a3327073dc77be8397d6a25c69297a4248f5` is
+historical lineage, not an initialization.
+
+Both branches use the full established winning learning-rate schedule:
+
+```text
+update indices [0,10000):      1e-3
+update indices [10000,13000):  3e-4
+update indices [13000,18000):  1e-4
+update indices [18000,50000):  3e-5
+```
+
+AdamW retains `betas=(0.9,0.999)`, `eps=1e-8`, and `weight_decay=0.01`. The
+corpus remains `data/full-shakespreare.txt` with the same sequential 90%/10%
+split and tokenized fingerprint
+`c6cbdd246799ad495f7813e5d20afa52c03e6c339fe7dbe15912fd81a45d2b48`. Each
+branch recreates the explicit training generator from seed 1,338, sampling
+four contiguous T512 source panels per update and reshaping them into eight
+T256 rows, and the model/dropout RNG resets to seed 1,340. Evaluation
+recreates seed 1,339 for the same 100-batch train and validation panels at step
+zero and every 500 updates. Strict fixed-panel validation improvement selects
+each branch's best checkpoint; each branch also saves an unconditional 50k
+final checkpoint.
+
+After training, fresh paired evaluation reloads the two unconditional 50k
+checkpoints and passes the same 500 validation batches to both models. Seed
+1,358 is fresh relative to the selection panel and to every previous stage
+panel. The primary statistic is the per-batch `C256 - C192` validation-loss
+delta with its mean, paired standard error, and two-sided Student-t 95%
+interval. An interval entirely below zero supports the wider model at this
+budget; an interval entirely above zero supports the control; an interval
+crossing zero leaves the comparison unresolved. This interval measures
+sampled-panel variation conditional on these checkpoints, not variation across
+training seeds or a corpus-IID confidence interval.
+
+Run the focused tests from the repository root:
+
+```powershell
+.\ai\Scripts\python.exe -m unittest discover -s .\my-gpt `
+    -p "test_width_scaling_stage_44.py" -v
+```
+
+Validate the corpus, native architectures, and protocol without training:
+
+```powershell
+python .\my-gpt\44_width_scaling.py --device cuda --validate-only
+```
+
+Run the canonical paired experiment:
+
+```powershell
+python -u .\my-gpt\44_width_scaling.py --device cuda 2>&1 |
+    Tee-Object -FilePath .\my-gpt\checkpoints\logs\44_44_width_scaling.log
+```
+
+Any accelerator backend (`cuda`, `xpu`, or `mps`) is accepted; the recorded
+artifacts come from this repository's local `NVIDIA GeForce RTX 3090` CUDA run.
+The runner writes branch best/final checkpoints and `stage_44_report.json`
+under `my-gpt/checkpoints` by default and refuses to overwrite existing
+outputs. Architecture, update budget, learning-rate schedule, seeds, and
+evaluation settings are locked in the CLI. The protocol above was declared
+before training.
+
+### Canonical outcome
+
+Both fresh branches completed all 50,000 updates, and the paired batch streams
+verified identical. `C=256` won again, but by a much smaller margin than the
+previous width step. The fixed-panel deltas are `C256 - C192`:
+
+| Readout | C192 control | C256 treatment | Delta |
+| --- | ---: | ---: | ---: |
+| Fixed-panel final, step 50,000 | 1.3692117286 | 1.3538347363 | -0.0153769922 |
+| Fixed-panel selected best, step 48,500 | 1.3689685762 | 1.3522926581 | -0.0166759181 |
+| Fresh paired, step-50k endpoints | 1.3608703721 | 1.3461834826 | -0.0146868894 |
+
+Both branches again selected step 48,500. The fresh evaluation passed the same
+500 validation batches from seed 1,358 to both eval-mode models:
+
+| Checkpoint | Fresh mean validation loss | SE |
+| --- | ---: | ---: |
+| C192 control, step 50,000 | 1.3608703721 | 0.0033899772 |
+| C256 treatment, step 50,000 | 1.3461834826 | 0.0035294622 |
+
+The paired `C256 - C192` mean was **-0.014686889410018921**, with paired SE
+`0.0007380080382893815` and a two-sided 95% panel-sampling interval of
+**[-0.0161368754936123, -0.013236903326425544]**. The interval excludes zero,
+and the treatment had the lower loss on 409 of the 500 fresh batches.
+
+Late training on both branches, sampled every 1,000 updates:
+
+| Step | C192 train | C192 val | C256 train | C256 val |
+| ---: | ---: | ---: | ---: | ---: |
+| 32,000 | 1.1336 | 1.3736 | 1.0844 | 1.3554 |
+| 33,000 | 1.1328 | 1.3747 | 1.0836 | 1.3565 |
+| 34,000 | 1.1321 | 1.3729 | 1.0828 | 1.3550 |
+| 35,000 | 1.1312 | 1.3747 | 1.0816 | 1.3566 |
+| 36,000 | 1.1307 | 1.3727 | 1.0808 | 1.3557 |
+| 37,000 | 1.1302 | 1.3731 | 1.0800 | 1.3555 |
+| 38,000 | 1.1291 | 1.3724 | 1.0788 | 1.3546 |
+| 39,000 | 1.1288 | 1.3723 | 1.0780 | 1.3536 |
+| 40,000 | 1.1279 | 1.3722 | 1.0773 | 1.3550 |
+| 41,000 | 1.1269 | 1.3725 | 1.0762 | 1.3544 |
+| 42,000 | 1.1263 | 1.3724 | 1.0752 | 1.3542 |
+| 43,000 | 1.1261 | 1.3715 | 1.0748 | 1.3550 |
+| 44,000 | 1.1253 | 1.3712 | 1.0737 | 1.3552 |
+| 45,000 | 1.1245 | 1.3710 | 1.0728 | 1.3544 |
+| 46,000 | 1.1240 | 1.3708 | 1.0722 | 1.3543 |
+| 47,000 | 1.1235 | 1.3711 | 1.0712 | 1.3544 |
+| 48,000 | 1.1225 | 1.3700 | 1.0702 | 1.3537 |
+| 49,000 | 1.1221 | 1.3709 | 1.0696 | 1.3548 |
+| 50,000 | **1.1216** | **1.3692** | **1.0690** | **1.3538** |
+
+The two late curves have the same shape — flat validation with a small
+interior minimum at 48,500 and a slight reversal at 50,000 — so the outcome is
+again a level shift, not a schedule artifact. The level shift, however, is
+much smaller than in Stage 43.
+
+### Width curve and diminishing returns
+
+Across the three fresh width runs under this protocol — `C=128`, `C=192`,
+and `C=256`, all trained from architecture-native initialization — the
+step-50,000 validation loss and the fresh paired delta per width step are:
+
+| Control → treatment | Width step | Parameter ratio | Fresh paired delta | 95% interval |
+| --- | ---: | ---: | ---: | --- |
+| C128 → C192 | 1.50x | 2.210x | -0.0478291929 | [-0.0494501928, -0.0462081930] |
+| C192 → C256 | 1.33x | 1.762x | -0.0146868894 | [-0.0161368755, -0.0132369033] |
+
+The second step buys about `3.26x` less validation improvement than the first,
+and the parameter ratio per step also fell, so the two steps are not
+compute-matched. Because the steps differ in size, the raw ratio is not the
+only fair read: normalizing each delta by its own log parameter increase gives
+`0.0603` per `log`-parameter for `C128 → C192` and `0.0259` for
+`C192 → C256`, still a `2.33x` decline in return per doubling-equivalent of
+capacity. Width scaling still pays at this budget, but the return has dropped
+sharply on either normalization.
+
+The generalization gap moved the other way. Using the unconditional
+step-50,000 checkpoints, `validation - train` was `0.2246` at C128, `0.2476`
+at C192, and `0.2848` at C256. The wider model therefore kept improving both
+readouts while separating from its training set faster than it improved
+validation. Under this corpus, topology, update budget, and
+target-presentation budget, `C=256` is the best measured configuration, and
+neither width step has yet produced a validation plateau or reversal.
+
+![Stage 44 fixed-panel trajectories and fresh paired endpoint interval](figures/stage_44_width_scaling.png)
+
+### Reproducibility note
+
+The Stage 44 C192 control re-derives the Stage 43 C192 treatment from update
+zero with the same corpus, architecture, and seeds, and its terminal state is
+identical: model tensors, AdamW state, batch-generator state, and model RNG
+state all match
+`ec7769eabdfac8efa55945f6e71aa81722749bee1363b3aaacf347ed0f882d9c` /
+`cae4b5a5c7b06ee0925bbbe764c2930f7ab53aca645f90b32ccaadbc9caa7b81` /
+`986ffc5650abe72ba270a01cc94ab5a247a946e1f4f040d1eef1508f8a7c86b9` /
+`c0a95ddc6a75fcbc35e1810d8629617fee233de3a4202df95de65c41ed1a6bd2`
+exactly, with identical fixed-panel losses to all recorded digits. The two
+checkpoint files differ only in provenance metadata, so the control column is
+a deterministic re-derivation rather than an independent run, and the pipeline
+is deterministic across stages and across differing model widths. Stage 43
+established the same property one level down, where its C128 control
+reproduced Stage 42's step-50,000 endpoint.
+
+The authenticated Stage 44 artifacts are:
+
+```text
+C192 control best, step 48,500:
+967cac044dccbb076680ce3df2b1a6071225d7f720526aa9149ac80c41b7dabd
+
+C192 control final, step 50,000:
+5132a05b20f574756182bdffcd298dad6090143800cff6d809d4df33103997b2
+
+C256 treatment best, step 48,500:
+65af019d75a84cbef7cb589a50c7474d0324c669c484d9be629ec188811bfea3
+
+C256 treatment final, step 50,000:
+c9e0092cb1986885f8cef948b703bb4fbf18ae0714e4e3d062fecc337081b247
+
+JSON report:
+f7da53c34498249bdada00fd5e5123a841914fd806def2ef1eed4f8ee8474ea8
+```
+
+## Stage 45: fresh width scaling from 256 to 320
+
+- Interpretation and caveats: [`docs/interpretations/stage_45.md`](docs/interpretations/stage_45.md)
+- Verbatim script output: [`reports/stage_45.md`](reports/stage_45.md)
+- Machine-readable measurements: `checkpoints/stage_45_report.json`
+- Figure: [`figures/stage_45_width_scaling.png`](figures/stage_45_width_scaling.png)
+- Raw run record: `checkpoints/logs/45_45_width_scaling.log`

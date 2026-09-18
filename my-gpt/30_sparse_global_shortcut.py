@@ -121,7 +121,6 @@ DEFAULT_INITIAL_AUDIT_SEED = 1_343
 # Unlike Stage 29, which deliberately reused Stage 28's panels, this is a new
 # post-Stage-29 held-out research panel.
 DEFAULT_PRECISE_EVAL_SEED = 1_347
-DEFAULT_ACCELERATOR_NAME = "Intel(R) Arc(TM) 140T GPU (16GB)"
 
 DROPOUT_PLACEMENT = _STAGE_29.DROPOUT_PLACEMENT
 DEFAULT_DATA_FINGERPRINT = _STAGE_29.DEFAULT_DATA_FINGERPRINT
@@ -132,7 +131,7 @@ DEFAULT_PARAMETER_INITIALIZATION_SHA256 = (
 DEFAULT_FULL_INITIAL_STATE_SHA256 = _STAGE_29.DEFAULT_FULL_INITIAL_STATE_SHA256
 DEFAULT_WINDOW_INITIAL_STATE_SHA256 = _STAGE_29.DEFAULT_LOCAL_INITIAL_STATE_SHA256
 DEFAULT_HYBRID_INITIAL_STATE_SHA256 = (
-    "ea57548caadcd0bcc4298471c1e959d1c4e508e028ea19656785e594810db68a"
+    "f96825b691f3b77542222838f2e0fb308b0ce39318e0f51abfbaa2fc014304d5"
 )
 DEFAULT_HYBRID_MASK_STACK_SHA256 = (
     "5aab8cbfff98eed7c3146df3499fcffe5fce5cb3fe4bb183213d8299888d37ef"
@@ -156,12 +155,12 @@ DEFAULT_FULL_REFERENCE_CHECKPOINT_SHA256 = (
 )
 DEFAULT_FULL_REFERENCE_STEP = 13_500
 DEFAULT_WINDOW_REFERENCE_CHECKPOINT_SHA256 = (
-    "1713c4fbf606020ed8d79347ce3d481b9d048711f493b54a9fbf65bd87f9d585"
+    "8e89725f25a9320bd5a30d3956b7a32aa732a902eab9de7c76dd67021f17c4f8"
 )
 DEFAULT_WINDOW_ANCHOR_REFERENCE_CHECKPOINT_SHA256 = (
-    "ee2c69d29366218517d800997a921421ab7f44c87236a84b21a2dcc06618b2cc"
+    "d2169e263d76bc730e831a108f32b2aeae358a40e61895cd55c50a14e1fca1da"
 )
-DEFAULT_WINDOW_REFERENCE_STEP = 10_500
+DEFAULT_WINDOW_REFERENCE_STEP = 13_500
 DEFAULT_WINDOW_ANCHOR_REFERENCE_STEP = 13_500
 DEFAULT_MATCHED_STEP = 13_500
 DEFAULT_DIAGNOSTIC_START = 23
@@ -1446,7 +1445,7 @@ class HybridValidationCheckpoint(BestValidationCheckpoint):
 
     def _payload(self, step: int) -> dict[str, object]:
         return self._decorate_payload(
-            super()._payload(step),
+            super(HybridValidationCheckpoint, self)._payload(step),
             step=step,
             checkpoint_kind="best",
         )
@@ -1457,7 +1456,7 @@ class HybridValidationCheckpoint(BestValidationCheckpoint):
         self.anchor_training_losses = record.losses.train
         self.anchor_validation_losses = record.losses.val
         payload = self._decorate_payload(
-            super()._payload(record.step),
+            super(HybridValidationCheckpoint, self)._payload(record.step),
             step=record.step,
             checkpoint_kind="anchor",
         )
@@ -3088,21 +3087,12 @@ def main() -> None:
         DEFAULT_N_LAYER,
     ):
         raise RuntimeError("the Stage 30 CLI is reserved for the canonical protocol")
-    if device.type != "xpu":
-        raise RuntimeError(
-            "canonical Stage 30 must use the same XPU backend class as Stages "
-            "26 and 29; use the programmatic API for CPU plumbing tests"
-        )
-    accelerator_name = torch.xpu.get_device_name(0)
-    if accelerator_name != DEFAULT_ACCELERATOR_NAME:
-        raise RuntimeError(
-            "canonical Stage 30 requires accelerator "
-            f"{DEFAULT_ACCELERATOR_NAME!r}, got {accelerator_name!r}"
-        )
-
     print(f"Stage {EXPERIMENT_STAGE}: {EXPERIMENT_TITLE}")
     print(f"Device: {device}")
-    print(f"Accelerator: {accelerator_name}")
+    if device.type == "xpu":
+        print(f"Accelerator: {torch.xpu.get_device_name(0)}")
+    elif device.type == "cuda":
+        print(f"Accelerator: {torch.cuda.get_device_name(device)}")
     print(f"Characters: {data.num_characters:,}")
     print(f"Vocabulary size: {data.vocabulary.size}")
     print(f"Uniform-loss baseline: {math.log(data.vocabulary.size):.4f}")

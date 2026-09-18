@@ -80,9 +80,9 @@ DEFAULT_TREATMENT_CHECKPOINT_PATH = (
     CHECKPOINT_DIRECTORY / "stage_25_depth_6_dropout_015_best_checkpoint.pt"
 )
 DEFAULT_CONTROL_CHECKPOINT_SHA256 = (
-    "b44f591123bb3679557b07135dd1c44ca0392ecfa4f5b96f1ffc24f4c65a2727"
+    "324abf49f39eddebf96f531bae4eb59bd3e0199a9dfbb541a04dff317d11878e"
 )
-DEFAULT_CONTROL_BEST_STEP = 15_500
+DEFAULT_CONTROL_BEST_STEP = 10_500
 DEFAULT_INITIAL_STATE_SHA256 = _STAGE_24.DEFAULT_TREATMENT_INITIAL_STATE_SHA256
 
 DEFAULT_BATCH_SIZE = _STAGE_24.DEFAULT_BATCH_SIZE
@@ -465,7 +465,7 @@ def validate_stage_24_reference(
 @dataclass(slots=True)
 class TreatmentValidationCheckpoint(_STAGE_24._STAGE_23.TreatmentValidationCheckpoint):
     def _payload(self, step: int) -> dict[str, object]:
-        payload = super()._payload(step)
+        payload = super(TreatmentValidationCheckpoint, self)._payload(step)
         initialization = payload["initialization"]
         assert isinstance(initialization, dict)
         initialization.update(

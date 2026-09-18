@@ -690,19 +690,19 @@ class Stage34InitializationTests(unittest.TestCase):
         self.assertEqual(initialization.parameter_count, 1_220_673)
         self.assertEqual(
             initialization.parameter_state_sha256,
-            "c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477",
+            "c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e",
         )
         self.assertEqual(
             initialization.hybrid_state_sha256,
-            "b6c225ee58ad87f4477199a191a5e8078802ac8407ddfe47952115d3ad5c8eb0",
+            "8322b19b66426cbf3714151f03135a7116599c81367d76438f890f88d35336b9",
         )
         self.assertEqual(
             initialization.window_state_sha256,
-            "3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f",
+            "4feb26dae434a6fad7a866895b3e53d7efcec79d3dc31f6af5a412fb758cd4c1",
         )
         self.assertEqual(
             initialization.full_state_sha256,
-            "c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8",
+            "4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726",
         )
         self.assertEqual(
             initialization.hybrid_mask_stack_sha256,

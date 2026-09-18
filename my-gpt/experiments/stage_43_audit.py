@@ -29,14 +29,16 @@ SCHEDULE = [
         (18000, 50000, 3e-5),
     )
 ]
+# Architecture-native initialization fingerprints for the runtime that
+# produced the recorded artifacts (torch 2.14.0+cu130).
 INITIALIZATIONS = {
-    128: (1245538, "7a5b19780a98d02b4660b9e8f0d89715026ee9b7ae6439aaab320d41e8221726"),
-    192: (2752994, "f59960fbd5c81108dd89b1a182facc8404315a058e629ed16af85886e1000ef7"),
+    128: (1245538, "2c814ef1db35464fd011c26d4ff647c759b8cea8a040347ffe05bde5f1cb9f7a"),
+    192: (2752994, "a0ea9075d4b5eab4e4996fb6d3a5aa2ef4bf53c548445f9f4c3dcc05e86950fa"),
 }
 HISTORICAL_HASHES = {
-    "stage_41_complete_shakespeare_step_44000_final_checkpoint.pt": "c6e6a5c5eecf0d4ec90b128820dbf0f7a6d46df335f456649e230c3bb9d5b1d5",
-    "stage_42_control_3e_5_best_checkpoint.pt": "183be907a891dd84fc31430c66c8313e70d38c87a278098cebe219c9904a49a6",
-    "stage_42_control_3e_5_step_50000_final_checkpoint.pt": "7bfc120595760b538b9c4063e3580525b48762bcc779265cb09ba09e571a1441",
+    "stage_41_complete_shakespeare_step_44000_final_checkpoint.pt": "666c9e72345399cf63b412128a1427d1c778d58794473c0e8503516d2235db36",
+    "stage_42_control_3e_5_best_checkpoint.pt": "1a66c6bcae77aede45af77432d93cdf8b4c51b72a100fd04b6cdb84cafbe39e6",
+    "stage_42_control_3e_5_step_50000_final_checkpoint.pt": "57024bd7bb9e698ba3c16c23533aa5e5d52562eebe87841ac25a992def2b9baf",
 }
 
 

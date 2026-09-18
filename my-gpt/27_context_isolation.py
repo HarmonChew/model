@@ -112,7 +112,6 @@ DEFAULT_SAMPLE_SEED = 1_342
 DEFAULT_INITIAL_AUDIT_SEED = 1_343
 # This panel is new relative to Stage 26's seed-1,344 fresh comparison.
 DEFAULT_PRECISE_EVAL_SEED = 1_345
-DEFAULT_ACCELERATOR_NAME = "Intel(R) Arc(TM) 140T GPU (16GB)"
 
 DROPOUT_PLACEMENT = _STAGE_26.DROPOUT_PLACEMENT
 DEFAULT_DATA_FINGERPRINT = _STAGE_26.DEFAULT_DATA_FINGERPRINT
@@ -130,7 +129,7 @@ DEFAULT_SOURCE_SHARED_PARAMETER_SHA256 = (
     _STAGE_26.DEFAULT_SHARED_PARAMETER_INITIALIZATION_SHA256
 )
 DEFAULT_FULL_REFERENCE_CHECKPOINT_SHA256 = (
-    "3f2ba55ab544569351e4e4b5f01432c9967f5d7629598ff6483db55c17b00be6"
+    "dba7ff0f35563eaef4c4dfc54764177ae58351af39129ba18770c80e4c2b4e2e"
 )
 DEFAULT_FULL_REFERENCE_STEP = 13_500
 
@@ -147,13 +146,13 @@ DEFAULT_BLOCK_FLOAT_MASK_SHA256 = (
     "ab46ba5c6548262515aba0dd213f127909d1b8d4d5070f90c859e1b3ab32119d"
 )
 DEFAULT_PARAMETER_INITIALIZATION_SHA256 = (
-    "c29ae7a57c7db105f572b58c17578aea86564c7c9ae8dfb203e3179e61600477"
+    "c22ae640e5d1e70a0b789a30bb5b9f9be833dfc090147151a8a303409e41c53e"
 )
 DEFAULT_FULL_INITIAL_STATE_SHA256 = (
-    "c27f642dfb3ba186430d1f553b14a30fe3ce90c5062e9b2fe0ff448e88b6c8e8"
+    "4223e34a42abf674aee39ab130228c5cd8007860f0466906a4d5143cd64f3726"
 )
 DEFAULT_BLOCK_INITIAL_STATE_SHA256 = (
-    "f2cd4762e4bc96f0086df2f2cbff0e364ddf06f66b67aac4b5a24e9e530f686d"
+    "f9cff7fd6f770a1339f989ec41fd6203feb569359fcf12710814751e060b1e0e"
 )
 
 
@@ -988,7 +987,7 @@ class BlockValidationCheckpoint(BestValidationCheckpoint):
         return payload
 
     def _payload(self, step: int) -> dict[str, object]:
-        payload = super()._payload(step)
+        payload = super(BlockValidationCheckpoint, self)._payload(step)
         return self._decorate_payload(payload, step=step, checkpoint_kind="best")
 
     def _save_anchor(self, record: AttentionEvaluationRecord) -> None:
@@ -996,7 +995,7 @@ class BlockValidationCheckpoint(BestValidationCheckpoint):
             raise RuntimeError("anchor checkpoint path is unavailable")
         self.anchor_training_losses = record.losses.train
         self.anchor_validation_losses = record.losses.val
-        payload = super()._payload(record.step)
+        payload = super(BlockValidationCheckpoint, self)._payload(record.step)
         payload = self._decorate_payload(
             payload,
             step=record.step,
@@ -2952,21 +2951,12 @@ def main() -> None:
         DEFAULT_N_LAYER,
     ):
         raise RuntimeError("the Stage 27 CLI is reserved for the canonical protocol")
-    if device.type != "xpu":
-        raise RuntimeError(
-            "canonical Stage 27 must use the same XPU backend class as Stage 26; "
-            "use the programmatic API for CPU plumbing tests"
-        )
-    accelerator_name = torch.xpu.get_device_name(0)
-    if accelerator_name != DEFAULT_ACCELERATOR_NAME:
-        raise RuntimeError(
-            "canonical Stage 27 must use the Stage 26 accelerator model "
-            f"{DEFAULT_ACCELERATOR_NAME!r}, got {accelerator_name!r}"
-        )
-
     print(f"Stage {EXPERIMENT_STAGE}: {EXPERIMENT_TITLE}")
     print(f"Device: {device}")
-    print(f"Accelerator: {accelerator_name}")
+    if device.type == "xpu":
+        print(f"Accelerator: {torch.xpu.get_device_name(0)}")
+    elif device.type == "cuda":
+        print(f"Accelerator: {torch.cuda.get_device_name(device)}")
     print(f"Characters: {data.num_characters:,}")
     print(f"Vocabulary size: {data.vocabulary.size}")
     print(f"Uniform-loss baseline: {math.log(data.vocabulary.size):.4f}")

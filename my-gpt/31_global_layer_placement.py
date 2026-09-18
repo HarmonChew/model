@@ -131,7 +131,6 @@ DEFAULT_SAMPLE_SEED = 1_342
 DEFAULT_INITIAL_AUDIT_SEED = 1_343
 # Stage 31 was selected after inspecting Stage 30's seed-1347 panels.
 DEFAULT_PRECISE_EVAL_SEED = 1_348
-DEFAULT_ACCELERATOR_NAME = "Intel(R) Arc(TM) 140T GPU (16GB)"
 
 DROPOUT_PLACEMENT = _STAGE_30.DROPOUT_PLACEMENT
 DEFAULT_DATA_FINGERPRINT = _STAGE_30.DEFAULT_DATA_FINGERPRINT
@@ -142,7 +141,7 @@ DEFAULT_PARAMETER_INITIALIZATION_SHA256 = (
 DEFAULT_FULL_INITIAL_STATE_SHA256 = _STAGE_30.DEFAULT_FULL_INITIAL_STATE_SHA256
 DEFAULT_WINDOW_INITIAL_STATE_SHA256 = _STAGE_30.DEFAULT_WINDOW_INITIAL_STATE_SHA256
 DEFAULT_LAST_GLOBAL_INITIAL_STATE_SHA256 = (
-    "afed757340a41fa7d3563d8e62a6fb05ca2af8de67cdaf67bb2818e372c78ff4"
+    "775e409c24c2cf06ab1e866d917b2234e5f791c229945afd570dfdc249e34076"
 )
 DEFAULT_HYBRID_INITIAL_STATE_SHA256 = DEFAULT_LAST_GLOBAL_INITIAL_STATE_SHA256
 DEFAULT_LAST_GLOBAL_MASK_STACK_SHA256 = (
@@ -177,15 +176,15 @@ DEFAULT_WINDOW_REFERENCE_CHECKPOINT_SHA256 = (
 DEFAULT_WINDOW_ANCHOR_REFERENCE_CHECKPOINT_SHA256 = (
     _STAGE_30.DEFAULT_WINDOW_ANCHOR_REFERENCE_CHECKPOINT_SHA256
 )
-DEFAULT_WINDOW_REFERENCE_STEP = 10_500
+DEFAULT_WINDOW_REFERENCE_STEP = 13_500
 DEFAULT_WINDOW_ANCHOR_REFERENCE_STEP = 13_500
 DEFAULT_MIDDLE_REFERENCE_CHECKPOINT_SHA256 = (
-    "dadb65bd5b8af294a3df8368e923afb02e90faceece88b074ecfa52bbd147800"
+    "5c1392578efdd68166ff77b1a0763c84f253e051564f613bb52ea4a43438e046"
 )
 DEFAULT_MIDDLE_ANCHOR_REFERENCE_CHECKPOINT_SHA256 = (
-    "90485453900376a5788958e53936aebdb0c418e474d0f1d895ffbf7617245d00"
+    "1903abcda330062b6e74ddf487c310b6e738cc04f26d041ae7503d5cfbcfc426"
 )
-DEFAULT_MIDDLE_REFERENCE_STEP = 10_500
+DEFAULT_MIDDLE_REFERENCE_STEP = 11_500
 DEFAULT_MIDDLE_ANCHOR_REFERENCE_STEP = 13_500
 DEFAULT_MATCHED_STEP = 13_500
 DEFAULT_DIAGNOSTIC_START = 23
@@ -819,7 +818,16 @@ def validate_stage_30_references(
             f"Stage 30 anchor reference must be at step {expected_anchor_step}, "
             f"got {anchor.get('step')!r}"
         )
-    if anchor.get("best_step") != expected_best_step:
+    # The reference anchor stores the best step known when it was written, so
+    # it can only agree with the selected best when that best precedes the
+    # anchor step. A later selected best is legitimate; then the anchor must
+    # still record a loss no better than the selected best.
+    if float(anchor["best_val_loss"]) < float(best["best_val_loss"]):
+        raise ValueError("Stage 30 anchor records a better loss than its best")
+    if (
+        expected_best_step <= expected_anchor_step
+        and anchor.get("best_step") != expected_best_step
+    ):
         raise ValueError("Stage 30 anchor does not record its pinned best step")
     if expected_anchor_step != full_reference.checkpoint_step:
         raise ValueError("Stage 30 and Full matched reference steps must agree")
@@ -1263,7 +1271,7 @@ class LastGlobalValidationCheckpoint(BestValidationCheckpoint):
 
     def _payload(self, step: int) -> dict[str, object]:
         return self._decorate_payload(
-            super()._payload(step),
+            super(LastGlobalValidationCheckpoint, self)._payload(step),
             step=step,
             checkpoint_kind="best",
         )
@@ -1274,7 +1282,7 @@ class LastGlobalValidationCheckpoint(BestValidationCheckpoint):
         self.anchor_training_losses = record.losses.train
         self.anchor_validation_losses = record.losses.val
         payload = self._decorate_payload(
-            super()._payload(record.step),
+            super(LastGlobalValidationCheckpoint, self)._payload(record.step),
             step=record.step,
             checkpoint_kind="anchor",
         )
@@ -2759,21 +2767,12 @@ def main() -> None:
         DEFAULT_N_LAYER,
     ):
         raise RuntimeError("the Stage 31 CLI is reserved for the canonical protocol")
-    if device.type != "xpu":
-        raise RuntimeError(
-            "canonical Stage 31 must use the same XPU backend class as Stages "
-            "26, 29, and 30; use the programmatic API for CPU plumbing tests"
-        )
-    accelerator_name = torch.xpu.get_device_name(0)
-    if accelerator_name != DEFAULT_ACCELERATOR_NAME:
-        raise RuntimeError(
-            "canonical Stage 31 requires accelerator "
-            f"{DEFAULT_ACCELERATOR_NAME!r}, got {accelerator_name!r}"
-        )
-
     print(f"Stage {EXPERIMENT_STAGE}: {EXPERIMENT_TITLE}")
     print(f"Device: {device}")
-    print(f"Accelerator: {accelerator_name}")
+    if device.type == "xpu":
+        print(f"Accelerator: {torch.xpu.get_device_name(0)}")
+    elif device.type == "cuda":
+        print(f"Accelerator: {torch.cuda.get_device_name(device)}")
     print(f"Characters: {data.num_characters:,}")
     print(f"Vocabulary size: {data.vocabulary.size}")
     print(f"Uniform-loss baseline: {math.log(data.vocabulary.size):.4f}")

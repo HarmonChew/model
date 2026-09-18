@@ -61,7 +61,7 @@ class Stage25DefaultsAndInitializationTests(unittest.TestCase):
         )
         self.assertEqual(
             STAGE_25._pin_for_default_path(args.control_checkpoint_path),
-            (STAGE_25.DEFAULT_CONTROL_CHECKPOINT_SHA256, 15_500),
+            (STAGE_25.DEFAULT_CONTROL_CHECKPOINT_SHA256, 10_500),
         )
 
         data = make_character_data(vocabulary_size=65)
@@ -90,7 +90,7 @@ class Stage25DefaultsAndInitializationTests(unittest.TestCase):
         )
         self.assertEqual(
             initial_hash,
-            "2a4639d1eff064c51d7cd103e11ddd32b782314e7d0f98b560b860224a937ab0",
+            "b4bf85310a542f248a51a8eb8e290bbb9274adcce6a2d9898f89cf2e78665a71",
         )
         self.assertEqual(initial_hash, STAGE_25.DEFAULT_INITIAL_STATE_SHA256)
 
