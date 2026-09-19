@@ -27,3 +27,13 @@ These instructions apply to all work under `my-gpt/`.
 - Do not paste training transcripts or long metric tables into chat; link to the
   stage report.
 
+## Subagent dispatch hazards
+
+- **Before** decoding any binary or image file (a `read` of `.png`, `.jpg`,
+  `.pt`, or video, or any inline image), confirm no `task` subagent is in
+  flight: the parent's context is replayed into child prompts, so an image in
+  the parent's history makes every child request fail with a 400 on models that
+  accept zero images — and when a child does die that way, inspect the artifact
+  tree before redoing its work, because its file writes usually survive (possibly
+  truncated mid-file).
+
