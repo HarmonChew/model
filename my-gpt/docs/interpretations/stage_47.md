@@ -119,6 +119,16 @@ displace `C=256`.
 
 ## Recommendation
 
+> **Superseded in part by Stage 48.** The recommendation below locks `C=256` at
+> `p=0.10`. Stage 48 tested that inherited setting directly and found `C=256` was
+> itself under-regularized: `p=0.15` improves it by `-0.0015667`
+> (`[-0.0029214, -0.0002120]`) and makes it the resolved champion against both
+> `C=320` plateau endpoints, by `0.0087` and `0.0091`. The instruction to stop
+> tuning `C=320`, and the conclusion that its residual deficit is not a
+> regularization artifact, both stand — but the champion configuration is now
+> `C=256` at `p=0.15`
+> ([`stage_48.md`](stage_48.md)).
+
 **Lock `C=256` at `p=0.10`, and stop tuning `C=320`.** The width ladder is now:
 
 | Control → treatment | Width step | Parameter ratio | Fresh paired delta | Outcome |

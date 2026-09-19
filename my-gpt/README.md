@@ -7406,3 +7406,53 @@ best-supported width. The full argument is in the interpretation.
 - Independent audit: `checkpoints/stage_47_audit.json`
 - Figure: [`figures/stage_47_dropout_strength.png`](figures/stage_47_dropout_strength.png)
 - Raw run record: `checkpoints/logs/47_47_dropout_strength.log`
+
+## Stage 48: is the C256 champion itself optimally regularized?
+
+Stages 46–47 tuned `C=320` against a `C=256` reference whose own dropout was
+never tested, so the frontier had been located at a regularization setting that
+Stage 46 had just shown to be a real lever. Stage 48 moves the question back to
+the champion. Both branches are `C=256` (`H=4`, `D=64`, `FF=1024`, `L=6`,
+`T=256`, `LLLLGG`), trained fresh from architecture-native initialization for
+50,000 updates / 102.4 million target presentations, with residual dropout as the
+only variable — control `p=0.10`, treatment `p=0.15` — so the branches start from
+byte-identical weights and identical parameter counts.
+
+Run the canonical experiment and the four-way champion panel:
+
+```powershell
+python .\my-gpt\48_dropout_strength.py --device cuda
+python .\my-gpt\48_dropout_strength.py --device cuda --champion-panel-only
+```
+
+Validate the corpus, architecture, and paired initialization without training:
+
+```powershell
+python .\my-gpt\48_dropout_strength.py --device cpu --validate-only
+```
+
+Result: `p=0.15` improves `C=256`. The fresh paired delta is `-0.0015667`
+(`[-0.0029214, -0.0002120]`) at a `+0.0188` training-loss cost, cutting the
+generalization gap by `0.0219` while leaving the selected best step unchanged at
+48,500. Rescoring all four `C256`/`C320` dropout endpoints on one shared fresh
+panel makes `C=256` at `p=0.15` the resolved champion: it beats `C=320` `p=0.15`
+by `0.0087379` and `C=320` `p=0.20` by `0.0091327`, both intervals entirely on
+the winning side. The first dropout step is therefore real at *both* widths, but
+it buys `C=320` `3.2x` more than `C=256` — dropout headroom is a property of the
+width, not a monotone function of capacity, and the earlier frontier margins were
+understated by roughly a third because the reference model was itself mis-set.
+`C=256` at `p=0.15` now leads on both accuracy and parameter count.
+
+Note on the device: `--device cuda` resolves to the **recorded lineage device**
+(`NVIDIA GeForce RTX 3090`) by name and the canonical protocol refuses any other
+accelerator, because kernel selection is device-dependent and the host also
+exposes a `3090 Ti`. The full argument is in the interpretation.
+
+- Interpretation and caveats: [`docs/interpretations/stage_48.md`](docs/interpretations/stage_48.md)
+- Verbatim script output: [`reports/stage_48.md`](reports/stage_48.md)
+- Machine-readable measurements: `checkpoints/stage_48_report.json`
+- Champion shootout panel: `checkpoints/stage_48_champion_shootout.json`
+- Independent audit: `checkpoints/stage_48_audit.json`
+- Figure: [`figures/stage_48_dropout_strength.png`](figures/stage_48_dropout_strength.png)
+- Raw run record: `checkpoints/logs/48_48_dropout_strength.log`
+
