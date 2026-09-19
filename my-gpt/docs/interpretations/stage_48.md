@@ -226,3 +226,15 @@ constraint.
 - Audit and plot tools: [`experiments/stage_48_audit.py`](../../experiments/stage_48_audit.py),
   [`experiments/stage_48_plot.py`](../../experiments/stage_48_plot.py)
 - Tests: [`test_dropout_strength_stage_48.py`](../../test_dropout_strength_stage_48.py)
+
+## Superseded in part by Stage 49
+
+The recommendation above says not to spend further budget on dropout at C256
+because nothing in Stage 48 implied `p=0.20` would help. Stage 49 tested that
+directly and it does not: `p=0.20` is worse than `p=0.15` by `+0.0064156`
+(`[+0.0053488, +0.0074824]`), a penalty `4.1x` larger than this stage's own
+`0.0016` gain from the step below it. The C256 bracket is now closed on both
+sides, so this stage's refusal to extrapolate was correct and the lock on
+`p=0.15` stands. The champion panel in Stage 49 also re-measures both C320
+endpoints against the same reference model on a fresh panel and reproduces this
+stage's `0.0084`–`0.0089` margin.

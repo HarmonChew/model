@@ -7456,3 +7456,55 @@ exposes a `3090 Ti`. The full argument is in the interpretation.
 - Figure: [`figures/stage_48_dropout_strength.png`](figures/stage_48_dropout_strength.png)
 - Raw run record: `checkpoints/logs/48_48_dropout_strength.log`
 
+
+## Stage 49: the C256 dropout bracket closes at p=0.15
+
+Stage 48 measured only `p=0.10 → p=0.15` at C256 and explicitly left `p=0.20`
+untested, so the C256 regularization curve had one interior point and no upper
+bound. Stage 49 supplies the missing step. Both branches are `C=256` (`H=4`,
+`D=64`, `FF=1024`, `L=6`, `T=256`, `LLLLGG`), trained fresh from
+architecture-native initialization for 50,000 updates / 102.4 million target
+presentations, with residual dropout the only variable — control `p=0.15` (Stage
+48's winning treatment) against treatment `p=0.20` — so the branches start from
+byte-identical weights and identical parameter counts.
+
+Run the canonical experiment and the four-way champion panel:
+
+```powershell
+python .\my-gpt\49_dropout_strength.py --device cuda
+python .\my-gpt\49_dropout_strength.py --device cuda --champion-panel-only
+```
+
+Validate the corpus, architecture, and paired initialization without training:
+
+```powershell
+python .\my-gpt\49_dropout_strength.py --device cpu --validate-only
+```
+
+Result: `p=0.20` is too much. The fresh paired delta is `+0.0064156`
+(`[+0.0053488, +0.0074824]`) at a `+0.0207` training-loss cost, and the treatment
+is lower-loss on only `143 / 500` shared batches. The step below it *gained*
+`0.0016`, so the penalty above the optimum is `4.1x` the size of the gain below
+it: at C256 the dropout response is a narrow peak with a steep high-dropout
+penalty, whereas C320's is a broad plateau. Both branches again select their best
+checkpoint at the same step, 48,500, and the `0.0061`–`0.0064` deficit reproduces
+on two disjoint fresh panels. The four-way shootout makes `C=256` `p=0.15` the
+resolved champion against all three peers — including the over-regularized
+`C=256` `p=0.20`, which still beats both C320 endpoints, so the width conclusion
+does not depend on hitting C256's regularization optimum. The bracket is closed:
+`p=0.10` too little, `p=0.15` best, `p=0.20` too much. The `p=0.15` control
+reproduced the Stage 48 treatment byte for byte on weights, AdamW state,
+batch-generator state, and both RNG projections.
+
+Note on the device: `--device cuda` resolves to the **recorded lineage device**
+(`NVIDIA GeForce RTX 3090`) by name and the canonical protocol refuses any other
+accelerator, because kernel selection is device-dependent and the host also
+exposes a `3090 Ti`. The full argument is in the interpretation.
+
+- Interpretation and caveats: [`docs/interpretations/stage_49.md`](docs/interpretations/stage_49.md)
+- Verbatim script output: [`reports/stage_49.md`](reports/stage_49.md)
+- Machine-readable measurements: `checkpoints/stage_49_report.json`
+- Champion shootout panel: `checkpoints/stage_49_champion_shootout.json`
+- Independent audit: `checkpoints/stage_49_audit.json`
+- Figure: [`figures/stage_49_dropout_strength.png`](figures/stage_49_dropout_strength.png)
+- Raw run record: `checkpoints/logs/49_49_dropout_strength.log`
