@@ -7366,3 +7366,43 @@ is in the interpretation.
 - Cross-stage C256 comparison: `checkpoints/stage_46_c256_comparison.json`
 - Figure: [`figures/stage_46_regularization_rescue.png`](figures/stage_46_regularization_rescue.png)
 - Raw run record: `checkpoints/logs/46_46_regularization_rescue.log`
+
+## Stage 47: second dropout step at C320
+
+Stage 46 showed that `C=320` at `p=0.10` is under-regularized and that `p=0.15`
+rescues `0.0051` of its deficit, without overtaking `C=256`. Stage 47 asks
+whether that direction continues, by advancing the same architecture one more
+dropout step. Both branches are `C=320` (`H=4`, `D=80`, `FF=1280`, `L=6`,
+`T=256`, `LLLLGG`), trained fresh from architecture-native initialization for
+50,000 updates / 102.4 million target presentations; residual dropout is the
+only variable, so the branches start from byte-identical weights and parameter
+counts.
+
+Run the canonical experiment and the cross-stage frontier readout:
+
+```powershell
+python .\my-gpt\47_dropout_strength.py --device cuda
+python .\my-gpt\47_dropout_strength.py --device cuda --frontier-comparison-only
+```
+
+Validate the corpus, architecture, and paired initialization without training:
+
+```powershell
+python .\my-gpt\47_dropout_strength.py --device cpu --validate-only
+```
+
+Result: `p=0.20` neither improves nor harms `C=320`. The fresh paired delta is
+`+0.0000117` (`[-0.0013807, +0.0014042]`) at a `+0.0166` training-loss cost, so
+the regularization response has saturated and the `C=320` dropout optimum is
+bracketed at `0.15–0.20`. Both plateau endpoints still lose to `C=256`
+(`+0.0071003` and `+0.0071028` on one shared panel), which closes the
+regularization avenue for `C=320`. `C=256` at `p=0.10` remains the
+best-supported width. The full argument is in the interpretation.
+
+- Interpretation and caveats: [`docs/interpretations/stage_47.md`](docs/interpretations/stage_47.md)
+- Verbatim script output: [`reports/stage_47.md`](reports/stage_47.md)
+- Machine-readable measurements: `checkpoints/stage_47_report.json`
+- Cross-stage C256 comparison: `checkpoints/stage_47_c256_comparison.json`
+- Independent audit: `checkpoints/stage_47_audit.json`
+- Figure: [`figures/stage_47_dropout_strength.png`](figures/stage_47_dropout_strength.png)
+- Raw run record: `checkpoints/logs/47_47_dropout_strength.log`

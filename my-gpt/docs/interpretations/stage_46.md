@@ -116,6 +116,14 @@ outcome is a narrower loss, not a win. If the frontier is to move, the
 evidence points at data rather than width or regularization — the same
 generalization gap attacked from the other side.
 
+> **Superseded in part by Stage 47.** The `p=0.15 → p=0.20` step this section
+> projected was run directly
+> ([`stage_47.md`](stage_47.md)). The measured second-step delta is `+0.0000117`
+> (`[-0.0013807, +0.0014042]`), not the projected approach to parity: the
+> regularization response saturates, and both plateau endpoints still trail
+> `C=256`. The extrapolation above is therefore refuted while its conclusion —
+> lock `C=256`, stop tuning `C=320` — is confirmed by a tighter bracket.
+
 ## Controls and provenance
 
 - **Cross-stage determinism re-confirmed, one level out.** The fresh `C=320`
