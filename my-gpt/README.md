@@ -7508,3 +7508,72 @@ exposes a `3090 Ti`. The full argument is in the interpretation.
 - Independent audit: `checkpoints/stage_49_audit.json`
 - Figure: [`figures/stage_49_dropout_strength.png`](figures/stage_49_dropout_strength.png)
 - Raw run record: `checkpoints/logs/49_49_dropout_strength.log`
+
+## Stage 50: revisit depth at the mature C256 champion
+
+Stages 43–49 closed both scaling directions that had been open: `C=320` loses to
+`C=256` at every dropout measured, and C256's own dropout bracket is closed at
+`p=0.15`. The original depth result (`L=4 → L=6` gaining `-0.011038`) came from a
+much smaller era of the project, so Stage 50 re-asks the depth question at the
+mature operating point and widens it into a budget comparison: given more
+parameters, is it better to go deeper or wider?
+
+Both branches are fresh from architecture-native initialization under the
+unchanged Stage 43–49 protocol (50,000 updates, 102.4 million target
+presentations, one batch stream), varying only depth:
+
+```text
+control:   C=256  L=6  contexts LLLLGG    p=0.15   4,850,274 params
+treatment: C=256  L=8  contexts LLLLLLGG  p=0.15   6,428,258 params  (+32.53%)
+```
+
+The treatment adds two W23 local layers before the same two final Full layers, so
+the global refiners move from layers 5–6 to 7–8 and the pre-global local receptive
+field grows `89 → 133`. A stored third endpoint, Stage 46's `C320 L=6` (7,537,378
+params), represents the *width* way to spend a similar budget.
+
+This run deliberately trained on the **RTX 3090 Ti** rather than the lineage 3090,
+and measured the consequence instead of assuming it. Both branches trained on one
+accelerator, so the depth comparison stays internally matched; the stored 3090
+endpoints were scored beside them, and because initialization is a CPU-side draw
+the two `L=6` endpoints start from the same native state, which makes their
+difference a device effect with an interval.
+
+Run the depth comparison and the four-endpoint budget panel, then rescore the
+panel standalone and probe the session:
+
+```powershell
+python .\my-gpt\50_depth_revisit.py --device cuda:0 --allow-foreign-device
+python .\my-gpt\50_depth_revisit.py --device cuda:0 --allow-foreign-device --budget-panel-only
+python .\my-gpt\50_depth_revisit.py --device cuda:0 --allow-foreign-device --control-probe-steps 1000
+```
+
+On the lineage device, drop `--allow-foreign-device` and use `--device cuda`; the
+canonical protocol then also requires the trained control to reproduce the stored
+Stage 49 champion byte for byte, which the foreign mode cannot claim.
+
+Result: **the depth gain does not survive at this operating point, and the budget
+question is answered anyway.** Two extra layers buy `-0.0015912`
+(`[-0.0028366, -0.0003458]`) on the primary 500-batch panel and `+0.0002220`
+(`[-0.0010775, +0.0015214]`) on a second, disjoint one — the same two checkpoints,
+a spread 2.9x the within-panel standard error, so the effect sits at or below the
+design's resolution rather than merely being small. What the extra capacity
+visibly does is fit: train loss falls `0.0274` while held-out loss moves by at most
+`0.0016`, widening the generalization gap from `0.264` to `0.291`. Against that,
+the width answer reproduces on a second accelerator — `C320` loses to a C256 `L=6`
+trained today on different hardware by `0.00734`, and to the stored 3090 champion
+by `0.00814`, the same magnitude the lineage measured. So depth is the *better*
+spend of the two and still not a spend worth making. The measured device shift,
+`+0.0007993` (`[-0.0003195, +0.0019180]`), is the same size as the depth effect
+itself, which is why it was worth measuring: the replay probe shows step-0 forward
+passes are bit-identical across the two cards and divergence begins only once
+training updates them.
+
+- Interpretation and caveats: [`docs/interpretations/stage_50.md`](docs/interpretations/stage_50.md)
+- Verbatim script output: [`reports/stage_50.md`](reports/stage_50.md)
+- Machine-readable measurements: `checkpoints/stage_50_report.json`
+- Budget panel (standalone rescore): `checkpoints/stage_50_budget_shootout.json`
+- Device-shift probe: `checkpoints/stage_50_control_probe.json`
+- Independent audits: `checkpoints/stage_50_audit.json`, `checkpoints/stage_50_budget_audit.json`
+- Figure: [`figures/stage_50_depth_revisit.png`](figures/stage_50_depth_revisit.png)
+- Raw run record: `checkpoints/logs/50_50_depth_revisit.log`

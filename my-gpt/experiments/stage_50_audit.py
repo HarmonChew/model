@@ -378,9 +378,14 @@ def panel_endpoint_architecture(
 
 
 def audit_budget_panel(
-    panel: dict[str, Any], expected_seed: int
+    panel: dict[str, Any], expected_seed: int, outcome: str | None = None
 ) -> dict[str, Any]:
-    """Re-derive every budget-shootout statistic, its ranking, and its RNG story."""
+    """Re-derive every budget-shootout statistic, its ranking, and its RNG story.
+
+    `outcome` is the prose the panel's own conclusion is stated in. A stage
+    report keeps it beside the panel rather than inside it, so it is passed in
+    there; a standalone panel file carries it itself.
+    """
 
     require(panel["seed"] == expected_seed, "budget panel seed changed")
     require(panel["eval_iters"] == 500, "budget panel must hold 500 batches")
@@ -533,14 +538,26 @@ def audit_budget_panel(
     for key, endpoint in panel["endpoints"].items():
         endpoints[key] = audit_endpoint(endpoint, f"endpoint {key}")
     critical = student_t_975(499)
-    pairs = sorted(
-        f"{candidate}_minus_{baseline}"
+    expected_pairs = {
+        frozenset((candidate, baseline))
         for index, candidate in enumerate(expected_keys)
         for baseline in expected_keys[index + 1 :]
-    )
+    }
     forward = sorted(panel["comparisons"])
+    stored_pairs = set()
+    for key in forward:
+        candidate, separator, baseline = key.partition("_minus_")
+        require(
+            separator == "_minus_" and candidate in expected_keys and baseline in expected_keys,
+            f"unrecognised comparison key {key!r}",
+        )
+        require(candidate != baseline, f"self-comparison {key!r}")
+        stored_pairs.add(frozenset((candidate, baseline)))
+    # The runner stores each unordered pair once, in whatever order it enumerated
+    # the endpoints, so coverage is checked as a set of pairs rather than as a set
+    # of strings.
     require(
-        set(forward) == set(pairs),
+        stored_pairs == expected_pairs and len(stored_pairs) == len(forward),
         "budget comparisons must cover every unordered pair exactly once",
     )
     comparisons = {
@@ -590,7 +607,8 @@ def audit_budget_panel(
             resolved = stored["confidence_high"] < 0
         if resolved:
             defeated.append(key)
-    outcome = panel.get("budget_outcome")
+    if outcome is None:
+        outcome = panel.get("budget_outcome")
     if outcome is not None:
         if len(defeated) == len(ranked) - 1:
             require("resolved champion" in outcome, "outcome ignores a resolved panel")
@@ -665,6 +683,7 @@ def audit_budget_panel(
         "device_confounded": bool(confounded),
         "device_confounded_endpoints": confounded,
         "device_shift": device_shift,
+        "outcome": outcome,
         "budget_ratio_depth_over_width": (
             treatment_parameters / architectures["c320_l6"]["parameters"]
         ),
@@ -1424,10 +1443,8 @@ def audit_run(report_path: Path, data_path: Path | None) -> dict[str, Any]:
     )
     require(report["outcome"] == expected_outcome, "outcome disagrees with its interval")
 
-    panel = audit_budget_panel(report["budget_shootout"], BUDGET_PANEL_SEED)
-    require(
-        report["budget_outcome"] == report["budget_shootout"]["budget_outcome"],
-        "report and panel budget outcomes disagree",
+    panel = audit_budget_panel(
+        report["budget_shootout"], BUDGET_PANEL_SEED, report["budget_outcome"]
     )
     endpoints = audit_endpoint_checkpoints(torch, stage, data, report["device_mode"])
     for key, entry in endpoints.items():
