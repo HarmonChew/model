@@ -89,7 +89,6 @@ stream_hashes = _STAGE_49.stream_hashes
 make_schedule = _STAGE_49.make_schedule
 schedule_metadata = _STAGE_49.schedule_metadata
 resolve_lineage_device = _STAGE_49.resolve_lineage_device
-verify_lineage_device = _STAGE_49.verify_lineage_device
 normalized_rng_sha256 = _STAGE_49.normalized_rng_sha256
 terminal_rng_normalization = _STAGE_49.terminal_rng_normalization
 
@@ -264,6 +263,28 @@ SHARED_ARCHITECTURE_FIELDS = (
 )
 # The only state-dict entries that are masks rather than learned parameters.
 MASK_BUFFER_SUFFIX = ".tril"
+
+
+def verify_lineage_device(device: torch.device) -> None:
+    """The canonical protocol runs on the recorded accelerator or not at all.
+
+    The control's whole evidentiary value is that it reproduces a stored
+    endpoint, and Stage 48 measured that the same seed on the other accelerator
+    this host exposes produces a genuinely different trajectory. A run on any
+    other device is therefore a different experiment, not this stage's.
+    """
+
+    if device.type != "cuda":
+        return
+    name = torch.cuda.get_device_name(device)
+    if name == DEFAULT_LINEAGE_DEVICE_NAME:
+        return
+    raise RuntimeError(
+        f"Stage 50 requires {DEFAULT_LINEAGE_DEVICE_NAME!r} for the canonical "
+        f"protocol; {device} is {name!r}. Kernel selection is device-dependent, so "
+        "the Stage 49 control reproduction and the stored C320 peer are only "
+        "defined on the recorded device. Resolve it by index with --device."
+    )
 
 
 def layer_contexts_for_depth(depth: int) -> tuple[int | None, ...]:
