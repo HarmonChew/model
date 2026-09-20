@@ -31,6 +31,7 @@ import importlib.util
 import itertools
 import json
 import math
+import os
 import sys
 import time
 from dataclasses import asdict, dataclass, replace
@@ -167,6 +168,35 @@ DEFAULT_SHARED_INITIAL_GENERATOR_SHA256 = (
 # validator, and by the file hash Stage 49 recorded for it.
 C320_BUDGET_REF = _STAGE_49.C320_CHAMPION_REFS[0]
 BUDGET_PEER_KEY = "c320_l6"
+# The stored C256 L=6 endpoint plays one of two roles depending on the run's
+# device mode. On the lineage device it is the state this stage's own control
+# must reproduce, and the fresh control occupies its panel slot. Off the lineage
+# device it cannot be reproduced, so it enters the panel beside the fresh
+# branches and becomes the device-shift measurement: same architecture, same
+# initialization seed, same data, same protocol, different accelerator.
+STORED_L6_PEER_KEY = "c256_l6_lineage"
+# Every stored endpoint the panel may admit, with the wording its row carries.
+STORED_PEER_PROVENANCE = {
+    BUDGET_PEER_KEY: {
+        "provenance": "stage 46 treatment, stored",
+        "tag": "stage 46 stored",
+    },
+    STORED_L6_PEER_KEY: {
+        "provenance": "stage 49 control, stored",
+        "tag": "stage 49 stored",
+    },
+}
+FRESH_PROVENANCE_TAG = "stage 50 fresh"
+CANONICAL_DEVICE_MODE = "canonical_lineage_device"
+FOREIGN_DEVICE_MODE = "foreign_device"
+DEVICE_MODES = (CANONICAL_DEVICE_MODE, FOREIGN_DEVICE_MODE)
+# The diagnostic probe: replay the canonical control's first updates and compare
+# them against the trajectory the recorded lineage run published. Spending ~1% of
+# one branch's budget is what tells a session whether it is the session that
+# produced the stored checkpoints, and how far another accelerator has moved.
+DEFAULT_PROBE_STEPS = 1_000
+DEFAULT_PROBE_PATH = DEFAULT_OUTPUT_DIRECTORY / "stage_50_control_probe.json"
+DEFAULT_STAGE_49_REPORT_PATH = DEFAULT_OUTPUT_DIRECTORY / "stage_49_report.json"
 # The original depth result, from the same lineage's early, small-data,
 # narrow-width era. Transcribed from the Stage 24 report; Stage 50 never
 # retrains or re-reads it. It is the prior that motivates re-asking the question
@@ -265,26 +295,46 @@ SHARED_ARCHITECTURE_FIELDS = (
 MASK_BUFFER_SUFFIX = ".tril"
 
 
-def verify_lineage_device(device: torch.device) -> None:
-    """The canonical protocol runs on the recorded accelerator or not at all.
+def device_mode(device: torch.device, *, allow_foreign: bool) -> str:
+    """Classify the run's accelerator against the one the lineage recorded.
 
-    The control's whole evidentiary value is that it reproduces a stored
-    endpoint, and Stage 48 measured that the same seed on the other accelerator
-    this host exposes produces a genuinely different trajectory. A run on any
-    other device is therefore a different experiment, not this stage's.
+    The lineage's trajectories are only reproducible on the device that produced
+    them, so a foreign accelerator is a different experiment: the stored control
+    cannot be reproduced there and the stored budget peers were trained
+    elsewhere. That is a legitimate experiment to run, but only deliberately, so
+    it has to be requested and it changes what the stage claims rather than
+    failing quietly later.
     """
 
     if device.type != "cuda":
-        return
+        return CANONICAL_DEVICE_MODE
     name = torch.cuda.get_device_name(device)
     if name == DEFAULT_LINEAGE_DEVICE_NAME:
-        return
+        return CANONICAL_DEVICE_MODE
+    if allow_foreign:
+        return FOREIGN_DEVICE_MODE
     raise RuntimeError(
         f"Stage 50 requires {DEFAULT_LINEAGE_DEVICE_NAME!r} for the canonical "
         f"protocol; {device} is {name!r}. Kernel selection is device-dependent, so "
         "the Stage 49 control reproduction and the stored C320 peer are only "
-        "defined on the recorded device. Resolve it by index with --device."
+        "defined on the recorded device. Resolve it by index with --device, or "
+        "pass --allow-foreign-device to run the depth comparison off the lineage "
+        "device and score the shift."
     )
+
+
+def verify_lineage_device(device: torch.device) -> None:
+    """The strict form of `device_mode`: refuse any other accelerator."""
+
+    device_mode(device, allow_foreign=False)
+
+
+def verify_device_mode(mode: str, device: torch.device) -> None:
+    if mode not in DEVICE_MODES:
+        raise ValueError(f"unknown device mode: {mode!r}")
+    expected = device_mode(device, allow_foreign=mode == FOREIGN_DEVICE_MODE)
+    if expected != mode:
+        raise RuntimeError(f"device mode {mode!r} disagrees with {device}")
 
 
 def layer_contexts_for_depth(depth: int) -> tuple[int | None, ...]:
@@ -1409,7 +1459,7 @@ def load_stage_49_control(data: CharacterData, directory: Path) -> StoredEndpoin
     ):
         raise ValueError("Stage 49 C256 control fixed-panel record changed")
     return StoredEndpoint(
-        "c256_l6_stage_49",
+        STORED_L6_PEER_KEY,
         spec.width,
         _STAGE_44.N_LAYER,
         _STAGE_49.DEFAULT_CONTROL_DROPOUT,
@@ -1534,6 +1584,22 @@ def verify_stage_49_control_reproduction(
     }
 
 
+def budget_peer_loaders(mode: str) -> tuple[Any, ...]:
+    """Which stored endpoints the panel admits, given the run's device mode.
+
+    On the lineage device the fresh control occupies the C256 L=6 slot, so only
+    the wider C320 spend is a peer. Off it the fresh branches are a different
+    experiment from the stored ones, so the stored C256 L=6 endpoint joins the
+    panel and the device shift becomes one of its measured rows.
+    """
+
+    if mode == CANONICAL_DEVICE_MODE:
+        return (load_c320_budget_peer,)
+    if mode == FOREIGN_DEVICE_MODE:
+        return (load_c320_budget_peer, load_stage_49_control)
+    raise ValueError(f"unknown device mode: {mode!r}")
+
+
 def load_c320_budget_peer(data: CharacterData, directory: Path) -> StoredEndpoint:
     """Authenticate Stage 46's C320 p=0.15 treatment through its owning stages."""
 
@@ -1649,14 +1715,17 @@ def budget_plan(
     config: TrainingConfig,
     directory: Path,
     specs: Sequence[BranchSpec] | None = None,
-    peer_loader: Any = load_c320_budget_peer,
+    peer_loaders: Sequence[Any] = (load_c320_budget_peer,),
 ) -> list[dict[str, Any]]:
-    """The three endpoints of the parameter-budget panel, authenticated read-only.
+    """The endpoints of the parameter-budget panel, authenticated read-only.
 
-    The two C256 endpoints are this stage's fresh branches; the C320 endpoint is
-    Stage 46's stored p=0.15 treatment. Every endpoint is re-read from disk so the
-    panel is derivable without training, and each carries its own width, depth,
-    and parameter count because the three do not share one architecture.
+    The two C256 endpoints are this stage's fresh branches. The stored peers do
+    not train: the C320 endpoint is Stage 46's p=0.15 treatment, the wider spend
+    the depth treatment is measured against, and the stored C256 L=6 endpoint
+    joins the panel only when the fresh branches were trained off the lineage
+    device, where it becomes the device-shift measurement. Every endpoint is
+    re-read from disk, and each carries its own width, depth, and parameter count
+    because they do not share one architecture.
     """
 
     specs = tuple(branch_specs(directory) if specs is None else specs)
@@ -1681,12 +1750,20 @@ def budget_plan(
                 "depth": spec.depth,
                 "dropout": spec.dropout,
                 "provenance": f"stage 50 {spec.key}, fresh",
+                "provenance_tag": FRESH_PROVENANCE_TAG,
             }
         )
-    if peer_loader is not None:
-        endpoint = peer_loader(data, directory)
-        if endpoint.key != BUDGET_PEER_KEY:
-            raise ValueError("the stored budget peer must be the recorded C320 endpoint")
+    for loader in peer_loaders:
+        if loader is None:
+            continue
+        endpoint = loader(data, directory)
+        if endpoint.key not in STORED_PEER_PROVENANCE:
+            raise ValueError(
+                f"unrecorded stored budget peer {endpoint.key!r}; the panel only "
+                f"admits {sorted(STORED_PEER_PROVENANCE)}"
+            )
+        if any(entry["key"] == endpoint.key for entry in plan):
+            raise ValueError(f"stored budget peer {endpoint.key!r} appears twice")
         plan.append(
             {
                 "key": endpoint.key,
@@ -1700,15 +1777,22 @@ def budget_plan(
                 "width": endpoint.width,
                 "depth": endpoint.depth,
                 "dropout": endpoint.dropout,
-                "provenance": "stage 46 treatment, stored",
+                "provenance": STORED_PEER_PROVENANCE[endpoint.key]["provenance"],
+                "provenance_tag": STORED_PEER_PROVENANCE[endpoint.key]["tag"],
             }
         )
     for entry in plan:
         entry["label"] = (
             f"C{entry['width']} L={entry['depth']} p={entry['dropout']:g} "
-            f"@ {entry['payload']['step']}"
+            f"@ {entry['payload']['step']} [{entry['provenance_tag']}]"
         )
         entry["parameter_count"] = entry["payload"]["initialization"]["parameter_count"]
+    keys = [entry["key"] for entry in plan]
+    labels = [entry["label"] for entry in plan]
+    if len(set(keys)) != len(keys) or len(set(labels)) != len(labels):
+        raise ValueError("budget panel keys and labels must be unique")
+    if len(plan) < 3:
+        raise ValueError("the budget panel needs both fresh branches and a stored peer")
     return plan
 
 
@@ -1719,7 +1803,7 @@ def evaluate_budget_shootout(
     directory: Path,
     *,
     specs: Sequence[BranchSpec] | None = None,
-    peer_loader: Any = load_c320_budget_peer,
+    peer_loaders: Sequence[Any] = (load_c320_budget_peer,),
     expected_generator_sha256: str | None = DEFAULT_SHARED_TRAINING_GENERATOR_SHA256,
     seed: int = DEFAULT_BUDGET_PANEL_SEED,
     eval_iters: int = DEFAULT_FRESH_VALIDATION_ITERS,
@@ -1728,9 +1812,15 @@ def evaluate_budget_shootout(
 
     No checkpoint is modified. The panel is shared per batch, so every reported
     interval is paired at matched validation batches; dropout is inactive in eval
-    mode, so only stored weights differ. All three endpoints were trained on one
-    batch stream because the sampler depends only on batch shape and seed, which
-    is checked here rather than assumed.
+    mode, so only stored weights differ. Every endpoint was trained on one batch
+    stream, because the sampler depends only on batch shape and seed, which is
+    checked here rather than assumed.
+
+    When a stored peer was trained on a different accelerator than the fresh
+    branches, that is recorded as a measured confound rather than asserted away:
+    the device-shift row of the panel states what moving the same architecture
+    between accelerators costs, and every comparison against a foreign peer is
+    flagged.
     """
 
     if seed in CONSUMED_PANEL_SEEDS or seed == DEFAULT_FRESH_VALIDATION_SEED:
@@ -1738,10 +1828,11 @@ def evaluate_budget_shootout(
     if eval_iters < 2:
         raise ValueError("paired uncertainty requires at least two batches")
     specs = tuple(branch_specs(directory) if specs is None else specs)
-    plan = budget_plan(data, config, directory, specs, peer_loader)
+    plan = budget_plan(data, config, directory, specs, peer_loaders)
     entries = {entry["key"]: entry for entry in plan}
     control_key = f"c{specs[0].width}_l{specs[0].depth}"
     treatment_key = f"c{specs[1].width}_l{specs[1].depth}"
+    fresh_keys = (control_key, treatment_key)
     verify_paired_endpoints(entries[control_key], entries[treatment_key], specs)
     generator_streams = {
         _STAGE_41.tensor_sha256(entry["payload"]["training_generator_state"])
@@ -1760,26 +1851,42 @@ def evaluate_budget_shootout(
     projections = {
         entry["key"]: terminal_rng_normalization(entry["payload"]) for entry in plan
     }
-    device_names = {value["training_device_name"] for value in projections.values()}
-    if len(device_names) != 1:
+    device_names = {
+        key: value["training_device_name"] for key, value in projections.items()
+    }
+    fresh_device_names = {device_names[key] for key in fresh_keys}
+    if len(fresh_device_names) != 1:
         raise ValueError(
-            "budget endpoints were not trained on the same device: "
-            + ", ".join(sorted(str(name) for name in device_names))
+            "the two fresh branches were not trained on one device: "
+            + ", ".join(sorted(str(name) for name in fresh_device_names))
         )
+    fresh_device_name = next(iter(fresh_device_names))
+    confounded = sorted(
+        key
+        for key in device_names
+        if key not in fresh_keys and device_names[key] != fresh_device_name
+    )
     verify_distinct_draw_schedules(
         "the L=6 control",
         projections[control_key]["terminal_training_rng_sha256"],
         "the L=8 treatment",
         projections[treatment_key]["terminal_training_rng_sha256"],
     )
-    if BUDGET_PEER_KEY in projections and (
-        projections[control_key]["terminal_training_rng_sha256"]
-        != projections[BUDGET_PEER_KEY]["terminal_training_rng_sha256"]
-    ):
-        raise ValueError(
-            "the L=6 C256 and C320 endpoints disagree on the training-device RNG "
-            "state, so they were not trained on the same draw schedule"
-        )
+    # Draw-schedule identity is only meaningful between endpoints that trained on
+    # one accelerator. A foreign peer is compared on the shared panel instead,
+    # through the losses, not through its RNG projection.
+    for key in device_names:
+        if key in fresh_keys or key in confounded:
+            continue
+        if (
+            projections[control_key]["terminal_training_rng_sha256"]
+            != projections[key]["terminal_training_rng_sha256"]
+        ):
+            raise ValueError(
+                f"the {key} endpoint trained on {fresh_device_name!r} but disagrees "
+                "with the control's training-device RNG state, so the draw "
+                "schedules differ"
+            )
     caller_rng = capture_rng_state(device)
     models = []
     try:
@@ -1830,11 +1937,17 @@ def evaluate_budget_shootout(
                 DEFAULT_SHARED_TRAINING_GENERATOR_SHA256
             ),
             "rng_projections": projections,
-            "training_device_name": next(iter(device_names)),
+            "fresh_device_name": fresh_device_name,
+            "device_names": device_names,
+            "device_confounded": bool(confounded),
+            "device_confounded_endpoints": confounded,
             "panel_keys": {
                 "control": control_key,
                 "treatment": treatment_key,
                 "budget_peer": BUDGET_PEER_KEY if BUDGET_PEER_KEY in entries else None,
+                "stored_l6_peer": (
+                    STORED_L6_PEER_KEY if STORED_L6_PEER_KEY in entries else None
+                ),
             },
             "endpoints": {
                 key: {
@@ -1848,6 +1961,15 @@ def evaluate_budget_shootout(
                         / entries[control_key]["parameter_count"]
                     ),
                     "provenance": entries[key]["provenance"],
+                    "provenance_tag": entries[key]["provenance_tag"],
+                    "initial_streams": dict(
+                        entries[key]["payload"]["initial_streams"]
+                    ),
+                    "initialization_sha256": entries[key]["payload"][
+                        "initialization"
+                    ]["state_sha256"],
+                    "training_device_name": device_names[key],
+                    "device_confounded": key in confounded,
                 }
                 for key, value in results.items()
             },
@@ -1907,12 +2029,47 @@ def compared_delta(
     }
 
 
+def device_shift_delta(report: dict[str, Any]) -> dict[str, Any] | None:
+    """The measured cost of moving the control architecture to another device.
+
+    The stored L=6 endpoint and the fresh L=6 control share an architecture, an
+    initialization seed, a corpus, a fixed panel, and a training protocol; the
+    accelerator is the only difference, so their panel delta is a device effect
+    measured under the stage's own construction rather than assumed.
+    """
+
+    keys = report["panel_keys"]
+    if keys.get("stored_l6_peer") is None:
+        return None
+    return compared_delta(
+        report["comparisons"], keys["control"], keys["stored_l6_peer"]
+    )
+
+
+def device_shift_outcome(report: dict[str, Any]) -> str:
+    """Say what the device shift measured, or that it was not measured."""
+
+    delta = device_shift_delta(report)
+    if delta is None:
+        return (
+            "the fresh branches and every stored peer trained on one device, so no "
+            "device shift was measured"
+        )
+    shift = delta["mean_delta"]
+    peer = report["panel_keys"]["stored_l6_peer"]
+    stored_device = report["device_names"][peer]
+    return (
+        f"moving the same L=6 architecture from {stored_device!r} to "
+        f"{report['fresh_device_name']!r} is worth {shift:+.7f} on this panel "
+        f"([{delta['confidence_low']:+.7f}, {delta['confidence_high']:+.7f}]), "
+        "measured on identical initialization, corpus, panel, and protocol"
+    )
+
+
 def substitution_outcome(report: dict[str, Any]) -> str:
     """Compare the same budget spent on depth (C256 L=8) versus width (C320 L=6)."""
 
     keys = report["panel_keys"]
-    if keys["budget_peer"] is None:
-        return "the depth-and-width budget substitution was not scored on this panel"
     delta = compared_delta(
         report["comparisons"], keys["treatment"], keys["budget_peer"]
     )
@@ -1924,13 +2081,21 @@ def substitution_outcome(report: dict[str, Any]) -> str:
         f"{width_parameters:,}-parameter C320 L=6 budget"
     )
     if delta["confidence_high"] < 0:
-        return f"depth is the better spend: {spend} and verifies better on the shared panel"
-    if delta["confidence_low"] > 0:
-        return f"width is the better spend: {spend} and C320 L=6 verifies better"
-    return (
-        "the depth and width spends of this budget are unresolved on the shared "
-        "panel; neither allocation is preferred"
-    )
+        verdict = f"depth is the better spend: {spend} and verifies better on the shared panel"
+    elif delta["confidence_low"] > 0:
+        verdict = f"width is the better spend: {spend} and C320 L=6 verifies better"
+    else:
+        return (
+            "the depth and width spends of this budget are unresolved on the shared "
+            "panel; neither allocation is preferred"
+        )
+    if keys.get("budget_peer") in report.get("device_confounded_endpoints", ()):
+        verdict += (
+            "; this comparison is device-confounded, because the L=8 branch was "
+            f"trained on {report['fresh_device_name']!r} while C320 was trained on "
+            f"{report['device_names'][keys['budget_peer']]!r}"
+        )
+    return verdict
 
 
 def budget_panel_outcome(report: dict[str, Any]) -> str:
@@ -1963,7 +2128,7 @@ def budget_panel_outcome(report: dict[str, Any]) -> str:
             f"{champion['label']} leads the shared fresh panel but the panel does "
             f"not resolve it against {undecided}"
         )
-    return f"{leader}. {substitution_outcome(report)}"
+    return f"{leader}. {substitution_outcome(report)}. {device_shift_outcome(report)}"
 
 
 def depth_budget_ladder(paired: Any, panel: dict[str, Any]) -> dict[str, Any]:
@@ -1972,6 +2137,11 @@ def depth_budget_ladder(paired: Any, panel: dict[str, Any]) -> dict[str, Any]:
     endpoints = panel["endpoints"]
     keys = panel["panel_keys"]
     control_key = keys["control"]
+    fresh = (keys["control"], keys["treatment"])
+    source_stage = {
+        BUDGET_PEER_KEY: 46,
+        STORED_L6_PEER_KEY: 49,
+    }
     rows = [
         {
             "key": key,
@@ -1980,9 +2150,7 @@ def depth_budget_ladder(paired: Any, panel: dict[str, Any]) -> dict[str, Any]:
             "depth": entry["depth"],
             "parameters": entry["parameter_count"],
             "parameter_ratio_vs_control": entry["parameter_ratio_vs_control"],
-            "source_stage": (
-                EXPERIMENT_STAGE if key in (keys["control"], keys["treatment"]) else 46
-            ),
+            "source_stage": EXPERIMENT_STAGE if key in fresh else source_stage[key],
             "provenance": entry["provenance"],
             "fresh_panel_seed": panel["seed"],
             "mean_validation_loss": entry["mean_loss"],
@@ -1990,7 +2158,7 @@ def depth_budget_ladder(paired: Any, panel: dict[str, Any]) -> dict[str, Any]:
         }
         for key, entry in endpoints.items()
     ]
-    rows.sort(key=lambda row: row["parameters"])
+    rows.sort(key=lambda row: (row["parameters"], row["key"]))
     return {
         "rows": rows,
         "control_key": control_key,
@@ -2013,6 +2181,8 @@ def depth_budget_ladder(paired: Any, panel: dict[str, Any]) -> dict[str, Any]:
             if keys["budget_peer"] is not None
             else None
         ),
+        "device_shift": device_shift_delta(panel),
+        "device_confounded_endpoints": list(panel.get("device_confounded_endpoints", ())),
         "prior_depth_reference": copy.deepcopy(PRIOR_DEPTH_REFERENCE),
     }
 
@@ -2022,9 +2192,11 @@ def preflight(
     configs: tuple[TrainingConfig, ...],
     specs: tuple[BranchSpec, ...],
     device: torch.device,
+    mode: str = CANONICAL_DEVICE_MODE,
 ) -> dict[str, Any]:
     validate_protocol(data, configs)
     validate_branch_specs(specs)
+    verify_device_mode(mode, device)
     caller_rng = capture_rng_state(device)
     audits = []
     try:
@@ -2069,6 +2241,7 @@ def preflight(
             "stage": EXPERIMENT_STAGE,
             "protocol": PROTOCOL_NAME,
             "training_executed": False,
+            "device_mode": mode,
             "runtime": {
                 "device_type": device_type,
                 "device_name": device_name,
@@ -2077,6 +2250,7 @@ def preflight(
                 "lineage_device_verified": (
                     device.type != "cuda" or device_name == DEFAULT_LINEAGE_DEVICE_NAME
                 ),
+                "foreign_device_authorized": mode == FOREIGN_DEVICE_MODE,
             },
             "branches": audits,
             "shared_initialization": shared,
@@ -2166,9 +2340,42 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data", type=Path, default=DEFAULT_COMPLETE_DATA_PATH)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIRECTORY)
     parser.add_argument(
+        "--allow-foreign-device",
+        action="store_true",
+        help=(
+            "run the depth comparison off the lineage device. The stored control "
+            "cannot be reproduced there, so the stage claims an internally matched "
+            "pair instead and scores the stored C256 L=6 endpoint as the panel's "
+            "device-shift row"
+        ),
+    )
+    parser.add_argument(
         "--validate-only",
         action="store_true",
-        help="validate corpus, architecture, and initialization without training",
+        help=(
+            "validate corpus, architecture, initialization, and the stored peers "
+            "without training; this also permits a foreign accelerator, because "
+            "validation trains nothing"
+        ),
+    )
+    parser.add_argument(
+        "--control-probe-steps",
+        type=int,
+        default=None,
+        help=(
+            "replay the canonical control for this many updates, compare the "
+            "fixed-panel trajectory against the recorded one, and exit without "
+            "training a branch"
+        ),
+    )
+    parser.add_argument(
+        "--probe-output", type=Path, default=DEFAULT_PROBE_PATH
+    )
+    parser.add_argument(
+        "--probe-reference",
+        type=Path,
+        default=DEFAULT_STAGE_49_REPORT_PATH,
+        help="the recorded Stage 49 report whose control trajectory is the reference",
     )
     parser.add_argument(
         "--budget-panel-only",
@@ -2199,12 +2406,330 @@ def print_budget_report(report: dict[str, Any]) -> None:
         )
 
 
+def write_diagnostic(path: Path, payload: dict[str, Any]) -> None:
+    """Write a replaceable diagnostic report atomically.
+
+    Unlike a stage report, a probe describes the session rather than a run, so
+    re-probing the same or another accelerator has to be able to overwrite it.
+    The runner's report writer is deliberately exclusive-create; this one is not,
+    and the file records the device it measured so it stays self-describing.
+    """
+
+    if path.suffix != ".json":
+        raise ValueError(f"a diagnostic report must be JSON, got {path.name!r}")
+    text = json.dumps(_STAGE_42.plain_values(payload), indent=2, allow_nan=False) + "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def foreign_device_control_record(
+    spec: BranchSpec,
+    data: CharacterData,
+    config: TrainingConfig,
+    reference: StoredEndpoint,
+) -> dict[str, Any]:
+    """Record what a control trained off the lineage device can and cannot claim.
+
+    Byte-identical reproduction of the stored champion is not defined here: the
+    accelerator is part of the conditions that produced it. The stage makes a
+    weaker, testable claim instead — the two fresh branches are internally
+    matched, and the stored endpoint is scored beside them so the device shift
+    becomes a measured quantity rather than a caveat. The control's own
+    fixed-panel losses are comparable to the stored endpoint's because the fixed
+    panel, corpus, architecture, and protocol are all shared.
+    """
+
+    payload = validate_branch_checkpoint(spec.final_path, spec, data, config, "final")
+    reference_train = reference.payload["snapshot_losses"]["train"]
+    reference_validation = reference.payload["snapshot_losses"]["validation"]
+    trained_train = payload["snapshot_losses"]["train"]
+    trained_validation = payload["snapshot_losses"]["validation"]
+    return {
+        "attempted": False,
+        "reason": (
+            "the control was not trained on the lineage device, so byte-identical "
+            "reproduction of the stored champion is not defined; the stored endpoint "
+            "is scored on the shared panel instead"
+        ),
+        "device_mode": FOREIGN_DEVICE_MODE,
+        "training_device_name": payload["runtime"]["device_name"],
+        "reference": "Stage 49 C256 p=0.15 control, step 50,000",
+        "reference_path": str(reference.path.resolve()),
+        "reference_sha256": DEFAULT_STAGE_49_CONTROL_SHA256,
+        "reference_training_device_name": reference.payload["runtime"]["device_name"],
+        "fixed_panel": {
+            "trained_train": trained_train,
+            "trained_validation": trained_validation,
+            "reference_train": reference_train,
+            "reference_validation": reference_validation,
+            "delta_train_foreign_minus_lineage": trained_train - reference_train,
+            "delta_validation_foreign_minus_lineage": (
+                trained_validation - reference_validation
+            ),
+            "note": (
+                "point estimates from the shared fixed panel, not a paired interval; "
+                "the budget panel's device-shift row carries the interval"
+            ),
+        },
+        "best_step": payload["best_step"],
+        "reference_best_step": reference.payload["best_step"],
+        "same_selected_best_step": payload["best_step"] == reference.payload["best_step"],
+        "parameter_delta": (
+            payload["initialization"]["parameter_count"]
+            - reference.payload["initialization"]["parameter_count"]
+        ),
+    }
+
+
+def load_recorded_control_history(path: Path) -> dict[int, dict[str, float]]:
+    """The fixed-panel trajectory the recorded lineage run published."""
+
+    if not path.is_file():
+        raise FileNotFoundError(f"recorded Stage 49 report not present: {path}")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if report.get("stage") != 49 or report.get("training_executed") is not True:
+        raise ValueError("the recorded control trajectory must come from a Stage 49 run")
+    return {
+        record["step"]: {
+            "train": record["losses"]["train"],
+            # A report's loss records use the runner's own field names, while a
+            # checkpoint payload spells the same quantity out in full.
+            "validation": record["losses"]["validation"]
+            if "validation" in record["losses"]
+            else record["losses"]["val"],
+        }
+        for record in report["control"]["training"]["history"]
+    }
+
+
+def compare_probe_records(
+    observed: dict[int, dict[str, float]],
+    recorded: dict[int, dict[str, float]],
+) -> dict[str, Any]:
+    """Compare a replayed control trajectory against the published one."""
+
+    steps = sorted(step for step in observed if step in recorded)
+    if not steps:
+        raise ValueError("the probe and the recorded trajectory share no steps")
+    rows = [
+        {
+            "step": step,
+            "observed_train": observed[step]["train"],
+            "observed_validation": observed[step]["validation"],
+            "recorded_train": recorded[step]["train"],
+            "recorded_validation": recorded[step]["validation"],
+            "train_delta": observed[step]["train"] - recorded[step]["train"],
+            "validation_delta": observed[step]["validation"]
+            - recorded[step]["validation"],
+            "identical": (
+                observed[step]["train"] == recorded[step]["train"]
+                and observed[step]["validation"] == recorded[step]["validation"]
+            ),
+        }
+        for step in steps
+    ]
+    first_divergent = next((row["step"] for row in rows if not row["identical"]), None)
+    return {
+        "steps_compared": len(steps),
+        "identical_steps": sum(1 for row in rows if row["identical"]),
+        "first_divergent_step": first_divergent,
+        "max_abs_train_delta": max(abs(row["train_delta"]) for row in rows),
+        "max_abs_validation_delta": max(abs(row["validation_delta"]) for row in rows),
+        "rows": rows,
+    }
+
+
+def probe_interpretation(
+    comparison: dict[str, Any], *, same_device: bool
+) -> str:
+    """State what a replay comparison means without overclaiming from it."""
+
+    if comparison["first_divergent_step"] is None:
+        return (
+            f"this session reproduces the recorded control trajectory exactly over "
+            f"{comparison['steps_compared']} evaluated steps"
+        )
+    if comparison["first_divergent_step"] == 0:
+        return (
+            "the two sessions already disagree at the step-zero fixed-panel "
+            "evaluation, which isolates forward-pass numerics from training drift"
+        )
+    if same_device:
+        return (
+            f"this session diverges from the recorded trajectory at step "
+            f"{comparison['first_divergent_step']}, so the environment is not the one "
+            "that produced the stored checkpoints"
+        )
+    return (
+        f"the trajectories agree at step 0 and diverge at step "
+        f"{comparison['first_divergent_step']}, which is where the accelerator's "
+        "numerics enter the training loop"
+    )
+
+
+def run_control_probe(
+    spec: BranchSpec,
+    data: CharacterData,
+    config: TrainingConfig,
+    device: torch.device,
+    *,
+    steps: int,
+    mode: str,
+    reference_path: Path,
+    probe_path: Path,
+) -> dict[str, Any]:
+    """Replay the control's opening updates and compare them to the record.
+
+    This is a diagnostic, not a branch: it trains no checkpoint, and it spends a
+    few percent of one branch's budget to answer the question the stage's
+    validity rests on — is this session the session that produced the stored
+    endpoint, and how far has another accelerator moved the same trajectory?
+    """
+
+    if isinstance(steps, bool) or not isinstance(steps, int) or steps <= 0:
+        raise ValueError(f"probe steps must be a positive integer, got {steps!r}")
+    if steps % config.eval_interval:
+        raise ValueError("probe steps must be a whole number of evaluation intervals")
+    verify_device_mode(mode, device)
+    stage_reports = {
+        (probe_path.parent / name).resolve()
+        for name in ("stage_50_report.json", "stage_50_budget_shootout.json")
+    }
+    if probe_path.resolve() in stage_reports:
+        raise ValueError("the probe report must not overwrite a stage report")
+    recorded = load_recorded_control_history(reference_path)
+    reduced = replace(config, max_iters=steps)
+    records: list[EvaluationRecord] = []
+    caller_rng = capture_rng_state(device)
+    _STAGE_41.clear_accelerator_cache(device)
+    model, optimizer, generator, initialization = initialize_branch(
+        data, reduced, spec, device
+    )
+    try:
+        train_branch(model, optimizer, generator, data, reduced, device, records.append)
+    finally:
+        del model, optimizer, generator
+        _STAGE_40._restore_rng_state(caller_rng, device)
+        _STAGE_41.clear_accelerator_cache(device)
+    observed = {
+        record.step: {
+            "train": record.losses.train,
+            "validation": record.losses.val,
+        }
+        for record in records
+    }
+    comparison = compare_probe_records(observed, recorded)
+    device_type, device_name = _STAGE_41._runtime_identity(device)
+    probe = {
+        "stage": EXPERIMENT_STAGE,
+        "kind": "control_replay_probe",
+        "device_mode": mode,
+        "device": {
+            "type": device_type,
+            "name": device_name,
+            "index": device.index,
+            "torch_version": str(torch.__version__),
+        },
+        "lineage_device_name": DEFAULT_LINEAGE_DEVICE_NAME,
+        "same_device_as_lineage": device_name == DEFAULT_LINEAGE_DEVICE_NAME,
+        "steps": steps,
+        "branch_key": spec.key,
+        "depth": spec.depth,
+        "layer_contexts": spec.layer_contexts,
+        "training_config": {
+            **asdict(reduced),
+            "learning_rate_schedule": schedule_metadata(steps),
+            "training_batch_seed": DEFAULT_TRAINING_BATCH_SEED,
+            "training_rng_seed": DEFAULT_TRAINING_RNG_SEED,
+            "fixed_panel_seed": DEFAULT_FIXED_PANEL_SEED,
+        },
+        "initialization": initialization,
+        "observed": [
+            {"step": step, "train": values["train"], "validation": values["validation"]}
+            for step, values in sorted(observed.items())
+        ],
+        "recorded_reference": {
+            "path": str(reference_path.resolve()),
+            "stage": 49,
+            "branch": "control",
+            "device_name": _STAGE_49.DEFAULT_LINEAGE_DEVICE_NAME,
+            "steps_available": sorted(recorded)[:3] + ["..."] + sorted(recorded)[-1:],
+        },
+        "comparison": comparison,
+        "interpretation": probe_interpretation(
+            comparison, same_device=device_name == DEFAULT_LINEAGE_DEVICE_NAME
+        ),
+        "limits": (
+            "a replay of the opening updates only; it measures whether the session and "
+            "accelerator reproduce the recorded trajectory where it starts, not the "
+            "whole 50,000-update run"
+        ),
+    }
+    write_diagnostic(probe_path, probe)
+    return probe
+
+
+def print_probe_report(probe: dict[str, Any]) -> None:
+    comparison = probe["comparison"]
+    print(
+        f"  control replay on {probe['device']['name']} for {probe['steps']} updates: "
+        f"{comparison['identical_steps']}/{comparison['steps_compared']} evaluated "
+        "steps identical to the recorded trajectory",
+        flush=True,
+    )
+    print(
+        f"  first divergent step: {comparison['first_divergent_step']}; "
+        f"max |delta| train {comparison['max_abs_train_delta']:.7f}, "
+        f"validation {comparison['max_abs_validation_delta']:.7f}",
+        flush=True,
+    )
+    for row in comparison["rows"]:
+        print(
+            f"    step {row['step']:5d} | observed {row['observed_train']:.7f} / "
+            f"{row['observed_validation']:.7f} | recorded {row['recorded_train']:.7f} / "
+            f"{row['recorded_validation']:.7f} | d {row['train_delta']:+.7f} / "
+            f"{row['validation_delta']:+.7f}",
+            flush=True,
+        )
+    print(f"  {probe['interpretation']}", flush=True)
+
+
+def run_probe_only(args: argparse.Namespace) -> None:
+    """Replay the control's opening updates without touching stage artifacts."""
+
+    data = CharacterData.from_file(args.data, train_fraction=0.9)
+    device = resolve_lineage_device(args.device)
+    mode = device_mode(device, allow_foreign=args.allow_foreign_device)
+    config = canonical_config()
+    specs = branch_specs(args.output_dir)
+    validate_branch_specs(specs)
+    print(
+        f"Stage 50 control replay probe on {device} ({mode}), "
+        f"{args.control_probe_steps} updates",
+        flush=True,
+    )
+    probe = run_control_probe(
+        specs[0],
+        data,
+        config,
+        device,
+        steps=args.control_probe_steps,
+        mode=mode,
+        reference_path=args.probe_reference,
+        probe_path=args.probe_output,
+    )
+    print_probe_report(probe)
+    print(f"Probe report: {args.probe_output.resolve()}", flush=True)
+
+
 def run_budget_panel_only(args: argparse.Namespace) -> None:
     """Reuse the stored Stage 50 and Stage 46 endpoints; never trains or rewrites."""
 
     data = CharacterData.from_file(args.data, train_fraction=0.9)
     device = resolve_lineage_device(args.device)
-    verify_lineage_device(device)
+    mode = device_mode(device, allow_foreign=args.allow_foreign_device)
     config = canonical_config()
     specs = branch_specs(args.output_dir)
     validate_branch_specs(specs)
@@ -2213,19 +2738,27 @@ def run_budget_panel_only(args: argparse.Namespace) -> None:
     for spec in specs:
         if not spec.final_path.is_file():
             raise FileNotFoundError(f"Stage 50 endpoint not present: {spec.final_path}")
+    peers = budget_peer_loaders(mode)
     print(
-        f"Stage 50 budget shootout on {device}: C256 L=6, C256 L=8, C320 L=6 at "
-        f"{DEFAULT_BUDGET_PANEL_SEED}",
+        f"Stage 50 budget shootout on {device} ({mode}) at "
+        f"{DEFAULT_BUDGET_PANEL_SEED}: endpoints "
+        + ", ".join(
+            [f"c{spec.width}_l{spec.depth}" for spec in specs]
+            + [key for key in (BUDGET_PEER_KEY, STORED_L6_PEER_KEY) if mode == FOREIGN_DEVICE_MODE or key == BUDGET_PEER_KEY]
+        ),
         flush=True,
     )
-    report = evaluate_budget_shootout(data, config, device, args.output_dir)
+    report = evaluate_budget_shootout(
+        data, config, device, args.output_dir, peer_loaders=peers
+    )
     outcome = budget_panel_outcome(report)
     report["budget_outcome"] = outcome
     report["uncertainty_scope"] = UNCERTAINTY_SCOPE
     report["budget_interpretation"] = (
         "one shared 500-batch validation panel; dropout inactive in eval mode; the "
-        "two C256 endpoints are this stage's fresh branches and the C320 endpoint "
-        "is Stage 46's stored p=0.15 treatment"
+        "two C256 endpoints are this stage's fresh branches and the stored peers are "
+        "Stage 46's p=0.15 C320 treatment and, off the lineage device, Stage 49's "
+        "C256 L=6 control"
     )
     _STAGE_42.write_report(report_path, report)
     print_budget_report(report)
@@ -2237,10 +2770,14 @@ def main() -> None:
     if args.budget_panel_only:
         run_budget_panel_only(args)
         return
+    if args.control_probe_steps is not None:
+        run_probe_only(args)
+        return
     data = CharacterData.from_file(args.data, train_fraction=0.9)
     device = resolve_lineage_device(args.device)
-    if not args.validate_only:
-        verify_lineage_device(device)
+    mode = device_mode(
+        device, allow_foreign=args.allow_foreign_device or args.validate_only
+    )
     config = canonical_config()
     configs = (config, config)
     specs = branch_specs(args.output_dir)
@@ -2250,25 +2787,42 @@ def main() -> None:
         *(path for spec in specs for path in (spec.best_path, spec.final_path)),
     )
     validate_artifact_paths((args.data,), () if args.validate_only else outputs)
-    audit = preflight(data, configs, specs, device)
+    audit = preflight(data, configs, specs, device, mode)
     print(json.dumps(audit, indent=2, allow_nan=False), flush=True)
     if args.validate_only:
         return
     print(
-        f"Stage 50 on {device}: native C256 L=6 and L=8 at p=0.15, "
+        f"Stage 50 on {device} ({mode}): native C256 L=6 and L=8 at p=0.15, "
         "50,000 updates per branch",
         flush=True,
     )
     control = run_branch(specs[0], data, config, device)
-    reproduction = verify_stage_49_control_reproduction(
-        specs[0], data, config, load_stage_49_control(data, args.output_dir)
-    )
+    if mode == CANONICAL_DEVICE_MODE:
+        reproduction = verify_stage_49_control_reproduction(
+            specs[0], data, config, load_stage_49_control(data, args.output_dir)
+        )
+    else:
+        reproduction = foreign_device_control_record(
+            specs[0], data, config, load_stage_49_control(data, args.output_dir)
+        )
+        print(
+            "  the control was not trained on the lineage device, so byte-identical "
+            "reproduction of the stored champion is not claimed; the stored endpoint "
+            "is scored as the panel's device-shift row",
+            flush=True,
+        )
     treatment = run_branch(specs[1], data, config, device)
     verify_paired_branches(control, treatment)
     fresh = evaluate_checkpoint_pair(control, treatment, data, config, device)
     _STAGE_42.print_pair(fresh)
     outcome = paired_outcome(fresh)
-    panel = evaluate_budget_shootout(data, config, device, args.output_dir)
+    panel = evaluate_budget_shootout(
+        data,
+        config,
+        device,
+        args.output_dir,
+        peer_loaders=budget_peer_loaders(mode),
+    )
     print_budget_report(panel)
     budget_outcome = budget_panel_outcome(panel)
     control_gap = control.training.final.val - control.training.final.train

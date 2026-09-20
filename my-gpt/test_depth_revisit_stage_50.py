@@ -4,6 +4,7 @@ import contextlib
 import copy
 import importlib.util
 import io
+import json
 import sys
 import tempfile
 import types
@@ -88,32 +89,70 @@ class Stage50Tests(unittest.TestCase):
             treatment = STAGE.run_branch(treatment_spec, data, config, device)
         return control, treatment, data, config, device
 
-    def panel(self, directory: Path, seed: int = 1369, eval_iters: int = 5):
-        """A budget panel built from a fresh fixture pair plus a stored peer."""
+    def peers(
+        self,
+        spec,
+        data,
+        config,
+        *,
+        foreign_device: str | None = None,
+        with_stored_l6: bool = False,
+    ):
+        """Stored-peer loaders over one trained fixture checkpoint."""
+
+        payload = STAGE.validate_branch_checkpoint(
+            spec.final_path, spec, data, config, "final"
+        )
+        if foreign_device is not None:
+            payload = {
+                **payload,
+                "runtime": {**payload["runtime"], "device_name": foreign_device},
+            }
+
+        def loader(key: str):
+            def load(data: CharacterData, directory: Path):
+                return STAGE.StoredEndpoint(
+                    key,
+                    spec.width,
+                    STAGE.DEFAULT_CONTROL_DEPTH,
+                    STAGE.DEFAULT_DROPOUT,
+                    spec.final_path,
+                    payload,
+                    config,
+                )
+
+            return load
+
+        loaders = [loader(STAGE.BUDGET_PEER_KEY)]
+        if with_stored_l6:
+            loaders.append(loader(STAGE.STORED_L6_PEER_KEY))
+        return tuple(loaders)
+
+    def panel(
+        self,
+        directory: Path,
+        seed: int = 1369,
+        eval_iters: int = 5,
+        *,
+        with_stored_l6: bool = False,
+        foreign_peer_device: str | None = None,
+    ):
+        """A budget panel built from a fresh fixture pair plus stored peers."""
 
         control, treatment, data, config, device = self.run_pair(directory)
-        payload = STAGE.validate_branch_checkpoint(
-            control.spec.final_path, control.spec, data, config, "final"
-        )
-
-        def peer_loader(data: CharacterData, directory: Path):
-            return STAGE.StoredEndpoint(
-                STAGE.BUDGET_PEER_KEY,
-                config.n_embd,
-                STAGE.DEFAULT_CONTROL_DEPTH,
-                STAGE.DEFAULT_DROPOUT,
-                control.spec.final_path,
-                payload,
-                config,
-            )
-
         report = STAGE.evaluate_budget_shootout(
             data,
             config,
             device,
             directory,
             specs=(control.spec, treatment.spec),
-            peer_loader=peer_loader,
+            peer_loaders=self.peers(
+                control.spec,
+                data,
+                config,
+                foreign_device=foreign_peer_device,
+                with_stored_l6=with_stored_l6,
+            ),
             expected_generator_sha256=None,
             seed=seed,
             eval_iters=eval_iters,
@@ -336,7 +375,7 @@ class Stage50Tests(unittest.TestCase):
                 control_peer["parameter_count"],
                 control_peer["best_step"],
             ),
-            ("c256_l6_stage_49", 256, 6, 4_850_274, 48_500),
+            ("c256_l6_lineage", 256, 6, 4_850_274, 48_500),
         )
         self.assertEqual(
             control_peer["file_sha256"], STAGE.DEFAULT_STAGE_49_CONTROL_SHA256
@@ -741,7 +780,7 @@ class Stage50Tests(unittest.TestCase):
                         device,
                         root,
                         specs=(control.spec, treatment.spec),
-                        peer_loader=None,
+                        peer_loaders=self.peers(control.spec, data, config),
                         expected_generator_sha256=None,
                         seed=s,
                         eval_iters=5,
@@ -775,6 +814,7 @@ class Stage50Tests(unittest.TestCase):
                     "control": "c16_l6",
                     "treatment": "c16_l8",
                     "budget_peer": STAGE.BUDGET_PEER_KEY,
+                    "stored_l6_peer": None,
                 },
             )
             self.assertEqual(len(report["comparisons"]), 3)
@@ -826,7 +866,7 @@ class Stage50Tests(unittest.TestCase):
                     device,
                     root,
                     specs=(control.spec, treatment.spec),
-                    peer_loader=None,
+                    peer_loaders=self.peers(control.spec, data, config),
                     expected_generator_sha256="0" * 64,
                     seed=1369,
                     eval_iters=5,
@@ -860,7 +900,7 @@ class Stage50Tests(unittest.TestCase):
                     device,
                     root,
                     specs=(control_spec, treatment_spec),
-                    peer_loader=None,
+                    peer_loaders=self.peers(control_spec, data, config),
                     expected_generator_sha256=None,
                     seed=1369,
                     eval_iters=2,
@@ -871,25 +911,27 @@ class Stage50Tests(unittest.TestCase):
                     replace(config, n_embd=config.n_embd + 4),
                     root,
                     (control_spec, treatment_spec),
-                    None,
+                    (),
                 )
             payload = STAGE.validate_branch_checkpoint(
                 control_spec.final_path, control_spec, data, config, "final"
             )
-            with self.assertRaisesRegex(ValueError, "recorded C320 endpoint"):
+            with self.assertRaisesRegex(ValueError, "unrecorded stored budget peer"):
                 STAGE.budget_plan(
                     data,
                     config,
                     root,
                     (control_spec, treatment_spec),
-                    lambda data, directory: STAGE.StoredEndpoint(
-                        "c256_l6",
-                        config.n_embd,
-                        STAGE.DEFAULT_CONTROL_DEPTH,
-                        STAGE.DEFAULT_DROPOUT,
-                        control_spec.final_path,
-                        payload,
-                        config,
+                    (
+                        lambda data, directory: STAGE.StoredEndpoint(
+                            "c256_l6",
+                            config.n_embd,
+                            STAGE.DEFAULT_CONTROL_DEPTH,
+                            STAGE.DEFAULT_DROPOUT,
+                            control_spec.final_path,
+                            payload,
+                            config,
+                        ),
                     ),
                 )
 
@@ -955,32 +997,395 @@ class Stage50Tests(unittest.TestCase):
                     specs,
                 )
 
-    def test_budget_ladder_reports_no_substitution_without_a_stored_peer(self):
+    def test_budget_panel_requires_a_stored_peer(self):
+        """A peerless panel cannot answer the budget question, so it is refused."""
+
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             control, treatment, data, config, device = self.run_pair(Path(root))
-            report = STAGE.evaluate_budget_shootout(
+            with self.assertRaisesRegex(ValueError, "needs both fresh branches"):
+                STAGE.evaluate_budget_shootout(
+                    data,
+                    config,
+                    device,
+                    root,
+                    specs=(control.spec, treatment.spec),
+                    peer_loaders=(),
+                    expected_generator_sha256=None,
+                    seed=1369,
+                    eval_iters=3,
+                )
+
+    def test_canonical_panel_measures_no_device_shift(self):
+        """On one device the panel reports the budget question and no shift."""
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            report, control, treatment, data, config, device = self.panel(root)
+            self.assertIsNone(report["panel_keys"]["stored_l6_peer"])
+            self.assertFalse(report["device_confounded"])
+            self.assertEqual(report["device_confounded_endpoints"], [])
+            self.assertEqual(
+                report["device_names"],
+                {
+                    "c16_l6": "cpu",
+                    "c16_l8": "cpu",
+                    STAGE.BUDGET_PEER_KEY: "cpu",
+                },
+            )
+            self.assertEqual(report["fresh_device_name"], "cpu")
+            self.assertIsNone(STAGE.device_shift_delta(report))
+            self.assertIn(
+                "no device shift was measured", STAGE.device_shift_outcome(report)
+            )
+            self.assertNotIn(
+                "device-confounded", STAGE.substitution_outcome(report)
+            )
+
+    def test_foreign_device_panel_scores_the_stored_control_as_a_shift(self):
+        """Off the lineage device the stored L=6 endpoint measures the shift."""
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            foreign = "NVIDIA GeForce RTX 3090"
+            report, control, treatment, data, config, device = self.panel(
+                root,
+                with_stored_l6=True,
+                foreign_peer_device=foreign,
+            )
+            self.assertEqual(
+                report["panel_keys"]["stored_l6_peer"], STAGE.STORED_L6_PEER_KEY
+            )
+            self.assertEqual(
+                sorted(report["endpoints"]),
+                [
+                    "c16_l6",
+                    "c16_l8",
+                    STAGE.STORED_L6_PEER_KEY,
+                    STAGE.BUDGET_PEER_KEY,
+                ],
+            )
+            self.assertTrue(report["device_confounded"])
+            self.assertEqual(
+                report["device_confounded_endpoints"],
+                sorted([STAGE.BUDGET_PEER_KEY, STAGE.STORED_L6_PEER_KEY]),
+            )
+            self.assertEqual(report["fresh_device_name"], "cpu")
+            self.assertEqual(report["device_names"][STAGE.STORED_L6_PEER_KEY], foreign)
+            # Every unordered pair is still compared; the two extra peers add
+            # three comparisons to the three the two-branch panel had.
+            self.assertEqual(len(report["comparisons"]), 6)
+            self.assertIn(
+                f"{STAGE.BUDGET_PEER_KEY}_minus_{STAGE.STORED_L6_PEER_KEY}"
+                in report["comparisons"]
+                or f"{STAGE.STORED_L6_PEER_KEY}_minus_{STAGE.BUDGET_PEER_KEY}"
+                in report["comparisons"],
+                [True],
+            )
+            shift = STAGE.device_shift_delta(report)
+            self.assertIsNotNone(shift)
+            # The shift is the fresh control minus the stored one, re-derived from
+            # the panel's own per-batch losses.
+            endpoints = report["endpoints"]
+            differences = [
+                fresh - stored
+                for stored, fresh in zip(
+                    endpoints[STAGE.STORED_L6_PEER_KEY]["batch_losses"],
+                    endpoints["c16_l6"]["batch_losses"],
+                    strict=True,
+                )
+            ]
+            self.assertAlmostEqual(
+                shift["mean_delta"], sum(differences) / len(differences), places=12
+            )
+            self.assertEqual(shift["candidate"], "c16_l6")
+            self.assertEqual(shift["baseline"], STAGE.STORED_L6_PEER_KEY)
+            text = STAGE.device_shift_outcome(report)
+            self.assertIn(foreign, text)
+            self.assertIn("cpu", text)
+            self.assertIn(
+                "device-confounded", STAGE.substitution_outcome(report)
+            )
+            self.assertIn(foreign, STAGE.budget_panel_outcome(report))
+            # A zero-width shift interval is still self-consistent.
+            self.assertLessEqual(shift["confidence_low"], shift["mean_delta"])
+            self.assertLessEqual(shift["mean_delta"], shift["confidence_high"])
+            ladder = STAGE.depth_budget_ladder(
+                STAGE.evaluate_checkpoint_pair(
+                    control, treatment, data, config, device, seed=1368, eval_iters=3
+                ),
+                report,
+            )
+            self.assertEqual(len(ladder["rows"]), 4)
+            self.assertEqual(
+                ladder["device_confounded_endpoints"],
+                sorted([STAGE.BUDGET_PEER_KEY, STAGE.STORED_L6_PEER_KEY]),
+            )
+            self.assertIsNotNone(ladder["device_shift"])
+            # The two L=6 rows tie on parameter count, so rows are ordered by key
+            # within a tie: the fresh control, the stored lineage control, the
+            # wider stored spend, then the deeper fresh branch.
+            self.assertEqual(
+                [row["source_stage"] for row in ladder["rows"]], [50, 49, 46, 50]
+            )
+
+    def test_device_modes_gate_foreign_accelerators(self):
+        """A foreign accelerator is a deliberate mode, never a silent fallback."""
+
+        self.assertEqual(
+            STAGE.device_mode(torch.device("cpu"), allow_foreign=False),
+            STAGE.CANONICAL_DEVICE_MODE,
+        )
+        self.assertEqual(
+            STAGE.device_mode(torch.device("cpu"), allow_foreign=True),
+            STAGE.CANONICAL_DEVICE_MODE,
+        )
+        STAGE.verify_lineage_device(torch.device("cpu"))
+        STAGE.verify_device_mode(STAGE.CANONICAL_DEVICE_MODE, torch.device("cpu"))
+        self.assertEqual(
+            STAGE.budget_peer_loaders(STAGE.CANONICAL_DEVICE_MODE),
+            (STAGE.load_c320_budget_peer,),
+        )
+        self.assertEqual(
+            STAGE.budget_peer_loaders(STAGE.FOREIGN_DEVICE_MODE),
+            (STAGE.load_c320_budget_peer, STAGE.load_stage_49_control),
+        )
+        with self.assertRaises(ValueError):
+            STAGE.budget_peer_loaders("nonsense")
+        with self.assertRaises(ValueError):
+            STAGE.verify_device_mode("nonsense", torch.device("cpu"))
+        with self.assertRaisesRegex(RuntimeError, "disagrees"):
+            STAGE.verify_device_mode(STAGE.FOREIGN_DEVICE_MODE, torch.device("cpu"))
+        if not torch.cuda.is_available():
+            self.skipTest("CUDA is not available on this host")
+        names = [
+            torch.cuda.get_device_name(index)
+            for index in range(torch.cuda.device_count())
+        ]
+        lineage = names.index(STAGE.DEFAULT_LINEAGE_DEVICE_NAME)
+        lineage_device = torch.device("cuda", lineage)
+        self.assertEqual(
+            STAGE.device_mode(lineage_device, allow_foreign=False),
+            STAGE.CANONICAL_DEVICE_MODE,
+        )
+        STAGE.verify_device_mode(STAGE.CANONICAL_DEVICE_MODE, lineage_device)
+        other = next(
+            (
+                index
+                for index, name in enumerate(names)
+                if name != STAGE.DEFAULT_LINEAGE_DEVICE_NAME
+            ),
+            None,
+        )
+        if other is None:
+            return
+        foreign = torch.device("cuda", other)
+        with self.assertRaisesRegex(RuntimeError, "allow-foreign-device"):
+            STAGE.device_mode(foreign, allow_foreign=False)
+        with self.assertRaisesRegex(RuntimeError, "requires"):
+            STAGE.verify_lineage_device(foreign)
+        self.assertEqual(
+            STAGE.device_mode(foreign, allow_foreign=True), STAGE.FOREIGN_DEVICE_MODE
+        )
+        STAGE.verify_device_mode(STAGE.FOREIGN_DEVICE_MODE, foreign)
+        # The canonical mode refuses a foreign accelerator outright, while a
+        # foreign-mode claim about the lineage device is simply inconsistent.
+        with self.assertRaisesRegex(RuntimeError, "requires"):
+            STAGE.verify_device_mode(STAGE.CANONICAL_DEVICE_MODE, foreign)
+        with self.assertRaisesRegex(RuntimeError, "disagrees"):
+            STAGE.verify_device_mode(STAGE.FOREIGN_DEVICE_MODE, lineage_device)
+
+    def test_probe_comparison_reports_where_trajectories_diverge(self):
+        recorded = {
+            0: {"train": 1.0, "validation": 2.0},
+            500: {"train": 0.9, "validation": 1.9},
+            1000: {"train": 0.8, "validation": 1.8},
+        }
+        comparison = STAGE.compare_probe_records(recorded, recorded)
+        self.assertEqual(comparison["steps_compared"], 3)
+        self.assertEqual(comparison["identical_steps"], 3)
+        self.assertIsNone(comparison["first_divergent_step"])
+        self.assertEqual(comparison["max_abs_validation_delta"], 0.0)
+        self.assertIn(
+            "reproduces the recorded control trajectory exactly",
+            STAGE.probe_interpretation(comparison, same_device=True),
+        )
+        observed = {
+            0: {"train": 1.0, "validation": 2.0},
+            500: {"train": 0.5, "validation": 1.9},
+            1000: {"train": 0.8, "validation": 1.75},
+        }
+        comparison = STAGE.compare_probe_records(observed, recorded)
+        self.assertEqual(comparison["identical_steps"], 1)
+        self.assertEqual(comparison["first_divergent_step"], 500)
+        self.assertAlmostEqual(comparison["max_abs_train_delta"], 0.4)
+        self.assertAlmostEqual(comparison["max_abs_validation_delta"], 0.05)
+        rows = {row["step"]: row for row in comparison["rows"]}
+        self.assertFalse(rows[500]["identical"])
+        self.assertAlmostEqual(rows[500]["train_delta"], -0.4)
+        self.assertIn(
+            "not the one that produced the stored checkpoints",
+            STAGE.probe_interpretation(comparison, same_device=True),
+        )
+        self.assertIn(
+            "accelerator's numerics enter the training loop",
+            STAGE.probe_interpretation(comparison, same_device=False),
+        )
+        divergent_at_zero = STAGE.compare_probe_records(
+            {**observed, 0: {"train": 1.1, "validation": 2.0}}, recorded
+        )
+        self.assertEqual(divergent_at_zero["first_divergent_step"], 0)
+        self.assertIn(
+            "forward-pass numerics",
+            STAGE.probe_interpretation(divergent_at_zero, same_device=False),
+        )
+        with self.assertRaisesRegex(ValueError, "share no steps"):
+            STAGE.compare_probe_records({7: {"train": 1.0, "validation": 1.0}}, recorded)
+
+    def test_control_probe_replays_the_recorded_trajectory_and_writes_its_report(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            data, config, device = self.fixture()
+            spec = self.spec(
+                root, "control", width=config.n_embd, depth=STAGE.DEFAULT_CONTROL_DEPTH
+            )
+            records = []
+            model, optimizer, generator, _ = STAGE.initialize_branch(
+                data, config, spec, device
+            )
+            STAGE.train_branch(
+                model, optimizer, generator, data, config, device, records.append
+            )
+            del model, optimizer, generator
+            history = [
+                {
+                    "step": record.step,
+                    "losses": {
+                        "train": record.losses.train,
+                        "validation": record.losses.val,
+                    },
+                }
+                for record in records
+            ]
+            reference = root / "reference.json"
+            reference.write_text(
+                json.dumps(
+                    {"stage": 49, "training_executed": True, "control": {"training": {"history": history}}}
+                ),
+                encoding="utf-8",
+            )
+            probe_path = root / "probe.json"
+            probe = STAGE.run_control_probe(
+                spec,
                 data,
                 config,
                 device,
-                root,
-                specs=(control.spec, treatment.spec),
-                peer_loader=None,
-                expected_generator_sha256=None,
-                seed=1369,
-                eval_iters=3,
+                steps=config.max_iters,
+                mode=STAGE.CANONICAL_DEVICE_MODE,
+                reference_path=reference,
+                probe_path=probe_path,
             )
-            self.assertIsNone(report["panel_keys"]["budget_peer"])
-            self.assertEqual(len(report["comparisons"]), 1)
-            self.assertIn(
-                "was not scored", STAGE.substitution_outcome(report)
+            # The replay is deterministic, so it must reproduce its own record.
+            self.assertIsNone(probe["comparison"]["first_divergent_step"])
+            self.assertEqual(
+                probe["comparison"]["steps_compared"], len(history)
             )
-            paired = STAGE.evaluate_checkpoint_pair(
-                control, treatment, data, config, device, seed=1368, eval_iters=3
+            self.assertEqual(probe["device"]["name"], "cpu")
+            self.assertFalse(probe["same_device_as_lineage"])
+            self.assertEqual(probe["depth"], 6)
+            self.assertEqual(probe["steps"], config.max_iters)
+            self.assertEqual(
+                [row["step"] for row in probe["observed"]], [0, 1, 2, 3]
             )
-            ladder = STAGE.depth_budget_ladder(paired, report)
-            self.assertIsNone(ladder["budget_substitution"])
-            self.assertEqual(len(ladder["rows"]), 2)
+            self.assertEqual(json.loads(probe_path.read_text())["kind"], "control_replay_probe")
+            # A diagnostic must be replaceable, unlike an exclusive stage report.
+            STAGE.run_control_probe(
+                spec,
+                data,
+                config,
+                device,
+                steps=config.max_iters,
+                mode=STAGE.CANONICAL_DEVICE_MODE,
+                reference_path=reference,
+                probe_path=probe_path,
+            )
+            # A divergent record is reported rather than smoothed over.
+            tampered = json.loads(reference.read_text())
+            tampered["control"]["training"]["history"][0]["losses"]["validation"] = 9.0
+            reference.write_text(json.dumps(tampered), encoding="utf-8")
+            probe = STAGE.run_control_probe(
+                spec,
+                data,
+                config,
+                device,
+                steps=config.max_iters,
+                mode=STAGE.CANONICAL_DEVICE_MODE,
+                reference_path=reference,
+                probe_path=probe_path,
+            )
+            self.assertEqual(probe["comparison"]["first_divergent_step"], 0)
+            self.assertEqual(probe["comparison"]["identical_steps"], 3)
+            with self.assertRaisesRegex(ValueError, "stage report"):
+                STAGE.run_control_probe(
+                    spec,
+                    data,
+                    config,
+                    device,
+                    steps=config.max_iters,
+                    mode=STAGE.CANONICAL_DEVICE_MODE,
+                    reference_path=reference,
+                    probe_path=root / "stage_50_report.json",
+                )
+            with self.assertRaisesRegex(ValueError, "positive integer"):
+                STAGE.run_control_probe(
+                    spec,
+                    data,
+                    config,
+                    device,
+                    steps=0,
+                    mode=STAGE.CANONICAL_DEVICE_MODE,
+                    reference_path=reference,
+                    probe_path=probe_path,
+                )
+
+    def test_recorded_control_history_is_the_published_stage_49_trajectory(self):
+        history = STAGE.load_recorded_control_history(STAGE.DEFAULT_STAGE_49_REPORT_PATH)
+        self.assertEqual(len(history), 101)
+        self.assertEqual(sorted(history)[:3], [0, 500, 1000])
+        self.assertEqual(sorted(history)[-1], 50_000)
+        # The published trajectory's terminal step is the stored champion's own
+        # fixed-panel record, so the probe's reference is the right one.
+        self.assertEqual(
+            history[50_000]["validation"],
+            STAGE.DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_VALIDATION_LOSS,
+        )
+        self.assertEqual(
+            history[50_000]["train"],
+            STAGE.DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_TRAIN_LOSS,
+        )
+        with self.assertRaises(FileNotFoundError):
+            STAGE.load_recorded_control_history(Path("/nonexistent/stage_49_report.json"))
+        with tempfile.TemporaryDirectory() as raw:
+            wrong = Path(raw) / "wrong.json"
+            wrong.write_text(json.dumps({"stage": 50, "training_executed": True}))
+            with self.assertRaisesRegex(ValueError, "Stage 49 run"):
+                STAGE.load_recorded_control_history(wrong)
+
+    def test_diagnostic_writer_replaces_atomically_and_refuses_non_json(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            path = root / "diag.json"
+            STAGE.write_diagnostic(path, {"first": 1})
+            self.assertEqual(json.loads(path.read_text()), {"first": 1})
+            STAGE.write_diagnostic(path, {"second": 2, "path": root})
+            self.assertEqual(
+                json.loads(path.read_text()), {"second": 2, "path": str(root)}
+            )
+            self.assertEqual(
+                [entry.name for entry in root.iterdir()], ["diag.json"]
+            )
+            with self.assertRaisesRegex(ValueError, "must be JSON"):
+                STAGE.write_diagnostic(root / "diag.txt", {"first": 1})
 
     def test_outcome_classification_reports_resolution_direction(self):
         def paired(mean: float, low: float, high: float):
@@ -1232,7 +1637,7 @@ class Stage50Tests(unittest.TestCase):
         endpoint = STAGE.load_stage_49_control(data, directory)
         self.assertEqual(
             (endpoint.key, endpoint.width, endpoint.depth, endpoint.dropout),
-            ("c256_l6_stage_49", 256, 6, 0.15),
+            ("c256_l6_lineage", 256, 6, 0.15),
         )
         self.assertEqual(
             (endpoint.payload["step"], endpoint.payload["best_step"]), (50000, 48500)

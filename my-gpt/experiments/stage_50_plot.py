@@ -22,6 +22,7 @@ BUDGET_COLORS = {
     "c256_l6": "#2768a5",
     "c256_l8": "#d46625",
     "c320_l6": "#7d7d7d",
+    "c256_l6_lineage": "#8fb9d9",
 }
 
 
@@ -39,6 +40,8 @@ def render(report_path: Path, output_path: Path) -> None:
     colors = {keys["control"]: BUDGET_COLORS["c256_l6"],
               keys["treatment"]: BUDGET_COLORS["c256_l8"],
               keys["budget_peer"]: BUDGET_COLORS["c320_l6"]}
+    if keys.get("stored_l6_peer"):
+        colors[keys["stored_l6_peer"]] = BUDGET_COLORS["c256_l6_lineage"]
     labels = {
         "control": "C256 L=6 p=0.15 control",
         "treatment": "C256 L=8 p=0.15 treatment",
@@ -153,6 +156,7 @@ def render(report_path: Path, output_path: Path) -> None:
         # Panel 3: the three-way budget panel, ranked, each against the leader so
         # the interval shown is always leader-minus-endpoint.
         ranking = panel["ranking"]
+        entries_by_key = panel["endpoints"]
         leader = ranking[0]["key"]
         leader_label = ranking[0]["label"]
         positions = list(range(len(ranking)))
@@ -209,7 +213,9 @@ def render(report_path: Path, output_path: Path) -> None:
         budget_axis.set_yticks(positions)
         budget_axis.set_yticklabels(
             [
-                f"C{entry['width']} L={entry['depth']}\n{entry['parameter_count'] / 1e6:.2f}M params"
+                f"C{entry['width']} L={entry['depth']}\n"
+                f"{entry['parameter_count'] / 1e6:.2f}M · "
+                f"{entries_by_key[entry['key']]['provenance'].split(',')[0]}"
                 for entry in ranking
             ],
             fontsize=8,
@@ -224,13 +230,35 @@ def render(report_path: Path, output_path: Path) -> None:
         )
         budget_axis.grid(axis="x", alpha=0.18)
 
-        # Panel 4: the parameter-budget ladder this stage was run to read.
+        # Panel 4: the parameter-budget ladder this stage was run to read. Rows
+        # that tie on parameters (the two L=6 controls) are separated vertically
+        # so their labels stay legible.
         ladder = report["depth_budget_ladder"]
         ladder_axis.set_title("Validation loss against parameter budget")
-        rows = sorted(ladder["rows"], key=lambda row: row["parameters"])
+        rows = sorted(ladder["rows"], key=lambda row: (row["parameters"], row["key"]))
+        # Rows that tie on parameters are the same architecture trained elsewhere,
+        # so they are named by provenance and their labels are placed on opposite
+        # sides of their markers instead of stacking.
+        fresh_keys = (panel["panel_keys"]["control"], panel["panel_keys"]["treatment"])
+        groups: dict[int, list[dict[str, Any]]] = {}
         for row in rows:
+            groups.setdefault(row["parameters"], []).append(row)
+        placement = {}
+        for group in groups.values():
+            group.sort(key=lambda row: -row["mean_validation_loss"])
+            for index, row in enumerate(group):
+                if len(group) == 1:
+                    placement[row["key"]] = (0, 20, "bottom")
+                elif index == 0:
+                    placement[row["key"]] = (0, 18, "bottom")
+                else:
+                    placement[row["key"]] = (0, -26 - 14 * (index - 1), "top")
+        for row in rows:
+            parameters = row["parameters"]
+            tag = "fresh" if row["key"] in fresh_keys else "stored"
+            offset_x, offset_y, vertical = placement[row["key"]]
             ladder_axis.errorbar(
-                row["parameters"] / 1e6,
+                parameters / 1e6,
                 row["mean_validation_loss"],
                 yerr=row["standard_error"],
                 fmt="o",
@@ -240,12 +268,13 @@ def render(report_path: Path, output_path: Path) -> None:
                 linewidth=1.8,
             )
             ladder_axis.annotate(
-                f"C{row['width']} L={row['depth']} · {row['parameters'] / 1e6:.2f}M\n"
+                f"C{row['width']} L={row['depth']} · {parameters / 1e6:.2f}M · {tag}\n"
                 f"{row['mean_validation_loss']:.6f}",
-                (row["parameters"] / 1e6, row["mean_validation_loss"]),
+                (parameters / 1e6, row["mean_validation_loss"]),
                 textcoords="offset points",
-                xytext=(0, 16),
+                xytext=(offset_x, offset_y),
                 ha="center",
+                va=vertical,
                 fontsize=8,
                 color=colors[row["key"]],
             )
@@ -258,17 +287,47 @@ def render(report_path: Path, output_path: Path) -> None:
             linestyle=":",
         )
         measured = ladder["measured_depth_step"]
+        shift = ladder.get("device_shift")
+        if shift is not None:
+            # The device-shift row joins two points that share a parameter count,
+            # so it is drawn as the vertical gap it is and named in the corner.
+            stored = next(
+                row for row in rows if row["key"] == panel["panel_keys"]["stored_l6_peer"]
+            )
+            ladder_axis.annotate(
+                "",
+                xy=(stored["parameters"] / 1e6, stored["mean_validation_loss"]),
+                xytext=(control["parameters"] / 1e6, control["mean_validation_loss"]),
+                arrowprops={
+                    "arrowstyle": "<->",
+                    "linestyle": "--",
+                    "color": "#777777",
+                    "linewidth": 1.2,
+                },
+            )
+            ladder_axis.text(
+                0.02,
+                0.97,
+                "device shift (identical L=6 initialization, different accelerator)\n"
+                f"{shift['mean_delta']:+.6f} "
+                f"[{shift['confidence_low']:+.6f}, {shift['confidence_high']:+.6f}]",
+                transform=ladder_axis.transAxes,
+                ha="left",
+                va="top",
+                fontsize=8,
+                color="#555555",
+            )
         ladder_axis.set_xlabel("Learned parameters (millions)")
         ladder_axis.set_ylabel("Fresh-panel validation loss (lower is better)")
         ladder_axis.set_xlim(
-            min(row["parameters"] for row in rows) / 1e6 - 0.5,
+            min(row["parameters"] for row in rows) / 1e6 - 0.6,
             max(row["parameters"] for row in rows) / 1e6 + 0.7,
         )
         losses = [row["mean_validation_loss"] for row in rows]
         errors = [row["standard_error"] for row in rows]
         low = min(value - error for value, error in zip(losses, errors, strict=True))
         high = max(value + error for value, error in zip(losses, errors, strict=True))
-        pad = 0.5 * (high - low)
+        pad = 0.6 * (high - low)
         ladder_axis.set_ylim(low - 0.35 * pad, high + pad)
         ladder_axis.text(
             0.98,
@@ -291,25 +350,35 @@ def render(report_path: Path, output_path: Path) -> None:
             "then the depth-versus-width budget",
             fontsize=14,
         )
-        figure.text(
-            0.5,
-            0.052,
+        footnote_lines = [
             "50,000 updates and 102.4 million target presentations per branch, "
             "one shared batch stream.",
-            ha="center",
-            fontsize=9,
-            color="#555555",
-        )
-        figure.text(
-            0.5,
-            0.022,
             "Intervals are 500-shared-batch panel-sampling uncertainty conditional "
             "on these checkpoints; dropout is inactive in eval mode.",
-            ha="center",
-            fontsize=9,
-            color="#555555",
-        )
-        figure.tight_layout(rect=(0, 0.065, 1, 0.955))
+        ]
+        if panel.get("device_confounded"):
+            stored_devices = sorted(
+                {
+                    name
+                    for key, name in panel["device_names"].items()
+                    if key not in (keys["control"], keys["treatment"])
+                }
+            )
+            footnote_lines.append(
+                f"Branches trained on {panel['fresh_device_name']!r}; stored peers "
+                f"trained on {'/'.join(stored_devices)!r} — comparisons against a "
+                "stored peer are device-confounded."
+            )
+        for position, line in enumerate(reversed(footnote_lines)):
+            figure.text(
+                0.5,
+                0.022 + 0.03 * position,
+                line,
+                ha="center",
+                fontsize=9,
+                color="#555555",
+            )
+        figure.tight_layout(rect=(0, 0.065 + 0.03 * (len(footnote_lines) - 2), 1, 0.955))
         output_path.parent.mkdir(parents=True, exist_ok=True)
         figure.savefig(output_path, dpi=180, facecolor="white")
         plt.close(figure)

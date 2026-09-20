@@ -112,6 +112,9 @@ STAGE_45_CHAMPION_SHA256 = (
     "e58ce4532a3ce0623ea622b91ea7ee04232c8d1f12d8b2c53591c7efec299e9f"
 )
 PANEL_KEYS = ("c256_l6", "c256_l8", "c320_l6")
+FOREIGN_PANEL_KEYS = ("c256_l6", "c256_l8", "c256_l6_lineage", "c320_l6")
+CANONICAL_DEVICE_MODE = "canonical_lineage_device"
+FOREIGN_DEVICE_MODE = "foreign_device"
 FRESH_PANEL_SEED = 1368
 BUDGET_PANEL_SEED = 1369
 # The original depth result, transcribed from the Stage 24 report rather than
@@ -391,13 +394,21 @@ def audit_budget_panel(
         panel["shared_training_generator_sha256"] == SHARED_TRAINING_GENERATOR_SHA256,
         "budget panel recorded a different shared training stream",
     )
+    keys = panel["panel_keys"]
     require(
-        panel["panel_keys"]
-        == {"control": "c256_l6", "treatment": "c256_l8", "budget_peer": "c320_l6"},
+        keys.get("control") == "c256_l6"
+        and keys.get("treatment") == "c256_l8"
+        and keys.get("budget_peer") == "c320_l6",
         "budget panel keys changed",
     )
+    stored_l6 = keys.get("stored_l6_peer")
+    expected_keys = FOREIGN_PANEL_KEYS if stored_l6 else PANEL_KEYS
     require(
-        sorted(panel["endpoints"]) == sorted(PANEL_KEYS), "budget endpoint set changed"
+        stored_l6 in (None, "c256_l6_lineage"), "unexpected stored L=6 peer key"
+    )
+    require(
+        sorted(panel["endpoints"]) == sorted(expected_keys),
+        "budget endpoint set changed",
     )
     architectures = {
         key: panel_endpoint_architecture(entry, f"endpoint {key}")
@@ -416,6 +427,13 @@ def audit_budget_panel(
         architectures["c320_l6"]["parameters"] > treatment_parameters,
         "the width peer must cost more than the depth treatment",
     )
+    if stored_l6:
+        # The device-shift row compares one architecture against itself, so the
+        # two L=6 endpoints must be the same budget.
+        require(
+            architectures[stored_l6]["parameters"] == control_parameters,
+            "the stored L=6 peer is not the same architecture as the control",
+        )
     for key, entry in panel["endpoints"].items():
         close(
             entry["parameter_ratio_vs_control"],
@@ -423,34 +441,102 @@ def audit_budget_panel(
             f"endpoint {key}: parameter ratio",
         )
     projections = panel["rng_projections"]
+    device_names = panel["device_names"]
     require(
-        {value["training_device_name"] for value in projections.values()}
-        == {LINEAGE_DEVICE_NAME},
-        "budget panel was not run entirely on the recorded lineage device",
+        set(device_names) == set(expected_keys), "panel device names changed"
     )
     require(
-        projections["c256_l6"]["terminal_training_rng_sha256"]
-        == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
-        "the L=6 control did not end on the recorded training-device RNG state",
+        all(
+            projections[key]["training_device_name"] == device_names[key]
+            for key in device_names
+        ),
+        "panel device names disagree with its RNG projections",
+    )
+    fresh_device = panel["fresh_device_name"]
+    require(
+        (fresh_device, device_names["c256_l6"], device_names["c256_l8"])
+        == (fresh_device, fresh_device, fresh_device),
+        "the two fresh branches were not trained on the panel's fresh device",
+    )
+    confounded = sorted(panel["device_confounded_endpoints"])
+    require(
+        panel["device_confounded"] is bool(confounded),
+        "the device-confound flag disagrees with its endpoint list",
     )
     require(
-        projections["c320_l6"]["terminal_training_rng_sha256"]
-        == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
-        "the stored C320 peer disagrees with the recorded L=6 draw schedule",
+        confounded
+        == sorted(
+            key
+            for key in expected_keys
+            if key not in ("c256_l6", "c256_l8") and device_names[key] != fresh_device
+        ),
+        "the device-confound list disagrees with the recorded device names",
     )
-    require(
-        projections["c256_l8"]["terminal_training_rng_sha256"]
-        != SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
-        "the deeper treatment did not consume a different dropout schedule",
-    )
+    if confounded:
+        require(
+            fresh_device != LINEAGE_DEVICE_NAME,
+            "a confounded panel must not have trained its branches on the lineage device",
+        )
+        require(
+            all(device_names[key] == LINEAGE_DEVICE_NAME for key in confounded),
+            "a device-confounded stored peer was not trained on the lineage device",
+        )
+    else:
+        require(
+            device_names["c320_l6"] == fresh_device,
+            "an unconfounded panel must train every endpoint on one device",
+        )
+    if "c320_l6" not in confounded:
+        require(
+            projections["c256_l6"]["terminal_training_rng_sha256"]
+            == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
+            "the L=6 control did not end on the recorded training-device RNG state",
+        )
+        require(
+            projections["c320_l6"]["terminal_training_rng_sha256"]
+            == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
+            "the stored C320 peer disagrees with the recorded L=6 draw schedule",
+        )
+        require(
+            projections["c256_l8"]["terminal_training_rng_sha256"]
+            != SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
+            "the deeper treatment did not consume a different dropout schedule",
+        )
+    else:
+        require(
+            projections["c256_l6"]["terminal_training_rng_sha256"]
+            != projections["c256_l8"]["terminal_training_rng_sha256"],
+            "the deeper treatment did not consume a different dropout schedule",
+        )
+    if stored_l6:
+        # The shift is a device effect only if the two L=6 endpoints started from
+        # the same weights. Initialization happens on the CPU, so that is a
+        # checkable claim rather than an assumption.
+        require(
+            panel["endpoints"][stored_l6]["initial_streams"]["model_sha256"]
+            == panel["endpoints"]["c256_l6"]["initial_streams"]["model_sha256"],
+            "the device-shift row compares different initializations",
+        )
+        require(
+            panel["endpoints"][stored_l6]["initialization_sha256"]
+            == C256_L6_NATIVE_INITIALIZATION[1]
+            and panel["endpoints"]["c256_l6"]["initialization_sha256"]
+            == C256_L6_NATIVE_INITIALIZATION[1],
+            "the device-shift row does not carry the recorded native initialization",
+        )
+        require(
+            panel["endpoints"][stored_l6]["checkpoint_sha256"]
+            != panel["endpoints"]["c256_l6"]["checkpoint_sha256"],
+            "the device-shift row compares one checkpoint with itself",
+        )
     endpoints = {}
     for key, endpoint in panel["endpoints"].items():
         endpoints[key] = audit_endpoint(endpoint, f"endpoint {key}")
     critical = student_t_975(499)
     pairs = sorted(
         f"{candidate}_minus_{baseline}"
-        for index, candidate in enumerate(PANEL_KEYS)
-        for baseline in PANEL_KEYS[index + 1 :]
+        for index, candidate in enumerate(expected_keys)
+        for baseline in expected_keys[index + 1 :]
     )
     forward = sorted(panel["comparisons"])
     require(
@@ -461,18 +547,17 @@ def audit_budget_panel(
         key: audit_delta(panel["comparisons"][key], panel["endpoints"], key, critical)
         for key in forward
     }
-    for candidate in PANEL_KEYS:
-        for baseline in PANEL_KEYS:
-            if candidate >= baseline:
-                continue
-            mirror = panel["comparisons"].get(f"{baseline}_minus_{candidate}")
-            if mirror is None:
-                continue
-            direct = panel["comparisons"][f"{candidate}_minus_{baseline}"]
-            close(mirror["mean_delta"], -direct["mean_delta"], "mirror mean")
-            close(mirror["confidence_low"], -direct["confidence_high"], "mirror lower")
-            close(mirror["confidence_high"], -direct["confidence_low"], "mirror upper")
-    ranked = sorted(PANEL_KEYS, key=lambda key: panel["endpoints"][key]["mean_loss"])
+    for key, stored in panel["comparisons"].items():
+        candidate, _, baseline = key.partition("_minus_")
+        mirror = panel["comparisons"].get(f"{baseline}_minus_{candidate}")
+        if mirror is None:
+            # The runner stores each unordered pair once, so a missing mirror is
+            # the expected shape rather than a defect.
+            continue
+        close(mirror["mean_delta"], -stored["mean_delta"], "mirror mean")
+        close(mirror["confidence_low"], -stored["confidence_high"], "mirror lower")
+        close(mirror["confidence_high"], -stored["confidence_low"], "mirror upper")
+    ranked = sorted(expected_keys, key=lambda key: panel["endpoints"][key]["mean_loss"])
     require(
         [entry["key"] for entry in panel["ranking"]] == ranked,
         "budget ranking is not ordered by mean validation loss",
@@ -532,6 +617,39 @@ def audit_budget_panel(
                 "neither allocation is preferred" in outcome,
                 "outcome missed an unresolved spend",
             )
+        # The device clause is the third claim the panel makes; its own interval
+        # is re-derived by audit_delta above like every other pair.
+        if stored_l6:
+            if confounded:
+                require(
+                    "device-confounded" in outcome, "a confounded panel must say so"
+                )
+            require(
+                "moving the same L=6 architecture" in outcome,
+                "outcome omitted the measured device shift",
+            )
+        else:
+            require(
+                "no device shift was measured" in outcome,
+                "a single-device panel must not claim a device shift",
+            )
+    device_shift = None
+    if stored_l6:
+        forward = f"c256_l6_minus_{stored_l6}"
+        if forward in panel["comparisons"]:
+            record = panel["comparisons"][forward]
+            device_shift = {
+                "mean_delta": record["mean_delta"],
+                "confidence_low": record["confidence_low"],
+                "confidence_high": record["confidence_high"],
+            }
+        else:
+            record = panel["comparisons"][f"{stored_l6}_minus_c256_l6"]
+            device_shift = {
+                "mean_delta": -record["mean_delta"],
+                "confidence_low": -record["confidence_high"],
+                "confidence_high": -record["confidence_low"],
+            }
     return {
         "panel_seed": panel["seed"],
         "student_t_critical_value": critical,
@@ -542,6 +660,11 @@ def audit_budget_panel(
         "resolved_against": defeated,
         "unresolved_against": [key for key in ranked[1:] if key not in defeated],
         "depth_parameter_delta": treatment_parameters - control_parameters,
+        "fresh_device_name": fresh_device,
+        "device_names": device_names,
+        "device_confounded": bool(confounded),
+        "device_confounded_endpoints": confounded,
+        "device_shift": device_shift,
         "budget_ratio_depth_over_width": (
             treatment_parameters / architectures["c320_l6"]["parameters"]
         ),
@@ -739,9 +862,13 @@ def audit_shared_prefix(
     }
 
 
-def audit_endpoint_checkpoints(torch: Any, stage: Any, data: Any) -> dict[str, Any]:
+def audit_endpoint_checkpoints(
+    torch: Any, stage: Any, data: Any, mode: str
+) -> dict[str, Any]:
     """Re-authenticate every budget endpoint through the runner itself."""
 
+    if mode not in (CANONICAL_DEVICE_MODE, FOREIGN_DEVICE_MODE):
+        raise ValueError(f"unknown device mode: {mode!r}")
     directory = stage.DEFAULT_OUTPUT_DIRECTORY
     config = stage.canonical_config()
     endpoints = {}
@@ -811,12 +938,55 @@ def audit_endpoint_checkpoints(torch: Any, stage: Any, data: Any) -> dict[str, A
         "recorded_training_device_index": payload["runtime"].get("device_index"),
         "cuda_entries_at_capture": len(payload["rng_state"].get("cuda", ())),
     }
+    if mode == FOREIGN_DEVICE_MODE:
+        stored = stage.load_stage_49_control(data, directory)
+        stored_payload = stored.payload
+        stored_recorded = stored_payload["payload_sha256"]
+        stripped = {
+            key: value
+            for key, value in stored_payload.items()
+            if key != "payload_sha256"
+        }
+        require(
+            stored_recorded == stage.state_hash(stripped),
+            f"{stored.path.name}: payload integrity mismatch",
+        )
+        require(
+            file_sha256(stored.path) == STAGE_49_CONTROL_SHA256,
+            f"{stored.path.name}: file hash changed",
+        )
+        require(
+            stored.key == "c256_l6_lineage",
+            "the stored control's panel key changed",
+        )
+        endpoints[stored.key] = {
+            "path": str(stored.path.resolve()),
+            "file_sha256": file_sha256(stored.path),
+            "payload_sha256": stored_recorded,
+            "initialization_sha256": stored_payload["initialization"]["state_sha256"],
+            "parameter_count": stored_payload["initialization"]["parameter_count"],
+            "terminal_generator_sha256": stage._STAGE_41.tensor_sha256(
+                stored_payload["training_generator_state"]
+            ),
+            "initial_streams": dict(stored_payload["initial_streams"]),
+            "origin_stage": stored_payload["initialization"]["origin_stage"],
+            "best_step": stored_payload["best_step"],
+            "rng_projection": stage.terminal_rng_normalization(stored_payload),
+            "recorded_training_device_index": stored_payload["runtime"].get(
+                "device_index"
+            ),
+            "cuda_entries_at_capture": len(
+                stored_payload["rng_state"].get("cuda", ())
+            ),
+        }
+    expected = FOREIGN_PANEL_KEYS if mode == FOREIGN_DEVICE_MODE else PANEL_KEYS
     require(
-        sorted(endpoints) == sorted(PANEL_KEYS),
+        sorted(endpoints) == sorted(expected),
         "re-authenticated endpoint set changed",
     )
     # One batch stream, two architectures: the depth groups must differ in
-    # initial weights and agree on everything the sampler controls.
+    # initial weights and agree on everything the sampler controls. The sampler
+    # is a CPU generator, so this holds across accelerators too.
     require(
         {entry["terminal_generator_sha256"] for entry in endpoints.values()}
         == {SHARED_TRAINING_GENERATOR_SHA256},
@@ -830,38 +1000,70 @@ def audit_endpoint_checkpoints(torch: Any, stage: Any, data: Any) -> dict[str, A
         == {SHARED_INITIAL_GENERATOR_SHA256},
         "budget endpoints did not start at the recorded batch stream",
     )
-    for key, expected in (
-        ("c256_l6", C256_L6_NATIVE_INITIALIZATION),
-        ("c256_l8", C256_L8_NATIVE_INITIALIZATION),
-        ("c320_l6", C320_NATIVE_INITIALIZATION),
-    ):
+    expected_fingerprints = {
+        "c256_l6": C256_L6_NATIVE_INITIALIZATION,
+        "c256_l8": C256_L8_NATIVE_INITIALIZATION,
+        "c320_l6": C320_NATIVE_INITIALIZATION,
+    }
+    expected_origins = {"c256_l6": 50, "c256_l8": 50, "c320_l6": 46}
+    if mode == FOREIGN_DEVICE_MODE:
+        # Initialization is a CPU-side draw, so the stored lineage control and a
+        # foreign control must carry the same native state. That is what makes
+        # the device shift a device effect rather than a different starting point.
+        expected_fingerprints["c256_l6_lineage"] = C256_L6_NATIVE_INITIALIZATION
+        expected_origins["c256_l6_lineage"] = 49
+    for key, expected_fingerprint in expected_fingerprints.items():
         entry = endpoints[key]
         require(
-            (entry["parameter_count"], entry["initialization_sha256"]) == expected,
+            (entry["parameter_count"], entry["initialization_sha256"])
+            == expected_fingerprint,
             f"{key}: native initialization fingerprint changed",
         )
         require(
-            entry["origin_stage"] in (46, 50),
-            f"{key}: unexpected initialization origin",
+            entry["origin_stage"] == expected_origins[key],
+            f"{key}: initialization origin changed",
         )
     projections = {key: value["rng_projection"] for key, value in endpoints.items()}
+    fresh_device = projections["c256_l6"]["training_device_name"]
     require(
-        {value["training_device_name"] for value in projections.values()}
-        == {LINEAGE_DEVICE_NAME},
-        "budget endpoints were not all trained on the recorded device",
+        projections["c256_l8"]["training_device_name"] == fresh_device,
+        "the two fresh branches were not trained on one device",
     )
-    require(
-        projections["c256_l6"]["terminal_training_rng_sha256"]
-        == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256
-        and projections["c320_l6"]["terminal_training_rng_sha256"]
-        == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
-        "the two L=6 endpoints do not share the recorded draw schedule",
-    )
-    require(
-        projections["c256_l8"]["terminal_training_rng_sha256"]
-        != SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
-        "the L=8 treatment shares the L=6 draw schedule",
-    )
+    if mode == CANONICAL_DEVICE_MODE:
+        require(
+            {value["training_device_name"] for value in projections.values()}
+            == {LINEAGE_DEVICE_NAME},
+            "budget endpoints were not all trained on the recorded device",
+        )
+        require(
+            projections["c256_l6"]["terminal_training_rng_sha256"]
+            == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256
+            and projections["c320_l6"]["terminal_training_rng_sha256"]
+            == SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
+            "the two L=6 endpoints do not share the recorded draw schedule",
+        )
+        require(
+            projections["c256_l8"]["terminal_training_rng_sha256"]
+            != SHARED_L6_TERMINAL_TRAINING_RNG_SHA256,
+            "the L=8 treatment shares the L=6 draw schedule",
+        )
+    else:
+        require(
+            fresh_device != LINEAGE_DEVICE_NAME,
+            "a foreign run must not have trained on the lineage device",
+        )
+        require(
+            all(
+                projections[key]["training_device_name"] == LINEAGE_DEVICE_NAME
+                for key in ("c320_l6", "c256_l6_lineage")
+            ),
+            "the stored peers were not trained on the lineage device",
+        )
+        require(
+            projections["c256_l8"]["terminal_training_rng_sha256"]
+            != projections["c256_l6"]["terminal_training_rng_sha256"],
+            "the deeper treatment did not consume a different dropout schedule",
+        )
     for key, entry in endpoints.items():
         if entry["origin_stage"] == 50:
             require(
@@ -935,14 +1137,36 @@ def audit_ladder(report: dict[str, Any], fresh: dict[str, Any]) -> dict[str, Any
         "ladder measured parameter ratio",
     )
     rows = ladder["rows"]
-    require(len(rows) == 3, "ladder must carry one row per budget endpoint")
     panel = report["budget_shootout"]
+    panel_keys = panel["panel_keys"]
+    stored_l6 = panel_keys.get("stored_l6_peer")
+    require(
+        len(rows) == sum(1 for key in panel_keys.values() if key is not None),
+        "ladder must carry one row per panel endpoint",
+    )
     require(
         [row["key"] for row in rows]
-        == sorted(PANEL_KEYS, key=lambda key: panel["endpoints"][key]["parameter_count"]),
+        == sorted(
+            panel_keys[key]
+            for key in ("control", "treatment", "budget_peer", "stored_l6_peer")
+            if panel_keys.get(key) is not None
+        ),
+        "ladder rows do not name the panel's endpoints",
+    )
+    require(
+        [row["parameters"] for row in rows]
+        == sorted(row["parameters"] for row in rows),
         "ladder rows are not ordered by parameter count",
     )
-    for key in PANEL_KEYS:
+    expected_stage = {
+        panel_keys["control"]: 50,
+        panel_keys["treatment"]: 50,
+        panel_keys["budget_peer"]: 46,
+        stored_l6: 49 if stored_l6 else None,
+    }
+    for key in panel_keys.values():
+        if key is None:
+            continue
         row = next(row for row in rows if row["key"] == key)
         endpoint = panel["endpoints"][key]
         require(
@@ -955,7 +1179,7 @@ def audit_ladder(report: dict[str, Any], fresh: dict[str, Any]) -> dict[str, Any
             row["fresh_panel_seed"] == panel["seed"], f"ladder row {key}: panel seed"
         )
         require(
-            row["source_stage"] == (50 if endpoint["provenance"].startswith("stage 50") else 46),
+            row["source_stage"] == expected_stage[key],
             f"ladder row {key}: source stage",
         )
     substitution = ladder["budget_substitution"]
@@ -1000,10 +1224,35 @@ def audit_ladder(report: dict[str, Any], fresh: dict[str, Any]) -> dict[str, Any
         prior["confidence_low"] <= prior["mean_delta"] <= prior["confidence_high"],
         "prior depth reference delta outside its interval",
     )
+    # The device-shift row travels with the ladder, and it must be the same
+    # measurement the panel reports rather than a second, independent claim.
+    shift = ladder["device_shift"]
+    if stored_l6 is None:
+        require(shift is None, "a single-device ladder must not carry a device shift")
+        require(
+            ladder["device_confounded_endpoints"] == [],
+            "a single-device ladder must not report confounded endpoints",
+        )
+    else:
+        require(shift is not None, "the ladder dropped its measured device shift")
+        forward = f"c256_l6_minus_{stored_l6}"
+        if forward in panel["comparisons"]:
+            expected_shift = panel["comparisons"][forward]["mean_delta"]
+        else:
+            expected_shift = -panel["comparisons"][
+                f"{stored_l6}_minus_c256_l6"
+            ]["mean_delta"]
+        close(shift["mean_delta"], expected_shift, "ladder device shift")
+        require(
+            ladder["device_confounded_endpoints"]
+            == sorted(panel["device_confounded_endpoints"]),
+            "ladder and panel disagree about which endpoints are confounded",
+        )
     return {
         "rows": len(rows),
         "measured_depth_step": measured["mean_delta"],
         "budget_substitution": substitution["mean_delta"],
+        "device_shift": shift,
         "prior_reference": (stage_number, delta),
     }
 
@@ -1180,7 +1429,7 @@ def audit_run(report_path: Path, data_path: Path | None) -> dict[str, Any]:
         report["budget_outcome"] == report["budget_shootout"]["budget_outcome"],
         "report and panel budget outcomes disagree",
     )
-    endpoints = audit_endpoint_checkpoints(torch, stage, data)
+    endpoints = audit_endpoint_checkpoints(torch, stage, data, report["device_mode"])
     for key, entry in endpoints.items():
         recorded = report["budget_shootout"]["endpoints"][key]
         require(
@@ -1216,12 +1465,71 @@ def audit_run(report_path: Path, data_path: Path | None) -> dict[str, Any]:
         file_sha256(reference.path) == STAGE_49_CONTROL_SHA256,
         "Stage 49 C256 p=0.15 champion file hash changed",
     )
+    mode = report["device_mode"]
     require(
-        reproduction["identical"] is True
-        and reproduction["reference_sha256"] == STAGE_49_CONTROL_SHA256
-        and Path(reproduction["reference_path"]).resolve() == reference.path.resolve(),
-        "Stage 49 control reproduction claim is not authenticated",
+        mode in (CANONICAL_DEVICE_MODE, FOREIGN_DEVICE_MODE), "device mode changed"
     )
+    require(
+        report["runtime"]["foreign_device_authorized"] is (mode == FOREIGN_DEVICE_MODE),
+        "the device mode disagrees with the recorded authorization",
+    )
+    if mode == CANONICAL_DEVICE_MODE:
+        require(
+            reproduction.get("identical") is True
+            and reproduction["reference_sha256"] == STAGE_49_CONTROL_SHA256
+            and Path(reproduction["reference_path"]).resolve()
+            == reference.path.resolve(),
+            "Stage 49 control reproduction claim is not authenticated",
+        )
+    else:
+        # Off the lineage device the stage must not claim reproduction, and the
+        # weaker fixed-panel readout it does claim has to be re-derivable.
+        require(
+            reproduction["attempted"] is False
+            and reproduction["device_mode"] == FOREIGN_DEVICE_MODE
+            and reproduction["reference_sha256"] == STAGE_49_CONTROL_SHA256
+            and Path(reproduction["reference_path"]).resolve()
+            == reference.path.resolve(),
+            "a foreign-device run must not claim control reproduction",
+        )
+        fixed = reproduction["fixed_panel"]
+        close(
+            fixed["trained_validation"],
+            control["training"]["final"]["val"],
+            "foreign control fixed-panel validation",
+        )
+        close(
+            fixed["trained_train"],
+            control["training"]["final"]["train"],
+            "foreign control fixed-panel train",
+        )
+        close(
+            fixed["reference_validation"],
+            reference.payload["snapshot_losses"]["validation"],
+            "stored champion fixed-panel validation",
+        )
+        close(
+            fixed["reference_train"],
+            reference.payload["snapshot_losses"]["train"],
+            "stored champion fixed-panel train",
+        )
+        close(
+            fixed["delta_validation_foreign_minus_lineage"],
+            fixed["trained_validation"] - fixed["reference_validation"],
+            "foreign control fixed-panel delta",
+        )
+        require(
+            reproduction["training_device_name"] != LINEAGE_DEVICE_NAME
+            and reproduction["reference_training_device_name"] == LINEAGE_DEVICE_NAME,
+            "a foreign-device run must record both devices",
+        )
+        require(
+            control["final_streams"]["model_sha256"]
+            != stage._STAGE_41.tensor_mapping_sha256(
+                reference.payload["model_state_dict"]
+            ),
+            "a foreign-device control cannot hold the lineage champion's weights",
+        )
     independent = {
         "model_sha256": (
             control["final_streams"]["model_sha256"],
@@ -1240,15 +1548,24 @@ def audit_run(report_path: Path, data_path: Path | None) -> dict[str, Any]:
             ),
         ),
     }
-    for key, (trained, stored) in independent.items():
+    if mode == CANONICAL_DEVICE_MODE:
+        for key, (trained, stored) in independent.items():
+            require(
+                trained == stored,
+                f"trained L=6 control is not the Stage 49 champion in {key}",
+            )
+            recorded = reproduction["state_sha256"][key]
+            require(
+                list(recorded) == [trained, stored],
+                f"control reproduction record disagrees with the stored champion in {key}",
+            )
+    else:
+        # The sampler is device-independent, so the batch stream must still agree
+        # even where the weights cannot.
         require(
-            trained == stored,
-            f"trained L=6 control is not the Stage 49 champion in {key}",
-        )
-        recorded = reproduction["state_sha256"][key]
-        require(
-            list(recorded) == [trained, stored],
-            f"control reproduction record disagrees with the stored champion in {key}",
+            independent["training_generator_sha256"][0]
+            == independent["training_generator_sha256"][1],
+            "a foreign-device control did not consume the recorded batch stream",
         )
     control_spec = next(
         spec
@@ -1268,66 +1585,92 @@ def audit_run(report_path: Path, data_path: Path | None) -> dict[str, Any]:
     )
     ours = stage.terminal_rng_normalization(control_payload)
     theirs = stage.terminal_rng_normalization(reference.payload)
-    require(
-        ours["training_device_name"] == theirs["training_device_name"],
-        "control reproduction trained on a different device than the champion",
-    )
-    for key, (trained, stored) in (
-        (
-            "training_device_rng_sha256",
-            (
-                ours["terminal_training_rng_sha256"],
-                theirs["terminal_training_rng_sha256"],
-            ),
-        ),
-        (
-            "cpu_rng_sha256",
-            (
-                stage.state_hash(control_payload["rng_state"]["cpu"]),
-                stage.state_hash(reference.payload["rng_state"]["cpu"]),
-            ),
-        ),
-    ):
+    if mode == CANONICAL_DEVICE_MODE:
         require(
-            trained == stored,
-            f"control reproduction record disagrees with the stored champion in {key}",
+            ours["training_device_name"] == theirs["training_device_name"],
+            "control reproduction trained on a different device than the champion",
+        )
+        for key, (trained, stored) in (
+            (
+                "training_device_rng_sha256",
+                (
+                    ours["terminal_training_rng_sha256"],
+                    theirs["terminal_training_rng_sha256"],
+                ),
+            ),
+            (
+                "cpu_rng_sha256",
+                (
+                    stage.state_hash(control_payload["rng_state"]["cpu"]),
+                    stage.state_hash(reference.payload["rng_state"]["cpu"]),
+                ),
+            ),
+        ):
+            require(
+                trained == stored,
+                f"control reproduction record disagrees with the stored champion in {key}",
+            )
+            require(
+                list(reproduction["state_sha256"].get(key, ())) == [trained, stored],
+                f"control reproduction did not record {key}",
+            )
+        require(
+            set(reproduction["fields_checked"])
+            == {
+                "step",
+                "snapshot_losses",
+                "best_step",
+                "best_val_loss",
+                "best_training_loss",
+                "architecture",
+                "data_fingerprint",
+                "model_sha256",
+                "optimizer_sha256",
+                "training_generator_sha256",
+                "cpu_rng_sha256",
+                "training_device_rng_sha256",
+                "training_device_name",
+            }
+            and len(reproduction["fields_checked"]) == 13,
+            "control reproduction did not check every field it claims to",
         )
         require(
-            list(reproduction["state_sha256"].get(key, ())) == [trained, stored],
-            f"control reproduction did not record {key}",
+            tuple(reproduction["architecture_fields_checked"])
+            == stage.SHARED_ARCHITECTURE_FIELDS,
+            "control reproduction compared a different architecture field set",
         )
-    require(
-        set(reproduction["fields_checked"])
-        == {
-            "step",
-            "snapshot_losses",
-            "best_step",
-            "best_val_loss",
-            "best_training_loss",
-            "architecture",
-            "data_fingerprint",
-            "model_sha256",
-            "optimizer_sha256",
-            "training_generator_sha256",
-            "cpu_rng_sha256",
-            "training_device_rng_sha256",
-            "training_device_name",
-        }
-        and len(reproduction["fields_checked"]) == 13,
-        "control reproduction did not check every field it claims to",
-    )
-    require(
-        tuple(reproduction["architecture_fields_checked"]) == stage.SHARED_ARCHITECTURE_FIELDS,
-        "control reproduction compared a different architecture field set",
-    )
-    require(
-        control["best_step"] == reference.payload["best_step"],
-        "trained control selected a different best step than the Stage 49 champion",
-    )
-    require(
-        reproduction["rng_capture"]["training_device_name"] == LINEAGE_DEVICE_NAME,
-        "control reproduction did not train on the recorded lineage device",
-    )
+        require(
+            control["best_step"] == reference.payload["best_step"],
+            "trained control selected a different best step than the Stage 49 champion",
+        )
+    else:
+        require(
+            ours["training_device_name"] != theirs["training_device_name"],
+            "a foreign-device control must record a different training device",
+        )
+        require(
+            reproduction["training_device_name"] == ours["training_device_name"]
+            and reproduction["reference_training_device_name"]
+            == theirs["training_device_name"],
+            "foreign-device control record names the wrong devices",
+        )
+        require(
+            reproduction["reference_best_step"] == reference.payload["best_step"]
+            and reproduction["same_selected_best_step"]
+            is (reproduction["best_step"] == reference.payload["best_step"])
+            and reproduction["parameter_delta"] == 0,
+            "foreign-device control record is internally inconsistent",
+        )
+    if mode == CANONICAL_DEVICE_MODE:
+        require(
+            reproduction["rng_capture"]["training_device_name"] == LINEAGE_DEVICE_NAME,
+            "control reproduction did not train on the recorded lineage device",
+        )
+    else:
+        require(
+            "rng_capture" not in reproduction,
+            "a foreign-device run must not record a reproduction RNG capture",
+        )
     ladder = audit_ladder(report, fresh)
     manifest = audit_manifest(report_path, report_hash)
     require(file_sha256(report_path) == report_hash, "report changed during audit")
@@ -1342,11 +1685,24 @@ def audit_run(report_path: Path, data_path: Path | None) -> dict[str, Any]:
         "endpoint_authentication": endpoints,
         "shared_initialization": shared,
         "depth_budget_ladder": ladder,
-        "stage_49_control_reproduction": {
-            "identical": reproduction["identical"],
-            "fields_checked": len(reproduction["fields_checked"]),
-            "reference_sha256": reproduction["reference_sha256"],
-        },
+        "device_mode": mode,
+        "device_shift": panel["device_shift"],
+        "stage_49_control_reproduction": (
+            {
+                "identical": reproduction["identical"],
+                "fields_checked": len(reproduction["fields_checked"]),
+                "reference_sha256": reproduction["reference_sha256"],
+            }
+            if mode == CANONICAL_DEVICE_MODE
+            else {
+                "attempted": False,
+                "training_device_name": reproduction["training_device_name"],
+                "reference_training_device_name": reproduction[
+                    "reference_training_device_name"
+                ],
+                "reference_sha256": reproduction["reference_sha256"],
+            }
+        ),
         "launch_manifest": manifest,
         "outcome": expected_outcome,
         "limits": "Stored batch losses were recomputed statistically; model forward "
