@@ -2,9 +2,17 @@
 # Launch one stage script under the repository's runner instrumentation:
 # program stdout/stderr go to the log verbatim, and a single trailing
 # instrumentation block records runtime, device, GPU use, and exit code.
+#
+# Stage 50 runs the depth comparison on the host's RTX 3090 Ti, which is off the
+# lineage device, so the canonical device guard is opted out of deliberately:
+# --allow-foreign-device makes the stage claim an internally matched pair instead
+# of byte-identical control reproduction, and score the stored C256 L=6 champion
+# as the panel's device-shift row. To run the canonical variant instead, replace
+# the device arguments with `--device cuda`.
 set -u
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE_LOG="$REPO_ROOT/checkpoints/logs/50_50_depth_revisit.log"
+STAGE_DEVICE_ARGS=(--device cuda:0 --allow-foreign-device)
 cd "$REPO_ROOT"
 
 sampler_pid=""
@@ -28,7 +36,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 
 started=$(date +%s)
-.venv/bin/python -u 50_depth_revisit.py --device cuda > "$STAGE_LOG" 2>&1
+.venv/bin/python -u 50_depth_revisit.py "${STAGE_DEVICE_ARGS[@]}" > "$STAGE_LOG" 2>&1
 exit_code=$?
 elapsed=$(( $(date +%s) - started ))
 
@@ -36,7 +44,7 @@ elapsed=$(( $(date +%s) - started ))
 
 {
   echo "__RUN_TIME_SECONDS__ $elapsed"
-  echo "__DEVICE__ cuda"
+  echo "__DEVICE__ cuda:0 (NVIDIA GeForce RTX 3090 Ti, foreign)"
   if [ -s /tmp/stage50_gpu_peaks.txt ]; then
     read -r max_u max_m < /tmp/stage50_gpu_peaks.txt
     echo "__GPU_MAX_UTIL__ ${max_u}%"
