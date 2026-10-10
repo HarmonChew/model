@@ -3,13 +3,20 @@ import math
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import torch
 
+import training
 from config import TrainingConfig
 from data_utils import CharacterData, CharacterVocabulary
-from training import BenchmarkConfig, BenchmarkStats, train_model
+from training import (
+    BenchmarkConfig,
+    BenchmarkStats,
+    LossEstimate,
+    train_model,
+)
 
 
 MODULE_PATH = Path(__file__).with_name("09_context_length.py")
@@ -192,6 +199,109 @@ class TrainingBenchmarkTests(unittest.TestCase):
                 rtol=0,
                 atol=0,
             )
+
+    def test_benchmark_excludes_evaluation_time_and_peak_memory(self) -> None:
+        """Pause the benchmark clock and allocator peaks for evaluations."""
+
+        class AdvancingClock:
+            def __init__(self) -> None:
+                self.now = 0.0
+
+            def perf_counter(self) -> float:
+                self.now += 1.0
+                return self.now
+
+            def spend_evaluation_time(self) -> None:
+                self.now += 100.0
+
+        clock = AdvancingClock()
+        real_estimate_loss = training.estimate_loss
+
+        def slow_estimate_loss(
+            *args: object,
+            **kwargs: object,
+        ) -> LossEstimate:
+            clock.spend_evaluation_time()
+            return real_estimate_loss(*args, **kwargs)
+
+        config = TrainingConfig(
+            batch_size=self.config.batch_size,
+            block_size=self.config.block_size,
+            n_embd=self.config.n_embd,
+            learning_rate=self.config.learning_rate,
+            max_iters=6,
+            eval_interval=2,
+            eval_iters=1,
+            seed=self.config.seed,
+        )
+        benchmark = BenchmarkConfig(num_warmup=1, num_steps=4)
+        torch.manual_seed(config.seed)
+        model = self.make_model()
+        generator = torch.Generator().manual_seed(config.seed + 1)
+        peak_values = (
+            (1_024, 2_048),
+            (3_072, 4_096),
+            (2_048, 8_192),
+        )
+
+        with (
+            mock.patch.object(
+                training,
+                "time",
+                SimpleNamespace(perf_counter=clock.perf_counter),
+            ),
+            mock.patch.object(
+                training,
+                "estimate_loss",
+                new=slow_estimate_loss,
+            ),
+            mock.patch.object(training, "sync_device") as sync_device,
+            mock.patch.object(
+                training,
+                "reset_peak_memory_stats",
+            ) as reset_peaks,
+            mock.patch.object(
+                training,
+                "get_peak_memory_stats",
+                side_effect=peak_values,
+            ) as get_peaks,
+            mock.patch.object(
+                training,
+                "clear_accelerator_cache",
+            ) as clear_cache,
+        ):
+            result = train_model(
+                model,
+                self.data,
+                config,
+                self.device,
+                generator,
+                benchmark=benchmark,
+            )
+
+        self.assertEqual(
+            [record.step for record in result.history],
+            [0, 2, 4],
+        )
+        stats = result.benchmark
+        self.assertIsInstance(stats, BenchmarkStats)
+        assert stats is not None
+        # Two paused evaluations cost 100 seconds each but only the three
+        # intervening one-second training segments are timed.
+        self.assertEqual(stats.seconds, 3.0)
+        self.assertAlmostEqual(stats.iterations_per_sec, 4.0 / 3.0)
+        self.assertAlmostEqual(
+            stats.tokens_per_sec,
+            stats.iterations_per_sec
+            * config.batch_size
+            * config.block_size,
+        )
+        self.assertEqual(stats.peak_allocated_mb, 3_072 / 1024**2)
+        self.assertEqual(stats.peak_reserved_mb, 8_192 / 1024**2)
+        self.assertEqual(reset_peaks.call_count, 3)
+        self.assertEqual(get_peaks.call_count, 3)
+        self.assertEqual(sync_device.call_count, 6)
+        self.assertEqual(clear_cache.call_count, 2)
 
 
 if __name__ == "__main__":
