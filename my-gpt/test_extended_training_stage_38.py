@@ -83,10 +83,14 @@ class RecordingCheckpoint:
         self.best_val_loss = 1.0
         self.replay_verified = False
         self.snapshots: list[tuple[Path, int, str]] = []
+        self.saved_steps: list[int] = []
 
     def consider(self, record: object) -> bool:
         del record
         return False
+
+    def save(self, step: int) -> None:
+        self.saved_steps.append(step)
 
     def save_snapshot(
         self,
@@ -118,7 +122,10 @@ class Stage38ExtendedTrainingTests(unittest.TestCase):
             STAGE_38.DEFAULT_LAYER_CONTEXTS,
             (23, 23, 23, 23, None, None),
         )
-        self.assertEqual(STAGE_38.DEFAULT_SOURCE_STEP, 17_500)
+        # The CUDA Stage 37 reproduction selected its best at the final
+        # evaluation, so the authenticated source already sits on the stage-38
+        # reconstruction boundary and no updates are replayed.
+        self.assertEqual(STAGE_38.DEFAULT_SOURCE_STEP, 18_000)
         self.assertEqual(STAGE_38.DEFAULT_EXTENSION_START_STEP, 18_000)
         self.assertEqual(STAGE_38.DEFAULT_TARGET_STEP, 25_000)
         self.assertEqual(STAGE_38.DEFAULT_EXTENSION_LEARNING_RATE, 3e-5)

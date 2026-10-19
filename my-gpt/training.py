@@ -100,6 +100,17 @@ def get_peak_memory_stats(device: torch.device) -> tuple[int, int]:
     return 0, 0
 
 
+def clear_accelerator_cache(device: torch.device) -> None:
+    """Release cached accelerator blocks after an evaluation pause."""
+
+    if device.type == "xpu":
+        torch.xpu.empty_cache()
+    elif device.type == "cuda":
+        torch.cuda.empty_cache()
+    elif device.type == "mps" and hasattr(torch, "mps"):
+        torch.mps.empty_cache()
+
+
 def seed_everything(seed: int) -> None:
     random.seed(seed)
     torch.manual_seed(seed)
@@ -225,7 +236,15 @@ def train_model(
     )
     history: list[EvaluationRecord] = []
     benchmark_started_at: float | None = None
+    benchmark_elapsed = 0.0
+    benchmark_peak_allocated = 0
+    benchmark_peak_reserved = 0
     benchmark_stats: BenchmarkStats | None = None
+    benchmark_end_step = (
+        benchmark.num_warmup + benchmark.num_steps
+        if benchmark is not None
+        else None
+    )
 
     def evaluate_on_fixed_batches() -> LossEstimate:
         # Recreate this generator for every evaluation so that initial,
@@ -254,13 +273,44 @@ def train_model(
         )
 
     for step in range(config.max_iters):
-        if step % config.eval_interval == 0:
+        evaluation_due = step % config.eval_interval == 0
+        # Evaluations that happen while the benchmark clock is running must
+        # not count toward its throughput or allocator peaks.
+        timing_needs_pause = (
+            evaluation_due
+            and benchmark_started_at is not None
+            and benchmark_stats is None
+            and benchmark_end_step is not None
+            and step < benchmark_end_step
+        )
+
+        if timing_needs_pause:
+            sync_device(device)
+            assert benchmark_started_at is not None
+            benchmark_elapsed += time.perf_counter() - benchmark_started_at
+            peak_allocated, peak_reserved = get_peak_memory_stats(device)
+            benchmark_peak_allocated = max(
+                benchmark_peak_allocated,
+                peak_allocated,
+            )
+            benchmark_peak_reserved = max(
+                benchmark_peak_reserved,
+                peak_reserved,
+            )
+
+        if evaluation_due:
             losses = evaluate_on_fixed_batches()
             record = EvaluationRecord(step=step, losses=losses)
             history.append(record)
 
             if on_evaluation is not None:
                 on_evaluation(record)
+
+        if timing_needs_pause:
+            clear_accelerator_cache(device)
+            reset_peak_memory_stats(device)
+            sync_device(device)
+            benchmark_started_at = time.perf_counter()
 
         if benchmark is not None and step == benchmark.num_warmup:
             sync_device(device)
@@ -281,17 +331,26 @@ def train_model(
         loss.backward()
         optimizer.step()
 
-        if (
-            benchmark is not None
-            and step + 1 == benchmark.num_warmup + benchmark.num_steps
-        ):
+        if benchmark_end_step is not None and step + 1 == benchmark_end_step:
             sync_device(device)
             assert benchmark_started_at is not None
-            elapsed = time.perf_counter() - benchmark_started_at
+            elapsed = (
+                benchmark_elapsed
+                + time.perf_counter()
+                - benchmark_started_at
+            )
             iterations_per_sec = benchmark.num_steps / elapsed
             tokens_per_iteration = config.batch_size * config.block_size
 
             peak_allocated, peak_reserved = get_peak_memory_stats(device)
+            benchmark_peak_allocated = max(
+                benchmark_peak_allocated,
+                peak_allocated,
+            )
+            benchmark_peak_reserved = max(
+                benchmark_peak_reserved,
+                peak_reserved,
+            )
 
             benchmark_stats = BenchmarkStats(
                 seconds=elapsed,
@@ -299,8 +358,8 @@ def train_model(
                 tokens_per_sec=(
                     iterations_per_sec * tokens_per_iteration
                 ),
-                peak_allocated_mb=peak_allocated / 1024**2,
-                peak_reserved_mb=peak_reserved / 1024**2,
+                peak_allocated_mb=benchmark_peak_allocated / 1024**2,
+                peak_reserved_mb=benchmark_peak_reserved / 1024**2,
             )
 
     final = evaluate_on_fixed_batches()

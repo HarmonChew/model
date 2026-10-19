@@ -99,7 +99,6 @@ DEFAULT_SAMPLE_SEED = 1_342
 DEFAULT_INITIAL_AUDIT_SEED = 1_343
 # Reuse Stage 28's held-out panels so the W=12 and W=23 deltas share examples.
 DEFAULT_PRECISE_EVAL_SEED = 1_346
-DEFAULT_ACCELERATOR_NAME = "Intel(R) Arc(TM) 140T GPU (16GB)"
 
 DROPOUT_PLACEMENT = _STAGE_26.DROPOUT_PLACEMENT
 DEFAULT_DATA_FINGERPRINT = _STAGE_26.DEFAULT_DATA_FINGERPRINT
@@ -122,7 +121,7 @@ DEFAULT_PARAMETER_INITIALIZATION_SHA256 = (
 )
 DEFAULT_FULL_INITIAL_STATE_SHA256 = _STAGE_27.DEFAULT_FULL_INITIAL_STATE_SHA256
 DEFAULT_LOCAL_INITIAL_STATE_SHA256 = (
-    "3d603c1bfe728e7e674dfcf90e6941076bfccd3e7d7b445bef6727cd5bf57b4f"
+    "4feb26dae434a6fad7a866895b3e53d7efcec79d3dc31f6af5a412fb758cd4c1"
 )
 DEFAULT_FULL_MASK_SHA256 = _STAGE_27.DEFAULT_FULL_MASK_SHA256
 DEFAULT_FULL_FLOAT_MASK_SHA256 = _STAGE_27.DEFAULT_FULL_FLOAT_MASK_SHA256
@@ -1304,7 +1303,7 @@ class LocalValidationCheckpoint(BestValidationCheckpoint):
         return payload
 
     def _payload(self, step: int) -> dict[str, object]:
-        payload = super()._payload(step)
+        payload = super(LocalValidationCheckpoint, self)._payload(step)
         return self._decorate_payload(payload, step=step, checkpoint_kind="best")
 
     def _save_anchor(self, record: AttentionEvaluationRecord) -> None:
@@ -1312,7 +1311,7 @@ class LocalValidationCheckpoint(BestValidationCheckpoint):
             raise RuntimeError("anchor checkpoint path is unavailable")
         self.anchor_training_losses = record.losses.train
         self.anchor_validation_losses = record.losses.val
-        payload = super()._payload(record.step)
+        payload = super(LocalValidationCheckpoint, self)._payload(record.step)
         payload = self._decorate_payload(
             payload,
             step=record.step,
@@ -2999,21 +2998,12 @@ def main() -> None:
         DEFAULT_N_LAYER,
     ):
         raise RuntimeError("the Stage 29 CLI is reserved for the canonical protocol")
-    if device.type != "xpu":
-        raise RuntimeError(
-            "canonical Stage 29 must use the same XPU backend class as Stage 26; "
-            "use the programmatic API for CPU plumbing tests"
-        )
-    accelerator_name = torch.xpu.get_device_name(0)
-    if accelerator_name != DEFAULT_ACCELERATOR_NAME:
-        raise RuntimeError(
-            "canonical Stage 29 must use the Stage 26 accelerator model "
-            f"{DEFAULT_ACCELERATOR_NAME!r}, got {accelerator_name!r}"
-        )
-
     print(f"Stage {EXPERIMENT_STAGE}: {EXPERIMENT_TITLE}")
     print(f"Device: {device}")
-    print(f"Accelerator: {accelerator_name}")
+    if device.type == "xpu":
+        print(f"Accelerator: {torch.xpu.get_device_name(0)}")
+    elif device.type == "cuda":
+        print(f"Accelerator: {torch.cuda.get_device_name(device)}")
     print(f"Characters: {data.num_characters:,}")
     print(f"Vocabulary size: {data.vocabulary.size}")
     print(f"Uniform-loss baseline: {math.log(data.vocabulary.size):.4f}")

@@ -73,10 +73,10 @@ HISTORICAL_LINEAGE = {
     "stage_42_empirical_best": {
         "branch": "control_3e_5",
         "step": 50_000,
-        "best_checkpoint_sha256": "183be907a891dd84fc31430c66c8313e70d38c87a278098cebe219c9904a49a6",
-        "final_checkpoint_sha256": "7bfc120595760b538b9c4063e3580525b48762bcc779265cb09ba09e571a1441",
-        "fixed_panel_train_loss": 1.1956539690,
-        "fixed_panel_validation_loss": 1.4158585346,
+        "best_checkpoint_sha256": "1a66c6bcae77aede45af77432d93cdf8b4c51b72a100fd04b6cdb84cafbe39e6",
+        "final_checkpoint_sha256": "57024bd7bb9e698ba3c16c23533aa5e5d52562eebe87841ac25a992def2b9baf",
+        "fixed_panel_train_loss": 1.1931665575504302,
+        "fixed_panel_validation_loss": 1.4177960669994354,
     },
     "role": "historical reference only; neither is a Stage 43 initialization",
 }

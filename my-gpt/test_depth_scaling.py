@@ -125,7 +125,7 @@ class Stage24DefaultsAndInitializationTests(unittest.TestCase):
         )
         self.assertEqual(
             STAGE_24._pin_for_default_path(args.control_checkpoint_path),
-            (STAGE_24.DEFAULT_CONTROL_CHECKPOINT_SHA256, 13_500),
+            (STAGE_24.DEFAULT_CONTROL_CHECKPOINT_SHA256, 15_500),
         )
 
         data = make_character_data(vocabulary_size=65)

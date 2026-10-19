@@ -67,12 +67,18 @@ DEFAULT_CONTROL_CHECKPOINT_PATH = (
 DEFAULT_TREATMENT_CHECKPOINT_PATH = (
     CHECKPOINT_DIRECTORY / "stage_21_dropout_005_best_checkpoint.pt"
 )
+# The pinned digests are serialization-specific, not just weight-specific:
+# torch.save embeds device-dependent bytes, so the same trained tensors hash
+# differently on CPU and on CUDA. These values are the CUDA-produced Stage 20
+# artifact and the matching CUDA-recreated shared initialization; a CPU or XPU
+# regeneration will not reproduce them even though its losses match to four
+# decimal places.
 DEFAULT_CONTROL_CHECKPOINT_SHA256 = (
-    "fc42fd0b58d3e197db3cb4d687e841b9db3f8c38a4208f9b9db2cf329ab1d3e9"
+    "645f7dc1971bd7e790b6583564731acd7f8501e26ecea457d21f8f7cec8c03f2"
 )
 DEFAULT_CONTROL_BEST_STEP = 10_500
 DEFAULT_INITIAL_STATE_SHA256 = (
-    "ea5ac1a1b7fc912a1f5535e6bbabc43216b48aafbd86869dffd5372e7fc0bfad"
+    "7c3ef103b2b6ae2d6cc0fb0e1c065743c0e692f32ae3ff32940bbaee88b73568"
 )
 
 DEFAULT_BATCH_SIZE = _STAGE_20.DEFAULT_BATCH_SIZE
