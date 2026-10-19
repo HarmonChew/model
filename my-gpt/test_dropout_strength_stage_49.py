@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 import torch
 
+import artifact_fixtures
 from data_utils import CharacterData, CharacterVocabulary
 from training import LossEstimate
 
@@ -726,19 +727,124 @@ class Stage49Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "locks"):
                     STAGE.validate_protocol(data, (configs[0], changed))
 
-    def test_stage_48_reference_is_authenticated_before_it_is_trusted(self):
-        directory = STAGE.DEFAULT_OUTPUT_DIRECTORY
-        data = STAGE.CharacterData.from_file(
-            STAGE.DEFAULT_COMPLETE_DATA_PATH, train_fraction=0.9
+    def fixture_stage_48_reference(self, directory: Path):
+        """A reduced Stage 48 treatment endpoint pinned to this stage's constants.
+
+        The loader authenticates a name, a file hash, and a fixed-panel record.
+        A small real endpoint produced by Stage 48's own writer exercises that
+        path without the ignored historical checkpoint.
+        """
+
+        stage_48 = STAGE._STAGE_48
+        data, config, spec, _ = artifact_fixtures.build_branch(
+            stage_48,
+            directory,
+            "treatment",
+            stage_48.DEFAULT_TREATMENT_DROPOUT,
         )
+        payload = stage_48.validate_branch_checkpoint(
+            spec.final_path, spec, data, config, "final"
+        )
+        # The loader authenticates with the stage's canonical config. A fixture
+        # run is smaller, so the stage's own factory is pinned to it here; the
+        # name, hash, architecture, and fixed-panel checks all still run.
+        specs_patch = patch.object(
+            stage_48, "branch_specs", return_value=(spec, spec)
+        )
+        config_patch = patch.object(
+            stage_48, "canonical_config", return_value=config
+        )
+        patches = {
+            "DEFAULT_STAGE_48_TREATMENT_SHA256": STAGE.file_hash(spec.final_path),
+            "DEFAULT_STAGE_48_TREATMENT_BEST_SHA256": STAGE.file_hash(
+                spec.best_path
+            ),
+            "DEFAULT_STAGE_48_TREATMENT_BEST_STEP": payload["best_step"],
+            "DEFAULT_STAGE_48_TREATMENT_FIXED_PANEL_TRAIN_LOSS": payload[
+                "snapshot_losses"
+            ]["train"],
+            "DEFAULT_STAGE_48_TREATMENT_FIXED_PANEL_VALIDATION_LOSS": payload[
+                "snapshot_losses"
+            ]["validation"],
+        }
+        return data, spec, payload, patches, (specs_patch, config_patch)
+
+    def test_stage_48_reference_is_authenticated_before_it_is_trusted(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            data, reference_spec, payload, patches, fixture_patches = (
+                self.fixture_stage_48_reference(directory)
+            )
+            # The stage this one steps up from is pinned by name and by content,
+            # so a rerun that changed either would invalidate the ladder row and
+            # the control reproduction rather than silently comparing different
+            # models.
+            self.assertEqual(
+                reference_spec.final_path.name,
+                STAGE.DEFAULT_STAGE_48_TREATMENT_FILENAME,
+            )
+            with (
+                fixture_patches[0],
+                fixture_patches[1],
+                patch.multiple(STAGE, **patches),
+            ):
+                self.assertEqual(
+                    STAGE.file_hash(reference_spec.final_path),
+                    STAGE.DEFAULT_STAGE_48_TREATMENT_SHA256,
+                )
+                self.assertEqual(
+                    STAGE.file_hash(reference_spec.best_path),
+                    STAGE.DEFAULT_STAGE_48_TREATMENT_BEST_SHA256,
+                )
+                endpoint = STAGE.load_stage_48_treatment(data, directory)
+                self.assertEqual(
+                    (endpoint.key, endpoint.width, endpoint.dropout),
+                    ("c256_stage_48", 16, 0.15),
+                )
+                self.assertEqual(
+                    (endpoint.payload["step"], endpoint.payload["best_step"]),
+                    (payload["step"], payload["best_step"]),
+                )
+                with patch.object(
+                    STAGE, "DEFAULT_STAGE_48_TREATMENT_SHA256", "0" * 64
+                ):
+                    with self.assertRaisesRegex(ValueError, "hash changed"):
+                        STAGE.load_stage_48_treatment(data, directory)
+                with patch.object(
+                    STAGE, "DEFAULT_STAGE_48_TREATMENT_BEST_SHA256", "0" * 64
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError, "best checkpoint hash changed"
+                    ):
+                        STAGE.load_stage_48_treatment(data, directory)
+                with patch.object(
+                    STAGE,
+                    "DEFAULT_STAGE_48_TREATMENT_FIXED_PANEL_VALIDATION_LOSS",
+                    1.0,
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError, "fixed-panel record changed"
+                    ):
+                        STAGE.load_stage_48_treatment(data, directory)
+                with patch.object(
+                    STAGE, "DEFAULT_STAGE_48_TREATMENT_FILENAME", "other.pt"
+                ):
+                    with self.assertRaisesRegex(ValueError, "changed its name"):
+                        STAGE.load_stage_48_treatment(data, directory)
+
+    def test_canonical_stage_48_artifact_is_authenticated_when_present(self):
+        """The published Stage 48 endpoint, checked only where it exists."""
+
+        directory = STAGE.DEFAULT_OUTPUT_DIRECTORY
         specs = STAGE._STAGE_48.branch_specs(directory)
         reference_spec = next(spec for spec in specs if spec.key == "treatment")
-        # The stage this one steps up from is pinned by name and by content, so a
-        # rerun that changed either would invalidate the ladder row and the
-        # control reproduction rather than silently comparing different models.
-        self.assertEqual(
-            reference_spec.final_path.name,
-            STAGE.DEFAULT_STAGE_48_TREATMENT_FILENAME,
+        if not (
+            reference_spec.final_path.is_file()
+            and reference_spec.best_path.is_file()
+        ):
+            self.skipTest("ignored canonical Stage 48 artifact is unavailable")
+        data = STAGE.CharacterData.from_file(
+            STAGE.DEFAULT_COMPLETE_DATA_PATH, train_fraction=0.9
         )
         self.assertEqual(
             STAGE.file_hash(reference_spec.final_path),
@@ -750,27 +856,13 @@ class Stage49Tests(unittest.TestCase):
         )
         endpoint = STAGE.load_stage_48_treatment(data, directory)
         self.assertEqual(
-            (endpoint.key, endpoint.width, endpoint.dropout), ("c256_stage_48", 256, 0.15)
+            (endpoint.key, endpoint.width, endpoint.dropout),
+            ("c256_stage_48", 256, 0.15),
         )
         self.assertEqual(
-            (endpoint.payload["step"], endpoint.payload["best_step"]), (50000, 48500)
+            (endpoint.payload["step"], endpoint.payload["best_step"]),
+            (50000, 48500),
         )
-        with patch.object(STAGE, "DEFAULT_STAGE_48_TREATMENT_SHA256", "0" * 64):
-            with self.assertRaisesRegex(ValueError, "hash changed"):
-                STAGE.load_stage_48_treatment(data, directory)
-        with patch.object(STAGE, "DEFAULT_STAGE_48_TREATMENT_BEST_SHA256", "0" * 64):
-            with self.assertRaisesRegex(ValueError, "best checkpoint hash changed"):
-                STAGE.load_stage_48_treatment(data, directory)
-        with patch.object(
-            STAGE,
-            "DEFAULT_STAGE_48_TREATMENT_FIXED_PANEL_VALIDATION_LOSS",
-            1.0,
-        ):
-            with self.assertRaisesRegex(ValueError, "fixed-panel record changed"):
-                STAGE.load_stage_48_treatment(data, directory)
-        with patch.object(STAGE, "DEFAULT_STAGE_48_TREATMENT_FILENAME", "other.pt"):
-            with self.assertRaisesRegex(ValueError, "changed its name"):
-                STAGE.load_stage_48_treatment(data, directory)
 
     def test_lineage_device_resolution_prefers_the_recorded_accelerator(self):
         self.assertEqual(STAGE.DEFAULT_LINEAGE_DEVICE_NAME, "NVIDIA GeForce RTX 3090")

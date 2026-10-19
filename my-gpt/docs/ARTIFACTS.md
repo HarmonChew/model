@@ -47,3 +47,20 @@ Stage 30 is the reference layout. Other historical stages remain in the legacy
 cumulative documents until they are touched or explicitly selected for
 migration.
 
+## Testing without the ignored artifacts
+
+The `checkpoints/` directory is never committed, so a fresh checkout has no
+historical `.pt` or `*_report.json` files. Ordinary tests must still run:
+
+- `artifact_fixtures.py` writes small, real endpoints through each stage's own
+  writer. They are structurally complete, so the validators and peer loaders
+  run unchanged; only the run size differs.
+- A test that exercises an authentication path pins the stage's own constants
+  to the fixture it just produced, then checks the path end to end.
+- Checks that are only meaningful for the published artifacts (pinned SHA-256
+  values, canonical parameter counts, the recorded Stage 49 trajectory) live in
+  their own `..._when_present` / `canonical_...` tests. They skip when the file
+  is absent and run in full where it exists.
+
+This keeps the substantive checks intact: nothing is weakened, no recorded hash
+is rewritten, and no published result is regenerated.

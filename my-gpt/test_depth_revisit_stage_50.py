@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 import torch
 
+import artifact_fixtures
 from data_utils import CharacterData, CharacterVocabulary
 from training import LossEstimate
 
@@ -313,6 +314,55 @@ class Stage50Tests(unittest.TestCase):
             STAGE._STAGE_49.C256_NATIVE_INITIALIZATION_SHA256,
         )
 
+    def fixture_stored_peers(self, directory: Path):
+        """Reduced stand-ins for the two stored endpoints the preflight reads.
+
+        The preflight itself runs at the canonical width, so its initialization
+        audit is untouched. Only the two read-only peers are substituted, and
+        they are real endpoints written by their owning stages.
+        """
+
+        stage_49 = STAGE._STAGE_49
+        stage_46 = STAGE._STAGE_46
+        control_data, control_config, control_spec, _ = artifact_fixtures.build_branch(
+            stage_49, directory, "control", stage_49.DEFAULT_CONTROL_DROPOUT
+        )
+        control_payload = stage_49.validate_branch_checkpoint(
+            control_spec.final_path, control_spec, control_data, control_config, "final"
+        )
+        budget_data, budget_config, budget_spec, _ = artifact_fixtures.build_branch(
+            stage_46, directory, "treatment", stage_46.DEFAULT_TREATMENT_DROPOUT
+        )
+        budget_payload = stage_46.validate_branch_checkpoint(
+            budget_spec.final_path, budget_spec, budget_data, budget_config, "final"
+        )
+
+        def control_loader(data: CharacterData, unused: Path):
+            del unused
+            return STAGE.StoredEndpoint(
+                STAGE.STORED_L6_PEER_KEY,
+                control_spec.width,
+                STAGE.DEFAULT_CONTROL_DEPTH,
+                control_spec.dropout,
+                control_spec.final_path,
+                control_payload,
+                control_config,
+            )
+
+        def budget_loader(data: CharacterData, unused: Path):
+            del unused
+            return STAGE.StoredEndpoint(
+                STAGE.BUDGET_PEER_KEY,
+                budget_spec.width,
+                STAGE._STAGE_44.N_LAYER,
+                budget_spec.dropout,
+                budget_spec.final_path,
+                budget_payload,
+                budget_config,
+            )
+
+        return control_loader, budget_loader
+
     def test_preflight_authenticates_initializations_and_stored_peers(self):
         """The canonical preflight gates the two stored endpoints before training."""
 
@@ -321,7 +371,15 @@ class Stage50Tests(unittest.TestCase):
         )
         config = STAGE.canonical_config()
         specs = STAGE.branch_specs(STAGE.DEFAULT_OUTPUT_DIRECTORY)
-        audit = STAGE.preflight(data, (config, config), specs, torch.device("cpu"))
+        with tempfile.TemporaryDirectory() as raw:
+            control_loader, budget_loader = self.fixture_stored_peers(Path(raw))
+            with (
+                patch.object(STAGE, "load_stage_49_control", new=control_loader),
+                patch.object(STAGE, "load_c320_budget_peer", new=budget_loader),
+            ):
+                audit = STAGE.preflight(
+                    data, (config, config), specs, torch.device("cpu")
+                )
         self.assertFalse(audit["training_executed"])
         self.assertEqual(audit["protocol"], "paired_architecture_native_depth")
         self.assertEqual(
@@ -364,6 +422,90 @@ class Stage50Tests(unittest.TestCase):
             [89, 133],
         )
         self.assertEqual(audit["updates_per_branch"], 50_000)
+        self.assertEqual(audit["target_presentations_per_branch"], 102_400_000)
+        peers = audit["stored_peers"]
+        control_peer = peers["stage_49_control"]
+        self.assertEqual(
+            (
+                control_peer["key"],
+                control_peer["depth"],
+                control_peer["dropout"],
+            ),
+            ("c256_l6_lineage", 6, 0.15),
+        )
+        budget_peer = peers["c320_budget_peer"]
+        self.assertEqual(
+            (
+                budget_peer["key"],
+                budget_peer["depth"],
+                budget_peer["dropout"],
+            ),
+            ("c320_l6", 6, 0.15),
+        )
+
+    def test_canonical_preflight_pins_the_published_initializations(self):
+        """The published pair and peers, checked only where the artifacts exist."""
+
+        directory = STAGE.DEFAULT_OUTPUT_DIRECTORY
+        stage_46 = STAGE._STAGE_46
+        stage_49 = STAGE._STAGE_49
+        stage_49_specs = stage_49.branch_specs(directory)
+        stage_49_control = next(
+            spec for spec in stage_49_specs if spec.key == "control"
+        )
+        c320_spec = next(
+            spec
+            for spec in stage_46.branch_specs(directory)
+            if spec.final_path.name == STAGE.C320_BUDGET_REF["filename"]
+        )
+        if not (
+            stage_49_control.final_path.is_file()
+            and stage_49_control.best_path.is_file()
+            and c320_spec.final_path.is_file()
+        ):
+            self.skipTest("ignored canonical Stage 49/C320 artifacts are unavailable")
+        data = STAGE.CharacterData.from_file(
+            STAGE.DEFAULT_COMPLETE_DATA_PATH, train_fraction=0.9
+        )
+        config = STAGE.canonical_config()
+        specs = STAGE.branch_specs(directory)
+        audit = STAGE.preflight(data, (config, config), specs, torch.device("cpu"))
+        self.assertFalse(audit["training_executed"])
+        self.assertEqual(
+            (
+                audit["parameter_counts"]["control"],
+                audit["parameter_counts"]["treatment"],
+                audit["parameter_counts"]["added"],
+            ),
+            (4_850_274, 6_428_258, 2 * STAGE.DEFAULT_BLOCK_PARAMETER_COUNT),
+        )
+        self.assertEqual(
+            audit["control_initialization_equivalence"]["state_sha256"],
+            STAGE.C256_L6_NATIVE_INITIALIZATION_SHA256,
+        )
+        self.assertEqual(
+            audit["treatment_initialization_equivalence"]["state_sha256"],
+            STAGE.C256_L8_NATIVE_INITIALIZATION_SHA256,
+        )
+        shared = audit["shared_initialization"]
+        self.assertEqual(
+            (
+                shared["control_key_count"],
+                shared["treatment_key_count"],
+                shared["added_key_count"],
+                shared["identical_key_count"],
+                shared["added_parameter_count"],
+                shared["per_added_block_parameter_count"],
+            ),
+            (162, 214, 52, 152, 1_577_984, 788_992),
+        )
+        self.assertEqual(
+            [
+                branch["architecture"]["pre_global_receptive_field"]
+                for branch in audit["branches"]
+            ],
+            [89, 133],
+        )
         self.assertEqual(audit["target_presentations_per_branch"], 102_400_000)
         peers = audit["stored_peers"]
         control_peer = peers["stage_49_control"]
@@ -1348,13 +1490,64 @@ class Stage50Tests(unittest.TestCase):
                     probe_path=probe_path,
                 )
 
-    def test_recorded_control_history_is_the_published_stage_49_trajectory(self):
+    def test_recorded_control_history_is_read_from_the_stage_49_report(self):
+        """The trajectory reader is exercised on a synthetic Stage 49 report.
+
+        The published report is an ignored artifact, so this builds the same
+        structure the reader expects: 101 rows from step 0 to step 50,000 whose
+        terminal row carries the champion's fixed-panel losses.
+        """
+
+        steps = list(range(0, 50_001, 500))
+        terminal = {
+            "train": STAGE.DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_TRAIN_LOSS,
+            "validation": STAGE.DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_VALIDATION_LOSS,
+        }
+        history = [
+            {
+                "step": step,
+                "losses": dict(terminal) if step == steps[-1] else {"train": 2.0, "val": 2.1},
+            }
+            for step in steps
+        ]
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "stage_49_report.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "stage": 49,
+                        "training_executed": True,
+                        "control": {"training": {"history": history}},
+                    }
+                )
+            )
+            recorded = STAGE.load_recorded_control_history(path)
+        self.assertEqual(len(recorded), 101)
+        self.assertEqual(sorted(recorded)[:3], [0, 500, 1000])
+        self.assertEqual(sorted(recorded)[-1], 50_000)
+        # The terminal row is the stored champion's own fixed-panel record, so
+        # the probe's reference is the right one.
+        self.assertEqual(recorded[50_000]["validation"], terminal["validation"])
+        self.assertEqual(recorded[50_000]["train"], terminal["train"])
+        # A report that spells the field "val" is read the same way.
+        self.assertEqual(recorded[500]["validation"], 2.1)
+        with self.assertRaises(FileNotFoundError):
+            STAGE.load_recorded_control_history(Path("/nonexistent/stage_49_report.json"))
+        with tempfile.TemporaryDirectory() as raw:
+            wrong = Path(raw) / "wrong.json"
+            wrong.write_text(json.dumps({"stage": 50, "training_executed": True}))
+            with self.assertRaisesRegex(ValueError, "Stage 49 run"):
+                STAGE.load_recorded_control_history(wrong)
+
+    def test_canonical_recorded_control_history_matches_the_stage_49_report(self):
+        """The published trajectory, checked only where its report exists."""
+
+        if not STAGE.DEFAULT_STAGE_49_REPORT_PATH.is_file():
+            self.skipTest("recorded Stage 49 report is unavailable")
         history = STAGE.load_recorded_control_history(STAGE.DEFAULT_STAGE_49_REPORT_PATH)
         self.assertEqual(len(history), 101)
         self.assertEqual(sorted(history)[:3], [0, 500, 1000])
         self.assertEqual(sorted(history)[-1], 50_000)
-        # The published trajectory's terminal step is the stored champion's own
-        # fixed-panel record, so the probe's reference is the right one.
         self.assertEqual(
             history[50_000]["validation"],
             STAGE.DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_VALIDATION_LOSS,
@@ -1363,13 +1556,6 @@ class Stage50Tests(unittest.TestCase):
             history[50_000]["train"],
             STAGE.DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_TRAIN_LOSS,
         )
-        with self.assertRaises(FileNotFoundError):
-            STAGE.load_recorded_control_history(Path("/nonexistent/stage_49_report.json"))
-        with tempfile.TemporaryDirectory() as raw:
-            wrong = Path(raw) / "wrong.json"
-            wrong.write_text(json.dumps({"stage": 50, "training_executed": True}))
-            with self.assertRaisesRegex(ValueError, "Stage 49 run"):
-                STAGE.load_recorded_control_history(wrong)
 
     def test_diagnostic_writer_replaces_atomically_and_refuses_non_json(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -1612,19 +1798,129 @@ class Stage50Tests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "locks"):
                     STAGE.validate_protocol(data, (configs[0], changed))
 
-    def test_stage_49_reference_is_authenticated_before_it_is_trusted(self):
-        directory = STAGE.DEFAULT_OUTPUT_DIRECTORY
-        data = STAGE.CharacterData.from_file(
-            STAGE.DEFAULT_COMPLETE_DATA_PATH, train_fraction=0.9
+    def fixture_stage_49_control(self, directory: Path):
+        """A reduced Stage 49 C256 p=0.15 control pinned to this stage's constants.
+
+        Stage 50 authenticates the stored champion by name, file hash, and
+        fixed-panel record. A small real endpoint written by Stage 49's own
+        writer exercises that path without the ignored historical checkpoint.
+        """
+
+        stage_49 = STAGE._STAGE_49
+        data, config, spec, _ = artifact_fixtures.build_branch(
+            stage_49,
+            directory,
+            "control",
+            stage_49.DEFAULT_CONTROL_DROPOUT,
         )
+        payload = stage_49.validate_branch_checkpoint(
+            spec.final_path, spec, data, config, "final"
+        )
+        fixtures = (
+            patch.object(stage_49, "branch_specs", return_value=(spec, spec)),
+            patch.object(stage_49, "canonical_config", return_value=config),
+            patch.object(
+                STAGE,
+                "DEFAULT_STAGE_49_CONTROL_SHA256",
+                STAGE.file_hash(spec.final_path),
+            ),
+            patch.object(
+                STAGE,
+                "DEFAULT_STAGE_49_CONTROL_BEST_SHA256",
+                STAGE.file_hash(spec.best_path),
+            ),
+            patch.object(
+                STAGE,
+                "DEFAULT_STAGE_49_CONTROL_BEST_STEP",
+                payload["best_step"],
+            ),
+            patch.object(
+                STAGE,
+                "DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_TRAIN_LOSS",
+                payload["snapshot_losses"]["train"],
+            ),
+            patch.object(
+                STAGE,
+                "DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_VALIDATION_LOSS",
+                payload["snapshot_losses"]["validation"],
+            ),
+        )
+        return data, spec, payload, fixtures
+
+    def test_stage_49_reference_is_authenticated_before_it_is_trusted(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            data, reference_spec, payload, fixtures = (
+                self.fixture_stage_49_control(directory)
+            )
+            # The champion this stage steps up from is pinned by name and by
+            # content, so a rerun that changed either would invalidate the
+            # comparison and every budget row it feeds rather than silently
+            # measuring a different model.
+            self.assertEqual(
+                reference_spec.final_path.name,
+                STAGE.DEFAULT_STAGE_49_CONTROL_FILENAME,
+            )
+            with contextlib.ExitStack() as stack:
+                for fixture in fixtures:
+                    stack.enter_context(fixture)
+                self.assertEqual(
+                    STAGE.file_hash(reference_spec.final_path),
+                    STAGE.DEFAULT_STAGE_49_CONTROL_SHA256,
+                )
+                self.assertEqual(
+                    STAGE.file_hash(reference_spec.best_path),
+                    STAGE.DEFAULT_STAGE_49_CONTROL_BEST_SHA256,
+                )
+                endpoint = STAGE.load_stage_49_control(data, directory)
+                self.assertEqual(
+                    (endpoint.key, endpoint.width, endpoint.depth, endpoint.dropout),
+                    ("c256_l6_lineage", 16, 6, 0.15),
+                )
+                self.assertEqual(
+                    (endpoint.payload["step"], endpoint.payload["best_step"]),
+                    (payload["step"], payload["best_step"]),
+                )
+                with patch.object(
+                    STAGE, "DEFAULT_STAGE_49_CONTROL_SHA256", "0" * 64
+                ):
+                    with self.assertRaisesRegex(ValueError, "hash changed"):
+                        STAGE.load_stage_49_control(data, directory)
+                with patch.object(
+                    STAGE, "DEFAULT_STAGE_49_CONTROL_BEST_SHA256", "0" * 64
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError, "best checkpoint hash changed"
+                    ):
+                        STAGE.load_stage_49_control(data, directory)
+                with patch.object(
+                    STAGE,
+                    "DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_VALIDATION_LOSS",
+                    1.0,
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError, "fixed-panel record changed"
+                    ):
+                        STAGE.load_stage_49_control(data, directory)
+                with patch.object(
+                    STAGE, "DEFAULT_STAGE_49_CONTROL_FILENAME", "other.pt"
+                ):
+                    with self.assertRaisesRegex(ValueError, "changed its name"):
+                        STAGE.load_stage_49_control(data, directory)
+
+    def test_canonical_stage_49_artifact_is_authenticated_when_present(self):
+        """The published Stage 49 champion, checked only where it exists."""
+
+        directory = STAGE.DEFAULT_OUTPUT_DIRECTORY
         specs = STAGE._STAGE_49.branch_specs(directory)
         reference_spec = next(spec for spec in specs if spec.key == "control")
-        # The champion this stage steps up from is pinned by name and by content,
-        # so a rerun that changed either would invalidate the comparison and every
-        # budget row it feeds rather than silently measuring a different model.
-        self.assertEqual(
-            reference_spec.final_path.name,
-            STAGE.DEFAULT_STAGE_49_CONTROL_FILENAME,
+        if not (
+            reference_spec.final_path.is_file()
+            and reference_spec.best_path.is_file()
+        ):
+            self.skipTest("ignored canonical Stage 49 artifact is unavailable")
+        data = STAGE.CharacterData.from_file(
+            STAGE.DEFAULT_COMPLETE_DATA_PATH, train_fraction=0.9
         )
         self.assertEqual(
             STAGE.file_hash(reference_spec.final_path),
@@ -1640,30 +1936,83 @@ class Stage50Tests(unittest.TestCase):
             ("c256_l6_lineage", 256, 6, 0.15),
         )
         self.assertEqual(
-            (endpoint.payload["step"], endpoint.payload["best_step"]), (50000, 48500)
+            (endpoint.payload["step"], endpoint.payload["best_step"]),
+            (50000, 48500),
         )
-        with patch.object(STAGE, "DEFAULT_STAGE_49_CONTROL_SHA256", "0" * 64):
-            with self.assertRaisesRegex(ValueError, "hash changed"):
-                STAGE.load_stage_49_control(data, directory)
-        with patch.object(STAGE, "DEFAULT_STAGE_49_CONTROL_BEST_SHA256", "0" * 64):
-            with self.assertRaisesRegex(ValueError, "best checkpoint hash changed"):
-                STAGE.load_stage_49_control(data, directory)
-        with patch.object(
-            STAGE, "DEFAULT_STAGE_49_CONTROL_FIXED_PANEL_VALIDATION_LOSS", 1.0
-        ):
-            with self.assertRaisesRegex(ValueError, "fixed-panel record changed"):
-                STAGE.load_stage_49_control(data, directory)
-        with patch.object(STAGE, "DEFAULT_STAGE_49_CONTROL_FILENAME", "other.pt"):
-            with self.assertRaisesRegex(ValueError, "changed its name"):
-                STAGE.load_stage_49_control(data, directory)
+
+    def fixture_c320_budget_peer(self, directory: Path):
+        """A reduced C320 p=0.15 endpoint pinned to this stage's budget reference."""
+
+        stage_46 = STAGE._STAGE_46
+        data, config, spec, _ = artifact_fixtures.build_branch(
+            stage_46,
+            directory,
+            "treatment",
+            stage_46.DEFAULT_TREATMENT_DROPOUT,
+        )
+        payload = stage_46.validate_branch_checkpoint(
+            spec.final_path, spec, data, config, "final"
+        )
+        reference = {
+            **STAGE.C320_BUDGET_REF,
+            "width": 16,
+            "file_sha256": STAGE.file_hash(spec.final_path),
+            "best_step": payload["best_step"],
+            "fixed_panel_train_loss": payload["snapshot_losses"]["train"],
+            "fixed_panel_validation_loss": payload["snapshot_losses"]["validation"],
+        }
+        fixtures = (
+            patch.object(stage_46, "branch_specs", return_value=(spec, spec)),
+            patch.object(stage_46, "canonical_config", return_value=config),
+            patch.object(STAGE, "C320_BUDGET_REF", reference),
+        )
+        return data, spec, payload, fixtures
 
     def test_budget_peer_is_authenticated_against_its_recorded_hash(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            data, reference_spec, payload, fixtures = (
+                self.fixture_c320_budget_peer(directory)
+            )
+            self.assertEqual(STAGE.C320_BUDGET_REF["owner"], "stage_46")
+            with contextlib.ExitStack() as stack:
+                for fixture in fixtures:
+                    stack.enter_context(fixture)
+                self.assertEqual(STAGE.C320_BUDGET_REF["width"], 16)
+                endpoint = STAGE.load_c320_budget_peer(data, directory)
+                self.assertEqual(
+                    (endpoint.key, endpoint.width, endpoint.depth, endpoint.dropout),
+                    (STAGE.BUDGET_PEER_KEY, 16, 6, 0.15),
+                )
+                self.assertEqual(
+                    endpoint.payload["initialization"]["parameter_count"],
+                    payload["initialization"]["parameter_count"],
+                )
+                self.assertEqual(
+                    (endpoint.payload["step"], endpoint.payload["best_step"]),
+                    (payload["step"], payload["best_step"]),
+                )
+                changed = {**STAGE.C320_BUDGET_REF, "file_sha256": "0" * 64}
+                with patch.object(STAGE, "C320_BUDGET_REF", changed):
+                    with self.assertRaisesRegex(ValueError, "hash changed"):
+                        STAGE.load_c320_budget_peer(data, directory)
+
+    def test_canonical_c320_budget_peer_is_authenticated_when_present(self):
+        """The published C320 endpoint, checked only where it exists."""
+
         directory = STAGE.DEFAULT_OUTPUT_DIRECTORY
+        stage_46 = STAGE._STAGE_46
+        specs = stage_46.branch_specs(directory)
+        reference_spec = next(
+            spec
+            for spec in specs
+            if spec.final_path.name == STAGE.C320_BUDGET_REF["filename"]
+        )
+        if not reference_spec.final_path.is_file():
+            self.skipTest("ignored canonical C320 artifact is unavailable")
         data = STAGE.CharacterData.from_file(
             STAGE.DEFAULT_COMPLETE_DATA_PATH, train_fraction=0.9
         )
-        self.assertEqual(STAGE.C320_BUDGET_REF["owner"], "stage_46")
-        self.assertEqual(STAGE.C320_BUDGET_REF["width"], 320)
         endpoint = STAGE.load_c320_budget_peer(data, directory)
         self.assertEqual(
             (endpoint.key, endpoint.width, endpoint.depth, endpoint.dropout),
@@ -1674,12 +2023,9 @@ class Stage50Tests(unittest.TestCase):
             STAGE.DEFAULT_C320_PARAMETER_COUNT,
         )
         self.assertEqual(
-            (endpoint.payload["step"], endpoint.payload["best_step"]), (50000, 49500)
+            (endpoint.payload["step"], endpoint.payload["best_step"]),
+            (50000, 49500),
         )
-        changed = {**STAGE.C320_BUDGET_REF, "file_sha256": "0" * 64}
-        with patch.object(STAGE, "C320_BUDGET_REF", changed):
-            with self.assertRaisesRegex(ValueError, "hash changed"):
-                STAGE.load_c320_budget_peer(data, directory)
 
     def test_lineage_device_resolution_prefers_the_recorded_accelerator(self):
         self.assertEqual(STAGE.DEFAULT_LINEAGE_DEVICE_NAME, "NVIDIA GeForce RTX 3090")
