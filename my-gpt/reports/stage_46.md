@@ -8,6 +8,8 @@
 - Exit code: `0`
 - Run status: `ok`
 
+> Publication note: machine-specific absolute paths in the stdout block were replaced with repository-relative paths. Numeric results, hashes, ordering, and all other text are unchanged.
+
 ## Stdout
 
 ```text
