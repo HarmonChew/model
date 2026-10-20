@@ -8,6 +8,7 @@ STAGE_LOG="$REPO_ROOT/checkpoints/logs/49_49_dropout_strength.log"
 cd "$REPO_ROOT"
 
 sampler_pid=""
+rm -f /tmp/stage49_gpu_peaks.txt
 if command -v nvidia-smi >/dev/null 2>&1; then
     ( max_u=0; max_m=0
       while :; do
@@ -27,6 +28,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     sampler_pid=$!
 fi
 
+mkdir -p "$(dirname "$STAGE_LOG")"
 started=$(date +%s)
 .venv/bin/python -u 49_dropout_strength.py --device cuda > "$STAGE_LOG" 2>&1
 exit_code=$?
