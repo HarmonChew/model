@@ -348,19 +348,52 @@ class Stage43Tests(unittest.TestCase):
             for key, value in initial_weights.items():
                 self.assertTrue(torch.equal(value, best["model_state_dict"][key]), key)
 
-    def test_checkpoint_rejects_step_learning_rate_architecture_and_stream_tampering(
-        self,
-    ):
+    def test_checkpoint_rejects_structural_tampering_independently_of_its_hash(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             control, _, data, config, _ = self.run_pair(root)
             original = torch.load(control.spec.final_path, weights_only=True)
-            mutations = (
-                lambda payload: payload.update(step=2),
-                lambda payload: payload["optimizer_state_dict"]["param_groups"][
-                    0
-                ].update(lr=3e-5),
-                lambda payload: payload["architecture"].update(n_embd=12),
+            # These fields are validated structurally, so the tamper must be
+            # rejected even when the payload integrity hash is recomputed to
+            # match the tampered content.
+            structural = (
+                (lambda payload: payload.update(step=2), "steps are invalid"),
+                (
+                    lambda payload: payload["optimizer_state_dict"]["param_groups"][
+                        0
+                    ].update(lr=3e-5),
+                    "AdamW settings changed",
+                ),
+                (
+                    lambda payload: payload["architecture"].update(n_embd=12),
+                    "architecture changed",
+                ),
+            )
+            for mutate, message in structural:
+                payload = copy.deepcopy(original)
+                mutate(payload)
+                payload["payload_sha256"] = STAGE.state_hash(
+                    {
+                        key: value
+                        for key, value in payload.items()
+                        if key != "payload_sha256"
+                    }
+                )
+                path = root / "tampered.pt"
+                torch.save(payload, path)
+                with self.assertRaisesRegex(ValueError, message):
+                    STAGE.validate_branch_checkpoint(
+                        path, control.spec, data, config, kind="final"
+                    )
+
+    def test_checkpoint_rejects_content_tampering_through_its_integrity_hash(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            control, _, data, config, _ = self.run_pair(root)
+            original = torch.load(control.spec.final_path, weights_only=True)
+            # These fields carry no independent structural check, so the stored
+            # payload hash is the defense that must reject them.
+            content = (
                 lambda payload: payload.update(
                     training_generator_state=torch.Generator()
                     .manual_seed(999)
@@ -370,12 +403,12 @@ class Stage43Tests(unittest.TestCase):
                     1
                 ),
             )
-            for mutate in mutations:
+            for mutate in content:
                 payload = copy.deepcopy(original)
                 mutate(payload)
-                path = root / "tampered.pt"
+                path = root / "stale.pt"
                 torch.save(payload, path)
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(ValueError, "payload integrity mismatch"):
                     STAGE.validate_branch_checkpoint(
                         path, control.spec, data, config, kind="final"
                     )
