@@ -458,6 +458,27 @@ class Stage49Tests(unittest.TestCase):
                         control, treatment, data, config, device, seed=1366, eval_iters=count
                     )
 
+    def test_champion_panel_rejects_the_fresh_validation_seed_with_real_specs(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            control, treatment, data, config, device = self.run_pair(root)
+            # Seed 1,366 is reserved for this stage's paired fresh panel, so the
+            # champion shootout must refuse it before it reaches the specs.
+            with self.assertRaisesRegex(
+                ValueError, "champion panel seed must be unused"
+            ):
+                STAGE.evaluate_champion_shootout(
+                    data,
+                    config,
+                    device,
+                    root,
+                    refs=(),
+                    specs=(control.spec, treatment.spec),
+                    expected_generator_sha256=None,
+                    seed=1366,
+                    eval_iters=5,
+                )
+
     def test_champion_panel_ranks_pairs_and_mirrors_deltas(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
