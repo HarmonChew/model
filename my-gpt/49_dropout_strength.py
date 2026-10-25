@@ -1323,6 +1323,7 @@ def evaluate_champion_shootout(
         1363,
         1364,
         1365,
+        DEFAULT_FRESH_VALIDATION_SEED,
     ):
         raise ValueError("champion panel seed must be unused")
     if eval_iters < 2:
