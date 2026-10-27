@@ -53,8 +53,9 @@ two-sided Student-t 95% interval **`[-0.0028366, -0.0003458]`**, lower loss on
 It does not replicate. The budget panel (seed 1,369), scoring the *same two
 checkpoints* on 500 different shared batches, puts the same comparison at
 `+0.0002220`, interval `[-0.0010775, +0.0015214]`, straddling zero. The two
-intervals are disjoint, and the spread between the two point estimates
-(`0.0018`) is **2.9x the within-panel standard error** (`0.00064`).
+intervals overlap on `[-0.0010775, -0.0003458]`, the point estimates differ by
+**2.9x the within-panel standard error** (`0.0018` vs `0.00064`), and the panels
+disagree in sign.
 
 So the honest statement is not "depth helps a little" or "depth is neutral". It is
 that **this stage's design cannot resolve the depth step at all**: the effect is
@@ -170,7 +171,7 @@ stands on its own.
   or corpus-IID intervals.
 - **Panel-to-panel variation exceeds the within-panel interval for this effect.**
   The two disjoint 500-batch panels put the same pair of checkpoints `0.0018`
-  apart, 2.8x their own standard errors. Every interval in this stage should be
+  apart, 2.9x their own standard errors. Every interval in this stage should be
   read as a *lower* bound on the uncertainty of the depth step. Stages 47–49
   recorded the same phenomenon on cross-stage levels (`~0.002`); Stage 50 shows it
   applies to a single stage's own headline number too.
