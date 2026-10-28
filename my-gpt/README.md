@@ -7623,18 +7623,22 @@ are tied, and the Stage 48 call was seed luck.
 
 ## Stage 53: paired width — does the Stage 46 reversal survive a new seed?
 
-Stage 53 retrains C320 `L=6` `p=0.15` with Stage 51's four seed sets and pairs each
-run with the matching C256 replicate. Seed set 0 reproduced the Stage 46 treatment
-byte for byte.
+Stage 53 trains C320 `L=6` `p=0.15` at eight seed sets and pairs each run with a C256
+run at the same seeds. Seed set 0 reproduced the Stage 46 treatment byte for byte.
+Seed sets 4–7 train both arms, split across the 3090 and the Ti with each pair on one
+card.
 
 ```powershell
 python .\my-gpt\53_paired_width.py --device cuda
+python .\my-gpt\53_paired_width.py --device cuda --seeds 4 5 --train-only
+python .\my-gpt\53_paired_width.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\53_paired_width.py --device cuda --score-only
 ```
 
-Result: C320 beats C256 on 3 of 4 seed sets; only the lineage seed set supports the
-Stage 46 call. The mean is `-0.0044` toward C320, with a seed interval spanning zero.
-C320 seed set 1 (`1.3370`) is the best loss in the lineage. The lineage seed set
-flatters whatever was chosen on it, so calls since Stage 43 are unconfirmed.
+Result: C320 beats C256 on 7 of 8 seed sets, by `-0.0052` on average, with a seed
+interval that excludes zero. Only the lineage seed set supports the Stage 46 call; it
+flatters whatever was chosen on it, so calls since Stage 43 are unconfirmed. C320 is
+the new champion configuration (mean `1.3458`).
 
 - Interpretation and caveats: [`docs/interpretations/stage_53.md`](docs/interpretations/stage_53.md)
-- Verbatim script output: [`reports/stage_53.md`](reports/stage_53.md)
+- Verbatim script output: [`reports/stage_53.md`](reports/stage_53.md), [`reports/stage_53_eight_seeds.md`](reports/stage_53_eight_seeds.md)

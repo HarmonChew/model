@@ -3,6 +3,9 @@
 Same recipe as Stage 52: retrain the other arm of the call, C320 L=6 p=0.15, at
 Stage 51's four seed sets and pair each run with the matching C256 replicate.
 Seed set 0 must reproduce the stored Stage 46 treatment byte for byte.
+
+Later seed sets (4+) train both arms here, so they can run on either card; each
+pair must share one card, because the 3090 -> Ti shift is about 0.002.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ EXPERIMENT_STAGE = 53
 CHECKPOINTS = _STAGE_51.CHECKPOINTS
 REPORT_PATH = CHECKPOINTS / "stage_53_report.json"
 REPLICATES = _STAGE_51.REPLICATES
+SCORED_SEEDS = range(8)
 WIDTH = 320
 STAGE_46_TREATMENT = _STAGE_51.STORED_ENDPOINTS["c320_l6_p015"]
 
@@ -132,40 +136,50 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Stage {EXPERIMENT_STAGE}: paired width C320 vs C256 | device {device_name}", flush=True)
 
     if not args.score_only:
-        _STAGE_50.verify_lineage_device(device)
-        for replicate in REPLICATES:
+        if any(seed in REPLICATES for seed in args.seeds):
+            _STAGE_50.verify_lineage_device(device)
+        for replicate in args.seeds:
+            if not _STAGE_51.replicate_path(replicate).exists():
+                print(f"seed{replicate}: training C256 {_STAGE_51.replicate_seeds(replicate)}", flush=True)
+                _STAGE_51.train_replicate(data, replicate, device, CHECKPOINTS)
             if replicate_path(replicate).exists():
-                print(f"seed{replicate}: already trained, skipping", flush=True)
+                print(f"seed{replicate}: C{WIDTH} already trained, skipping", flush=True)
                 continue
             print(f"seed{replicate}: training C{WIDTH} {_STAGE_51.replicate_seeds(replicate)}", flush=True)
             path = train_replicate(data, replicate, device, CHECKPOINTS)
             if replicate == 0:
                 print(f"seed0: reproduces Stage 46 treatment, model {verify_replicate_zero(path)[:12]}", flush=True)
+        if args.train_only:
+            return {}
 
     block_size = _STAGE_50.canonical_config().block_size
     rows = []
-    for replicate in REPLICATES:
+    for replicate in SCORED_SEEDS:
         treated, control = replicate_path(replicate), _STAGE_51.replicate_path(replicate)
         if not (treated.exists() and control.exists()):
             continue
-        scores = {}
+        scores, trained_on = {}, {}
         for arm, path in (("c320", treated), ("c256", control)):
-            model, _ = _STAGE_51.load_endpoint(data, path, device)
+            model, info = _STAGE_51.load_endpoint(data, path, device)
             scores[arm] = _STAGE_51.score_full_split(model, data.val_data, block_size, device)
+            trained_on[arm] = info["trained_on"]
             del model
+        if trained_on["c320"] != trained_on["c256"]:
+            raise RuntimeError(f"seed{replicate} arms were trained on different cards: {trained_on}")
         result = _STAGE_51.paired_delta(scores["c320"], scores["c256"])
         rows.append({
             "replicate": replicate,
+            "trained_on": trained_on["c256"],
             "c256_loss": sum(scores["c256"]) / len(scores["c256"]),
             "c320_loss": sum(scores["c320"]) / len(scores["c320"]),
             **result,
         })
 
     print("\nFull-split loss per seed set (C320 - C256, positive favours C256):")
-    print(f"{'seed':6s} {'C256':>10s} {'C320':>10s} {'delta':>10s}  95% window interval")
+    print(f"{'seed':6s} {'trained on':26s} {'C256':>10s} {'C320':>10s} {'delta':>10s}  95% window interval")
     for row in rows:
         print(
-            f"seed{row['replicate']:<2d} {row['c256_loss']:10.6f} {row['c320_loss']:10.6f} "
+            f"seed{row['replicate']:<2d} {row['trained_on']:26s} {row['c256_loss']:10.6f} {row['c320_loss']:10.6f} "
             f"{row['delta']:+10.6f}  [{row['low']:+.6f}, {row['high']:+.6f}]"
         )
 
@@ -193,7 +207,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "stage": EXPERIMENT_STAGE,
         "scoring_device": device_name,
         "width": WIDTH,
-        "replicate_seeds": {f"seed{r}": _STAGE_51.replicate_seeds(r) for r in REPLICATES},
+        "replicate_seeds": {f"seed{row['replicate']}": _STAGE_51.replicate_seeds(row["replicate"]) for row in rows},
         "paired_seed_sets": rows,
         "summary": summary,
     }
@@ -206,6 +220,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--device", default="cuda", help="cuda resolves to the lineage RTX 3090")
     parser.add_argument("--score-only", action="store_true", help="skip training; score what exists")
+    parser.add_argument("--train-only", action="store_true", help="skip scoring")
+    parser.add_argument("--seeds", type=int, nargs="+", default=list(REPLICATES), help="seed sets to train")
     return parser.parse_args()
 
 
