@@ -7577,3 +7577,29 @@ training updates them.
 - Independent audits: `checkpoints/stage_50_audit.json`, `checkpoints/stage_50_budget_audit.json`
 - Figure: [`figures/stage_50_depth_revisit.png`](figures/stage_50_depth_revisit.png)
 - Raw run record: `checkpoints/logs/50_50_depth_revisit.log`
+
+## Stage 51: noise floor — full-split scoring and seed replicates
+
+Stages 46–50 made calls on effects of `0.0015`–`0.009` from one training seed and a
+sampled 500-batch panel. Stage 51 measures both noise sources without changing the
+model. It scores every stored endpoint on the entire validation split (2,087
+non-overlapping `T=256` windows, every target once), and retrains the champion
+(C256 `L=6` `p=0.15`) at four seed sets on the lineage 3090. Seed set 0 reproduced
+the Stage 49 control byte for byte.
+
+```powershell
+python .\my-gpt\51_noise_floor.py --device cuda
+python .\my-gpt\51_noise_floor.py --device cuda --score-only
+```
+
+Result: training seed alone moves held-out loss by `0.011` (sd `0.0046`, four
+replicates), and the lineage seed is the best of the four. The full split settles
+Stage 50's panel disagreement: depth is `-0.0016`, interval just reaching zero. It
+also resolves the 3090→Ti shift at `+0.0022`. Every historical call is below the
+unpaired two-run threshold (`0.013`). Those calls were seed-paired, though, so
+whether they survive a new seed is the next measurement, not a settled no.
+
+- Interpretation and caveats: [`docs/interpretations/stage_51.md`](docs/interpretations/stage_51.md)
+- Verbatim script output: [`reports/stage_51.md`](reports/stage_51.md)
+- Machine-readable measurements: `checkpoints/stage_51_report.json`
+- Raw run record: `checkpoints/logs/51_51_noise_floor.log`
