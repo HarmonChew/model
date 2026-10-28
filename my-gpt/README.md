@@ -7680,3 +7680,22 @@ the champion; dropout in this range is too small a lever to resolve.
 
 - Interpretation and caveats: [`docs/interpretations/stage_55.md`](docs/interpretations/stage_55.md)
 - Verbatim script output: [`reports/stage_55.md`](reports/stage_55.md)
+
+## Stage 56: learning rate at width 384
+
+Stage 56 trains C384 `L=6` `p=0.15` with the first schedule phase halved (`1e-3` →
+`5e-4`; everything after update 10,000 unchanged) at four seed sets, and pairs each run
+with the Stage 54 C384 run and the Stage 53 C320 champion at the same seeds and card.
+
+```powershell
+python .\my-gpt\56_learning_rate_width.py --device cuda --seeds 0 1 --train-only
+python .\my-gpt\56_learning_rate_width.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\56_learning_rate_width.py --device cuda --score-only
+```
+
+Result: the lower learning rate cut C384's seed-to-seed sd from `0.0096` to `0.0018`,
+but its mean loss (`1.3465`) is no better than the C320 champion's (`1.3452`) and no
+interval excludes zero. C320 `p=0.15` stays the champion.
+
+- Interpretation and caveats: [`docs/interpretations/stage_56.md`](docs/interpretations/stage_56.md)
+- Verbatim script output: [`reports/stage_56.md`](reports/stage_56.md)
