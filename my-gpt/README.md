@@ -7603,3 +7603,20 @@ whether they survive a new seed is the next measurement, not a settled no.
 - Verbatim script output: [`reports/stage_51.md`](reports/stage_51.md)
 - Machine-readable measurements: `checkpoints/stage_51_report.json`
 - Raw run record: `checkpoints/logs/51_51_noise_floor.log`
+
+## Stage 52: paired dropout — does the Stage 48 gain survive a new seed?
+
+Stage 52 retrains C256 `L=6` at `p=0.10` with Stage 51's four seed sets and pairs
+each run with the matching `p=0.15` replicate. Seed set 0 reproduced the Stage 48
+control byte for byte.
+
+```powershell
+python .\my-gpt\52_paired_dropout.py --device cuda
+```
+
+Result: `p=0.15` beats `p=0.10` on only the lineage seed set (1 of 4). The mean
+difference is `+0.0025` toward `p=0.10`, with a seed interval spanning zero. The two
+are tied, and the Stage 48 call was seed luck.
+
+- Verbatim report: [`reports/stage_52.md`](reports/stage_52.md)
+- Interpretation and caveats: [`docs/interpretations/stage_52.md`](docs/interpretations/stage_52.md)
