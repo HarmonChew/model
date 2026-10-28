@@ -7620,3 +7620,21 @@ are tied, and the Stage 48 call was seed luck.
 
 - Verbatim script output: [`reports/stage_52.md`](reports/stage_52.md)
 - Interpretation and caveats: [`docs/interpretations/stage_52.md`](docs/interpretations/stage_52.md)
+
+## Stage 53: paired width — does the Stage 46 reversal survive a new seed?
+
+Stage 53 retrains C320 `L=6` `p=0.15` with Stage 51's four seed sets and pairs each
+run with the matching C256 replicate. Seed set 0 reproduced the Stage 46 treatment
+byte for byte.
+
+```powershell
+python .\my-gpt\53_paired_width.py --device cuda
+```
+
+Result: C320 beats C256 on 3 of 4 seed sets; only the lineage seed set supports the
+Stage 46 call. The mean is `-0.0044` toward C320, with a seed interval spanning zero.
+C320 seed set 1 (`1.3370`) is the best loss in the lineage. The lineage seed set
+flatters whatever was chosen on it, so calls since Stage 43 are unconfirmed.
+
+- Interpretation and caveats: [`docs/interpretations/stage_53.md`](docs/interpretations/stage_53.md)
+- Verbatim script output: [`reports/stage_53.md`](reports/stage_53.md)
