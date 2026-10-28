@@ -7661,3 +7661,22 @@ lineage seed set. C320 stays the champion configuration.
 
 - Interpretation and caveats: [`docs/interpretations/stage_54.md`](docs/interpretations/stage_54.md)
 - Verbatim script output: [`reports/stage_54.md`](reports/stage_54.md)
+
+## Stage 55: paired dropout at the C320 champion
+
+Stage 55 trains C320 `L=6` at `p=0.10` and `p=0.20` at four seed sets and pairs each
+run with the Stage 53 `p=0.15` run at the same seeds and card. Seed set 0 reproduced
+the Stage 46 and Stage 47 C320 endpoints byte for byte.
+
+```powershell
+python .\my-gpt\55_paired_dropout.py --device cuda --seeds 0 1 --train-only
+python .\my-gpt\55_paired_dropout.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\55_paired_dropout.py --device cuda --score-only
+```
+
+Result: `p=0.15` beats both `p=0.10` and `p=0.20` on 3 of 4 seed sets (means
+`1.3452`, `1.3512`, `1.3471`), but neither interval excludes zero. C320 `p=0.15` stays
+the champion; dropout in this range is too small a lever to resolve.
+
+- Interpretation and caveats: [`docs/interpretations/stage_55.md`](docs/interpretations/stage_55.md)
+- Verbatim script output: [`reports/stage_55.md`](reports/stage_55.md)
