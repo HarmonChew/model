@@ -7618,5 +7618,5 @@ Result: `p=0.15` beats `p=0.10` on only the lineage seed set (1 of 4). The mean
 difference is `+0.0025` toward `p=0.10`, with a seed interval spanning zero. The two
 are tied, and the Stage 48 call was seed luck.
 
-- Verbatim report: [`reports/stage_52.md`](reports/stage_52.md)
+- Verbatim script output: [`reports/stage_52.md`](reports/stage_52.md)
 - Interpretation and caveats: [`docs/interpretations/stage_52.md`](docs/interpretations/stage_52.md)
