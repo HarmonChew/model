@@ -7642,3 +7642,22 @@ the new champion configuration (mean `1.3458`).
 
 - Interpretation and caveats: [`docs/interpretations/stage_53.md`](docs/interpretations/stage_53.md)
 - Verbatim script output: [`reports/stage_53.md`](reports/stage_53.md), [`reports/stage_53_eight_seeds.md`](reports/stage_53_eight_seeds.md)
+
+## Stage 54: paired width — does C384 beat the C320 champion?
+
+Stage 54 trains C384 `L=6` `p=0.15` at seed sets 0, 1, 6 and 7 and pairs each run with
+the Stage 53 C320 run at the same seeds. Each pair shares one card (0–1 on the 3090,
+6–7 on the Ti).
+
+```powershell
+python .\my-gpt\54_paired_width.py --device cuda --seeds 0 1 --train-only
+python .\my-gpt\54_paired_width.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\54_paired_width.py --device cuda --score-only
+```
+
+Result: C384 is better on 1 of 4 seed sets, by `+0.0069` on average (positive favours
+C320), with a seed interval of `[-0.0140, +0.0278]` that spans zero. The one win is the
+lineage seed set. C320 stays the champion configuration.
+
+- Interpretation and caveats: [`docs/interpretations/stage_54.md`](docs/interpretations/stage_54.md)
+- Verbatim script output: [`reports/stage_54.md`](reports/stage_54.md)
