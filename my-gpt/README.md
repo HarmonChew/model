@@ -8,6 +8,7 @@ trainable parameters.
 
 - [Per-stage results table](docs/stage_results.csv): one row per stage with its best validation loss, whether the change was kept, and a one-line note.
 - [Progress chart](figures/showcase_progress.png), generated from that table by `experiments/showcase_progress_plot.py`.
+- [Text samples](docs/showcase_samples.md): what an untrained model, Stage 10, Stage 26 and the final champion write after the same prompt.
 - Caveat: Stages 1-36 use TinyShakespeare and Stage 37 onward use Complete Shakespeare, and evaluation protocols changed over time, so losses are only comparable within a corpus and protocol (see the `metric` column).
 
 ## Stage 1: embeddings
