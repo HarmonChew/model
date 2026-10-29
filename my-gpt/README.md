@@ -7847,3 +7847,23 @@ do something else.
 - Figures: [`figures/stage_63_loss_by_position.png`](figures/stage_63_loss_by_position.png), [`figures/stage_63_induction_head.png`](figures/stage_63_induction_head.png)
 - Interpretation and caveats: [`docs/interpretations/stage_63.md`](docs/interpretations/stage_63.md)
 - Verbatim script output: [`reports/stage_63.md`](reports/stage_63.md)
+
+## Stage 64: head ablation
+
+Stage 64 trains nothing. It switches each head of the Stage 53 champion off (output set
+to zero), then each whole layer, and measures the loss on real text and the copying on
+Stage 63's repeated random letters (measured against the unrepeated controls).
+
+```powershell
+python .\my-gpt\64_head_ablation.py
+```
+
+Result: two layer-1 heads carry the model. Without the previous-character head the loss
+goes from 1.35 to 3.02, and without the two-back head to 2.12. Every head outside layer 1
+costs at most 0.035, and whole layers 5-6 only 0.024. Copying runs through two heads:
+switching off L1 H2 or L6 H2 cuts it from 0.46 to 0.05 or 0.08. That is the classic
+two-head induction circuit.
+
+- Figure: [`figures/stage_64_head_ablation.png`](figures/stage_64_head_ablation.png)
+- Interpretation and caveats: [`docs/interpretations/stage_64.md`](docs/interpretations/stage_64.md)
+- Verbatim script output: [`reports/stage_64.md`](reports/stage_64.md)
