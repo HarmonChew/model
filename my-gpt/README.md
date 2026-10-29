@@ -7867,3 +7867,25 @@ two-head induction circuit.
 - Figure: [`figures/stage_64_head_ablation.png`](figures/stage_64_head_ablation.png)
 - Interpretation and caveats: [`docs/interpretations/stage_64.md`](docs/interpretations/stage_64.md)
 - Verbatim script output: [`reports/stage_64.md`](reports/stage_64.md)
+
+## Stage 65: logit lens
+
+Stage 65 trains nothing. It reads the Stage 53 champion's prediction after the
+embeddings and after each of its 6 layers, by putting the residual stream through the
+model's own final layer norm and output layer, and measures the loss on real text and
+the copying on Stage 63's repeated random letters at each point.
+
+```powershell
+python .\my-gpt\65_logit_lens.py
+```
+
+Result: the loss falls from 4.13 after the embeddings to 1.35 after layer 6. Layer 1
+gives half of that (to 2.74), and each later layer adds less: layers 5-6 together add
+only 0.20 (part of the early steps is the lens itself: the output layer was only ever
+trained on layer 6). Copying is about 0 up to layer 4 (which cannot see that far back),
+0.06 after layer 5, and the full 0.46 only after layer 6, fitting Stage 64's L1 H2 +
+L6 H2 copying circuit.
+
+- Figure: [`figures/stage_65_logit_lens.png`](figures/stage_65_logit_lens.png)
+- Interpretation and caveats: [`docs/interpretations/stage_65.md`](docs/interpretations/stage_65.md)
+- Verbatim script output: [`reports/stage_65.md`](reports/stage_65.md)
