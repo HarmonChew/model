@@ -7739,3 +7739,24 @@ did not move (`0.2790` vs `0.2799`). Weight decay `0.01` stays the champion.
 - Interpretation and caveats: [`docs/interpretations/stage_58.md`](docs/interpretations/stage_58.md)
 - Verbatim script output: [`reports/stage_58.md`](reports/stage_58.md) (four seed sets),
   [`reports/stage_58_eight_seeds.md`](reports/stage_58_eight_seeds.md) (eight)
+
+## Stage 59: half data
+
+Stage 59 trains the unchanged C320 `L=6` `p=0.15` champion recipe on half of the
+Complete Shakespeare training split (every other 100,000-character block; same
+vocabulary, validation split, schedule and 50,000 updates) at four seed sets, and pairs
+each run with the Stage 53 full-data run on the same card.
+
+```powershell
+python .\my-gpt\59_half_data.py --device cuda --seeds 0 1 --train-only
+python .\my-gpt\59_half_data.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\59_half_data.py --device cuda --score-only
+```
+
+Result: half the text is `0.098` worse (`1.4431` vs `1.3452`; worse on 4/4, interval
+`[+0.078, +0.118]`), and the train/val gap widens from `0.279` to `0.445`. That is
+about 40 times any optimizer effect in Stages 56–58: data is the binding constraint,
+and the tuning line ends here.
+
+- Interpretation and caveats: [`docs/interpretations/stage_59.md`](docs/interpretations/stage_59.md)
+- Verbatim script output: [`reports/stage_59.md`](reports/stage_59.md)
