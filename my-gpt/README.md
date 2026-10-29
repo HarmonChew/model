@@ -7699,3 +7699,22 @@ interval excludes zero. C320 `p=0.15` stays the champion.
 
 - Interpretation and caveats: [`docs/interpretations/stage_56.md`](docs/interpretations/stage_56.md)
 - Verbatim script output: [`reports/stage_56.md`](reports/stage_56.md)
+
+## Stage 57: learning rate at width 320
+
+Stage 57 trains the C320 `L=6` `p=0.15` champion with Stage 56's halved first schedule
+phase (`1e-3` → `5e-4`) at four seed sets, and pairs each run with the Stage 53 C320
+run and the Stage 56 C384 `5e-4` run at the same seeds and card.
+
+```powershell
+python .\my-gpt\57_learning_rate_champion.py --device cuda --seeds 0 1 --train-only
+python .\my-gpt\57_learning_rate_champion.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\57_learning_rate_champion.py --device cuda --score-only
+```
+
+Result: as at C384, the lower learning rate narrows the seed-to-seed sd (`0.0069` →
+`0.0020`) without lowering the mean (`1.3469` vs the champion's `1.3452`; better on
+1/4 seed sets). C320 `p=0.15` at `1e-3` stays the champion.
+
+- Interpretation and caveats: [`docs/interpretations/stage_57.md`](docs/interpretations/stage_57.md)
+- Verbatim script output: [`reports/stage_57.md`](reports/stage_57.md)
