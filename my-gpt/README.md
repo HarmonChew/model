@@ -7827,3 +7827,23 @@ Stage 63 will test them for induction (copying).
 - Figures: [`figures/stage_62_attention_grid.png`](figures/stage_62_attention_grid.png), [`figures/stage_62_attention_closeup.png`](figures/stage_62_attention_closeup.png)
 - Interpretation and caveats: [`docs/interpretations/stage_62.md`](docs/interpretations/stage_62.md)
 - Verbatim script output: [`reports/stage_62.md`](reports/stage_62.md)
+
+## Stage 63: induction heads
+
+Stage 63 trains nothing. It feeds the Stage 53 champion 64 sequences of 100 random
+letters repeated once (and 64 unrepeated controls), and checks whether it copies on the second pass and whether any
+head attends to the character after the earlier copy.
+
+```powershell
+python .\my-gpt\63_induction_heads.py
+```
+
+Result: the loss drops only a little on the second copy (8.09 to 7.45, far above the
+3.26 guessing level). Random text with no repeat drops 0.18 as well, so the copying
+effect is about 0.46. No head reaches the 0.3 threshold; the best induction head is
+L6 H2 at 0.13. The champion has at most one weak induction head, so layers 5-6 mostly
+do something else.
+
+- Figures: [`figures/stage_63_loss_by_position.png`](figures/stage_63_loss_by_position.png), [`figures/stage_63_induction_head.png`](figures/stage_63_induction_head.png)
+- Interpretation and caveats: [`docs/interpretations/stage_63.md`](docs/interpretations/stage_63.md)
+- Verbatim script output: [`reports/stage_63.md`](reports/stage_63.md)
