@@ -1,0 +1,60 @@
+stage,title,corpus,metric,best_val_loss,kept,note,source
+1,embeddings,tiny,none reported,,yes,Token embeddings plus linear head; each character predicted in isolation.,README.md:7
+2,fixed causal averaging,tiny,none reported,,yes,Fixed causal averaging lets characters see the past; no new parameters.,README.md:79
+3,one causal self-attention head,tiny,none reported,,yes,One learned self-attention head replaces the fixed average.,README.md:122
+4,four causal self-attention heads,tiny,none reported,,yes,Four attention heads working in parallel.,README.md:147
+5,position-wise feed-forward network,tiny,none reported,,yes,Added a position-wise feed-forward network after attention.,README.md:174
+6,residual connections,tiny,none reported,,yes,Added residual connections around attention and feed-forward.,README.md:206
+7,pre-norm LayerNorm and GELU,tiny,none reported,,yes,Added pre-norm LayerNorm and GELU for stable deeper stacks.,README.md:239
+8,stacked Transformer blocks,tiny,"final val loss, sampled batches, 5,000 steps",2.0425,yes,Stacked four transformer blocks; first full transformer model.,README.md:371
+9,scale context from 8 to 64,tiny,"final val loss, sampled batches, 5,000 steps",1.9225,yes,Context grew 8 to 64 with 8x more targets; loss fell.,README.md:372
+10,scale width from 32 to 64,tiny,"best val loss, fixed evaluation panel",1.6800,yes,"Width doubled to 64; val loss 1.68 after 5,000 steps.",README.md:462
+11,train the same model longer,tiny,"best val loss, fixed evaluation panel",1.6167,yes,"Trained the same model longer, 10,000 steps; validation kept improving.",README.md:578
+12,controlled learning-rate drop,tiny,"best val loss, fixed evaluation panel",1.5791,yes,Dropping learning rate to 3e-4 lowered validation loss by 0.02.,README.md:759
+13,second controlled learning-rate drop,tiny,"best val loss, fixed evaluation panel",1.5688,yes,Second learning-rate drop to 1e-4 helped a little more.,README.md:862
+14,controlled residual-path dropout,tiny,"best val loss, fixed evaluation panel",1.5682,no,Adding dropout late in training did not help.,README.md:1020
+15,residual dropout from initialization,tiny,"best val loss, fixed evaluation panel",1.5688,no,Dropout from initialization (p=0.1) was worse than none.,README.md:1169
+16,residual-dropout strength,tiny,"best val loss, fixed evaluation panel",1.5688,no,Weaker dropout (p=0.05) hurt less but still lost.,README.md:1298
+17,controlled context scaling,tiny,"best val loss, fixed evaluation panel",1.5639,no,Doubling context to 128 lost to 64 under equal budget.,README.md:1529
+18,isolated direct attention span,tiny,"best val loss, fixed evaluation panel",1.5628,no,Full attention over 128 matched local-64; no detectable context benefit.,README.md:1787
+19,bounded theoretical receptive field,tiny,"best val loss, fixed evaluation panel",1.5628,no,Full attention tied a local window with equal reach.,README.md:2033
+20,controlled width scaling from 64 to 128,tiny,"best val loss, fixed evaluation panel",1.5462,yes,Width 128 won at its best checkpoint but overfit by the end.,README.md:2279
+21,residual dropout revisited at width 128,tiny,"best val loss, fixed evaluation panel",1.5056,yes,Dropout 0.05 at width 128 cut overfitting and improved validation.,README.md:2445
+22,increase residual dropout from 0.05 to 0.10,tiny,"best val loss, fixed evaluation panel",1.4999,yes,Dropout 0.10 improved width 128 again.,README.md:2598
+23,increase residual dropout from 0.10 to 0.15,tiny,"best val loss, fixed evaluation panel",1.4999,no,"Dropout 0.15 tied 0.10, so 0.10 was kept.",README.md:2757
+24,controlled depth scaling from 4 to 6 layers,tiny,"best val loss, fixed evaluation panel",1.4883,yes,"Six layers beat four layers, improving validation by 0.012.",README.md:2900
+25,dropout strength at six layers,tiny,"best val loss, fixed evaluation panel",1.4883,no,Dropout 0.15 at six layers tied 0.10; no gain.,README.md:3013
+26,controlled context scaling from 64 to 128 characters,tiny,"best val loss, fixed evaluation panel",1.4728,yes,Context 128 beat 64 once the model was bigger: new champion.,README.md:3223
+27,hard cross-half context isolation at T=128,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.484572,no,Blocking cross-half attention hurt; the longer context really was used.,README.md:3539
+28,continuous bounded receptive field at T=128,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.481257,no,Limiting attention to 12 characters lost to full attention.,README.md:3911
+29,global receptive field through local routing,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.481257,no,A 23-character local window with 133 reach still lost to full.,README.md:4109
+30,one global routing layer,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.480932,no,One global layer among local layers lost to all-local.,docs/interpretations/stage_30.md
+31,global-layer placement,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.483328,no,Putting one global layer at the top or middle both lost.,README.md:4384
+32,iterative global refinement,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.485064,yes,Two final full layers tied one; pinned into later stages (retention doubtful).,README.md:4696
+33,global-processing depth curve,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.479756,no,Three final full layers beat two but only tied all-local.,README.md:4992
+34,two-global-layer placement control,tiny,"fresh 500-batch panel, Full-128 reference at step 13,500",1.480434,no,Splitting two global layers apart did not beat keeping them together.,README.md:5321
+35,context scaling 128 to 256,tiny,"best val loss, fixed evaluation panel",1.4562,yes,"Context 256 beat 128, mainly just after the old boundary.",README.md:5567
+36,context scaling 256 to 512,tiny,"best val loss, fixed evaluation panel",1.4868,no,"Context 512 tied 256 overall; slower, so not adopted.",README.md:5761
+37,TinyShakespeare to Complete Shakespeare data scaling,complete,"best val loss, fixed evaluation panel",1.4352,yes,Switched to Complete Shakespeare; losses no longer comparable with earlier stages.,README.md:5995
+38,Extended Complete Shakespeare training,complete,"best val loss, fixed evaluation panel",1.4288,yes,"Trained longer to 25,000 steps at 3e-5; validation improved slightly.",README.md:6149
+39,Complete Shakespeare compute extension,complete,"best val loss, fixed evaluation panel",1.4246,yes,"Trained to 32,000 steps; small further gain.",README.md:6310
+40,controlled late learning-rate refinement,complete,"best val loss, fixed evaluation panel",1.4215,no,Dropping learning rate to 1e-5 lost to keeping 3e-5.,README.md:6489
+41,final compute extension at 3e-5,complete,"best val loss, fixed evaluation panel",1.4200,yes,"Trained to 44,000 steps; gains shrinking toward a ceiling.",README.md:6617
+42,exact final learning-rate fork at 44k,complete,"best val loss, fixed evaluation panel",1.4175,no,Lower learning rate at 44k lost again; run ended at 50k steps.,README.md:6815
+43,fresh Complete Shakespeare width scaling,complete,"best val loss, fixed evaluation panel",1.3690,yes,Fresh models: width 192 beat 128 by about 0.048.,README.md:7007
+44,fresh width scaling from 192 to 256,complete,"best val loss, fixed evaluation panel",1.3523,yes,Width 256 beat 192 by about 0.015.,README.md:7213
+45,fresh width scaling from 256 to 320,complete,"fixed-panel selected best val loss, single seed",1.3523,no,Width 320 lost to 256 on this single seed.,docs/interpretations/stage_45.md
+46,C320 regularization rescue at dropout 0.10 versus 0.15,complete,"fixed-panel selected best val loss, single seed",1.3586,yes,Dropout 0.15 rescued width 320 halfway; 256 still ahead (one seed).,docs/interpretations/stage_46.md
+47,second dropout step at C320,complete,"fixed-panel selected best val loss, single seed",1.3586,no,Dropout 0.20 at width 320 tied 0.15.,docs/interpretations/stage_47.md
+48,is the C256 champion itself optimally regularized?,complete,"fixed-panel selected best val loss, single seed",1.3492,yes,Dropout 0.15 beat 0.10 at width 256 on one seed.,docs/interpretations/stage_48.md
+49,the C256 dropout bracket closes at p=0.15,complete,"fixed-panel selected best val loss, single seed",1.3492,no,Dropout 0.20 at width 256 was worse than 0.15.,docs/interpretations/stage_49.md
+50,revisit depth at the mature C256 champion,complete,"fixed-panel selected best val loss, single seed, RTX 3090 Ti",1.3515,no,Eight layers did not reliably beat six; panels disagreed.,docs/interpretations/stage_50.md
+51,noise floor — full-split scoring and seed replicates,complete,"full-split val, 4-seed mean (C256 champion)",1.349496,no,Measured seed noise: same recipe varies by 0.011 between seeds.,docs/interpretations/stage_51.md
+52,paired dropout — does the Stage 48 gain survive a new seed?,complete,"full-split val, 4-seed mean (dropout 0.10 arm)",1.347004,no,Dropout 0.15 gain was seed luck; 0.10 and 0.15 tied.,docs/interpretations/stage_52.md
+53,paired width — does the Stage 46 reversal survive a new seed?,complete,"full-split val, 8-seed mean (C320 champion)",1.345803,yes,Width 320 beat 256 on 7 of 8 seeds: new champion.,docs/interpretations/stage_53.md
+54,paired width — does C384 beat the C320 champion?,complete,"full-split val, 4-seed mean (C320 arm; C384 was 1.352142)",1.345239,no,Width 384 did not beat 320 across four seeds.,docs/interpretations/stage_54.md
+55,paired dropout at the C320 champion,complete,"full-split val, 4-seed mean (C320 p=0.15 arm)",1.345239,no,Dropout 0.10 and 0.20 did not beat 0.15 at width 320.,docs/interpretations/stage_55.md
+56,learning rate at width 384,complete,"full-split val, 4-seed mean (C320 lr 1e-3 arm; C384 lr 5e-4 was 1.346545)",1.345239,no,Halving learning rate steadied width 384 but did not beat champion.,docs/interpretations/stage_56.md
+57,learning rate at width 320,complete,"full-split val, 4-seed mean (champion arm; lr 5e-4 was 1.346862)",1.345239,no,"Halving learning rate at width 320 steadied runs, no gain.",docs/interpretations/stage_57.md
+58,weight decay,complete,"full-split val, 8-seed mean (wd 0.1 arm; champion 1.345803)",1.343519,no,"Weight decay 0.1 gained 0.002, within seed noise; not adopted.",docs/interpretations/stage_58.md
+59,half data,complete,"full-split val, 4-seed mean (half-data arm; full data 1.345239)",1.443079,no,Half the training text cost 0.098 loss; data is the limit.,docs/interpretations/stage_59.md
