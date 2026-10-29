@@ -7768,3 +7768,22 @@ and the tuning line ends here.
 
 - Interpretation and caveats: [`docs/interpretations/stage_59.md`](docs/interpretations/stage_59.md)
 - Verbatim script output: [`reports/stage_59.md`](reports/stage_59.md)
+
+## Stage 60: BPE tokenizer
+
+Stage 60 builds a byte-pair-encoding tokenizer from scratch in [`bpe.py`](bpe.py),
+trains it on the Complete Shakespeare training split, and measures compression and
+exact round trips on the validation split at vocabulary sizes 256–4,096. No model is
+trained.
+
+```powershell
+python .\my-gpt\60_bpe_tokenizer.py
+```
+
+Result: 3,998 merges train in 13 s; round trips are exact at every size. At 1,024
+tokens the text is 2.45x shorter with only 15 rare tokens; past 2,048 the vocabulary
+fills with rare tokens a 4.8M-character corpus cannot teach. Stage 61 will train the
+GPT on vocab-1,024 tokens and compare in bits per character.
+
+- Interpretation and caveats: [`docs/interpretations/stage_60.md`](docs/interpretations/stage_60.md)
+- Verbatim script output: [`reports/stage_60.md`](reports/stage_60.md)
