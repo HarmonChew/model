@@ -21,12 +21,13 @@ COLORS = {"tiny": "#2768a5", "complete": "#d46625"}
 LABELS = {"tiny": "TinyShakespeare (1.1M characters)", "complete": "Complete Shakespeare (5.3M characters)"}
 # stage -> (text, (dx, dy) offset in points)
 MILESTONES = {
-    8: ("Stage 8: first stacked\ntransformer blocks", (10, 30)),
+    8: ("Stage 8: first stacked\ntransformer blocks", (18, -6)),
     24: ("Stage 24: six layers", (-10, -42)),
     26: ("Stage 26: 128-character\ncontext champion", (28, 38)),
-    53: ("Stage 53: C320 champion\n(8-seed mean 1.3458)", (-60, -42)),
-    59: ("Stage 59: half the text\nis 0.098 worse", (-95, 22)),
+    53: ("Stage 53: C320 champion\n(8-seed mean 1.3458)", (-150, 48)),
 }
+# Stage 59's half-data arm (docs/interpretations/stage_59.md), drawn apart from the lineage.
+HALF_DATA = (59, 1.443079)
 
 
 def load_rows() -> list[dict]:
@@ -51,6 +52,10 @@ def render() -> None:
     for stage, (text, offset) in MILESTONES.items():
         ax.annotate(text, (stage, by_stage[stage]), xytext=offset, textcoords="offset points",
                     fontsize=8.5, arrowprops={"arrowstyle": "-", "color": "#555555", "lw": 0.8})
+    ax.scatter([HALF_DATA[0]], [HALF_DATA[1]], marker="x", s=60, color="#b2182b", zorder=3)
+    ax.annotate("Stage 59: same model, half\nthe text: 0.098 worse",
+                HALF_DATA, xytext=(-110, 45), textcoords="offset points", fontsize=8.5,
+                arrowprops={"arrowstyle": "-", "color": "#555555", "lw": 0.8})
     ax.axvline(37, color="#555555", linestyle="--", linewidth=1.2, zorder=0)
     ax.text(37.4, ax.get_ylim()[1] - 0.01, "Stage 37: switch to Complete\nShakespeare (not comparable)",
             va="top", fontsize=8.5, color="#333333")

@@ -57,4 +57,4 @@ stage,title,corpus,metric,best_val_loss,kept,note,source
 56,learning rate at width 384,complete,"full-split val, 4-seed mean (C320 lr 1e-3 arm; C384 lr 5e-4 was 1.346545)",1.345239,no,Halving learning rate steadied width 384 but did not beat champion.,docs/interpretations/stage_56.md
 57,learning rate at width 320,complete,"full-split val, 4-seed mean (champion arm; lr 5e-4 was 1.346862)",1.345239,no,"Halving learning rate at width 320 steadied runs, no gain.",docs/interpretations/stage_57.md
 58,weight decay,complete,"full-split val, 8-seed mean (wd 0.1 arm; champion 1.345803)",1.343519,no,"Weight decay 0.1 gained 0.002, within seed noise; not adopted.",docs/interpretations/stage_58.md
-59,half data,complete,"full-split val, 4-seed mean (half-data arm; full data 1.345239)",1.443079,no,Half the training text cost 0.098 loss; data is the limit.,docs/interpretations/stage_59.md
+59,half data,complete,"full-split val, 4-seed mean (full-data champion arm; half data was 1.443079)",1.345239,no,Half the training text cost 0.098 loss; data is the limit.,docs/interpretations/stage_59.md

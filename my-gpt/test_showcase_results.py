@@ -41,7 +41,8 @@ class ShowcaseResultsTest(unittest.TestCase):
             self.assertLessEqual(len(row["note"].split()), 12, stage)
 
     def test_anchors(self):
-        self.assertEqual(round(float(self.by_stage[59]["best_val_loss"]), 4), 1.4431)
+        self.assertEqual(round(float(self.by_stage[59]["best_val_loss"]), 4), 1.3452)
+        self.assertIn("1.443079", self.by_stage[59]["metric"])
         champion = float(self.by_stage[53]["best_val_loss"])
         self.assertTrue(1.3450 <= champion < 1.3460)  # 1.345x
 
