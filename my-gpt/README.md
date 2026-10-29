@@ -7808,3 +7808,22 @@ character model stays champion.
 
 - Interpretation and caveats: [`docs/interpretations/stage_61.md`](docs/interpretations/stage_61.md)
 - Verbatim script output: [`reports/stage_61.md`](reports/stage_61.md)
+
+## Stage 62: attention maps
+
+Stage 62 trains nothing. It opens the Stage 53 champion and records where each of its
+24 attention heads looks on 64 validation passages, scoring each head on a fixed
+offset, the start of the word and the start of the line.
+
+```powershell
+python .\my-gpt\62_attention_maps.py
+```
+
+Result: layer 1 is bookkeeping. One head copies the previous character (99%) and
+another the one before that (99%). L3 H2 tracks the start of the line. The long-range
+layers 5-6 look about 55 characters back in a way none of the three patterns explains.
+Stage 63 will test them for induction (copying).
+
+- Figures: [`figures/stage_62_attention_grid.png`](figures/stage_62_attention_grid.png), [`figures/stage_62_attention_closeup.png`](figures/stage_62_attention_closeup.png)
+- Interpretation and caveats: [`docs/interpretations/stage_62.md`](docs/interpretations/stage_62.md)
+- Verbatim script output: [`reports/stage_62.md`](reports/stage_62.md)
