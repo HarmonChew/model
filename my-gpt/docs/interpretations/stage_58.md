@@ -1,4 +1,4 @@
-# Stage 58 interpretation: weight decay 0.1 leans slightly better but is not a clear win
+# Stage 58 interpretation: weight decay 0.1 is at most a small gain and does not close the gap
 
 ## Question
 
@@ -39,18 +39,46 @@ Seed-to-seed sd of val loss: wd 0.1 `0.004509`, wd 0.01 `0.006894`.
   seeds where val improved, but the gap barely moved.
 - **Spread.** sd `0.0045` vs `0.0069`; with four runs each this is not distinguishable.
 
+## Eight seed sets: the lean shrinks and stays unresolved
+
+Seed sets 2–5 were added with `--seeds 2 3 4 5`, all on the 3090 because their Stage 53
+baselines were trained there. All 16 endpoints were rescored together on the 3090.
+
+| Seed set | Card | wd 0.01 val | wd 0.1 val | Delta | wd 0.01 gap | wd 0.1 gap |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 2 | 3090 | 1.345714 | **1.345430** | -0.000284 | 0.280845 | 0.281552 |
+| 3 | 3090 | 1.345020 | **1.341880** | -0.003140 | 0.279055 | 0.277662 |
+| 4 | 3090 | 1.345406 | **1.341658** | -0.003748 | 0.280280 | 0.278216 |
+| 5 | 3090 | **1.349327** | 1.354928 | +0.005600 | 0.282026 | 0.284458 |
+| mean of 8 | | 1.345803 | **1.343519** | -0.002284 | 0.279922 | 0.279013 |
+
+| Comparison | Mean delta | sd | 95% seed interval | Win count |
+| --- | ---: | ---: | --- | ---: |
+| C320 wd0.1 − C320 wd0.01, 8 seed sets | -0.002284 | 0.005394 | [-0.006794, +0.002226] | wd0.1 better 6/8 |
+
+Seed-to-seed sd of val loss over eight: wd 0.1 `0.005670`, wd 0.01 `0.004736`.
+
+- The new seed sets averaged `-0.0004`, so the mean effect fell from `-0.0042` (four)
+  to `-0.0023` (eight). The four-seed lean was partly seed set 6.
+- Six of eight favour `0.1`, but the interval still includes zero (a two-sided sign
+  test on 6/8 gives p ≈ 0.29). Compare Stage 53, which adopted C320 on 7/8 with an
+  interval that excluded zero.
+- The gap is unchanged: `0.2790` vs `0.2799` over eight.
+- The lower four-seed sd for `0.1` did not hold up (`0.0057` vs `0.0047` over eight).
+
 ## Reading
 
 Ten times the weight decay did almost nothing to the generalization gap, and the val
-change is smaller than the seed noise. The `0.28` gap does not look like something
+change is smaller than the seed noise. Eight seed sets confirm this: if `0.1` helps at
+all, it is by about `0.002`, which this protocol cannot separate from zero. The `0.28` gap does not look like something
 regularising the weights by this route will close. The `-0.0042` mean is suggestive
 but below the roughly `0.01` that four seed sets with paired sd `~0.006` can resolve,
 and it is not a 4/4 sweep.
 
 ## Caveats
 
-- Four seed sets, paired sd `0.006`: only a mean effect of about `≥0.01` or a 4/4
-  sweep would be meaningful. Neither occurred.
+- Eight seed sets, paired sd `0.005`: the interval half-width is about `0.0045`, so a
+  true `0.002` effect would need roughly 40 seed sets to resolve.
 - One alternative value (`0.1`) only; no curve, and nothing tells us whether `0.3`
   or `0.03` would differ.
 - The champion arm was mildly flattered by selection (Stage 55 caveat), which pushes
@@ -60,7 +88,9 @@ and it is not a 4/4 sweep.
 
 ## Consequences
 
-- Keep **C320 `L=6` `p=0.15`, weight decay `0.01`, peak LR `1e-3`** as the champion.
+- Keep **C320 `L=6` `p=0.15`, weight decay `0.01`, peak LR `1e-3`** as the champion
+  (eight-seed mean `1.3458`). Weight decay `0.1` (`1.3435`) is an acceptable
+  alternative but not a proven improvement.
 - Learning rate and weight decay are both flat around the champion at this noise
   level; the remaining levers are structural (data, architecture, training length).
 
@@ -68,16 +98,19 @@ and it is not a 4/4 sweep.
 
 Not run here:
 
-1. Optional: replicate wd `0.1` on four more seed sets (2, 3, 4, 5, each paired with a
-   Stage 53-style baseline) if a `0.004` improvement is worth resolving; otherwise
-   leave it.
-2. Otherwise move to a different kind of lever than optimizer hyperparameters, since
-   the gap did not respond.
+1. Stop tuning optimizer hyperparameters: learning rate and weight decay are both flat
+   to within `~0.002` around the champion, and the gap did not respond to either.
+2. Test the data limit directly: train the champion on half of the Complete
+   Shakespeare training split (same updates, same val split) at four seed sets. A
+   large loss increase means data is the binding constraint and more text is the
+   next lever.
 
 ## Artifacts
 
-- Verbatim run output (scoring): [`reports/stage_58.md`](../../reports/stage_58.md)
-- Machine-readable measurements: `checkpoints/stage_58_report.json`
-- Replicates: `checkpoints/stage_58_c320_l6_p015_wd01_seed{0,1,6,7}_final_checkpoint.pt`
+- Verbatim run output (four seed sets): [`reports/stage_58.md`](../../reports/stage_58.md)
+- Verbatim run output (eight seed sets): [`reports/stage_58_eight_seeds.md`](../../reports/stage_58_eight_seeds.md)
+- Machine-readable measurements: `checkpoints/stage_58_report.json` (eight seed sets),
+  `checkpoints/stage_58_report_four_seeds.json`
+- Replicates: `checkpoints/stage_58_c320_l6_p015_wd01_seed{0..7}_final_checkpoint.pt`
 - Raw logs: `checkpoints/logs/58_58_weight_decay*.log`
 - Tests: [`test_weight_decay_stage_58.py`](../../test_weight_decay_stage_58.py)

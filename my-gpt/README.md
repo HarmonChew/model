@@ -7728,12 +7728,14 @@ the Stage 53 C320 run on the same card, and also measures the train/val gap.
 ```powershell
 python .\my-gpt\58_weight_decay.py --device cuda --seeds 0 1 --train-only
 python .\my-gpt\58_weight_decay.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\58_weight_decay.py --device cuda --seeds 2 3 4 5 --train-only
 python .\my-gpt\58_weight_decay.py --device cuda --score-only
 ```
 
-Result: mean val loss `1.3411` vs the champion's `1.3452` (`-0.0042`; better on 3/4 seed
-sets, interval straddles zero), and the mean gap barely moved (`0.2776` vs `0.2793`).
-Below the noise floor, so weight decay `0.01` stays the champion.
+Result: over eight seed sets, mean val loss `1.3435` vs the champion's `1.3458`
+(`-0.0023`; better on 6/8, interval `[-0.0068, +0.0022]` includes zero), and the gap
+did not move (`0.2790` vs `0.2799`). Weight decay `0.01` stays the champion.
 
 - Interpretation and caveats: [`docs/interpretations/stage_58.md`](docs/interpretations/stage_58.md)
-- Verbatim script output: [`reports/stage_58.md`](reports/stage_58.md)
+- Verbatim script output: [`reports/stage_58.md`](reports/stage_58.md) (four seed sets),
+  [`reports/stage_58_eight_seeds.md`](reports/stage_58_eight_seeds.md) (eight)
