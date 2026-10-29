@@ -7787,3 +7787,24 @@ GPT on vocab-1,024 tokens and compare in bits per character.
 
 - Interpretation and caveats: [`docs/interpretations/stage_60.md`](docs/interpretations/stage_60.md)
 - Verbatim script output: [`reports/stage_60.md`](reports/stage_60.md)
+
+## Stage 61: token model
+
+Stage 61 trains the unchanged C320 `L=6` `p=0.15` champion architecture on Stage 60's
+vocab-1,024 BPE tokens instead of characters, at four seed sets, scores the full
+validation split every 5,000 updates, and compares with the Stage 53 character runs in
+bits per character.
+
+```powershell
+python .\my-gpt\61_token_model.py --device cuda --seeds 0 1 --train-only
+python .\my-gpt\61_token_model.py --device cuda:0 --seeds 6 7 --train-only
+python .\my-gpt\61_token_model.py --device cuda --score-only
+```
+
+Result: tokens learn faster (1.955 bpc by update 15,000) but then overfit, ending at
+2.017 bpc against 1.941 for characters (worse on 4/4). Even the best mid-training token
+checkpoints lose by 0.014 bpc. With 4.8M characters, BPE spends the data faster; the
+character model stays champion.
+
+- Interpretation and caveats: [`docs/interpretations/stage_61.md`](docs/interpretations/stage_61.md)
+- Verbatim script output: [`reports/stage_61.md`](reports/stage_61.md)
